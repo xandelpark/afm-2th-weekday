@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>한국 나이 계산기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white rounded-2xl shadow-lg p-6 sm:p-8 ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function Input({ label, type = 'text', value, onChange, min, max, placeholder, error }) {
+      return (
+        <div className="flex flex-col gap-1">
+          {label && <label className="text-sm font-medium text-gray-600">{label}</label>}
+          <input
+            type={type}
+            value={value}
+            onChange={onChange}
+            min={min}
+            max={max}
+            placeholder={placeholder}
+            className={`w-full px-4 py-3 rounded-xl border-2 text-lg text-center font-semibold
+              focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all
+              ${error ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50 focus:border-indigo-400'}`}
+          />
+          {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+        </div>
+      );
+    }
+
+    function Button({ children, onClick, variant = 'primary', disabled = false, className = '' }) {
+      const base = 'px-6 py-3 rounded-xl font-bold text-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'bg-indigo-500 text-white hover:bg-indigo-600 active:scale-95 shadow-md hover:shadow-lg',
+        secondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300 active:scale-95',
+      };
+      return (
+        <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>
+          {children}
+        </button>
+      );
+    }
+
+    // ========================================
+    // 📄 나이 계산 로직 (3가지 기준)
+    // ========================================
+
+    function calculateAllAges(birthYear, birthMonth, birthDay) {
+      const today = new Date();
+      const todayYear = today.getFullYear();
+      const todayMonth = today.getMonth() + 1;
+      const todayDay = today.getDate();
+
+      // 1) 만 나이: 생일 지났으면 (올해 - 출생년), 안 지났으면 -1
+      let manAge = todayYear - birthYear;
+      const birthdayPassed = todayMonth > birthMonth || (todayMonth === birthMonth && todayDay >= birthDay);
+      if (!birthdayPassed) manAge -= 1;
+
+      // 2) 연 나이: 올해 연도 - 출생 연도 (생일 무관)
+      const yeonAge = todayYear - birthYear;
+
+      // 3) 세는 나이: 연 나이 + 1 (태어나면 1살, 매년 1월 1일에 +1)
+      const koreanAge = yeonAge + 1;
+
+      // 다음 생일까지 남은 일수
+      let nextBirthday = new Date(todayYear, birthMonth - 1, birthDay);
+      if (nextBirthday <= today) {
+        nextBirthday = new Date(todayYear + 1, birthMonth - 1, birthDay);
+      }
+      const daysUntilBirthday = Math.ceil((nextBirthday - today) / (1000 * 60 * 60 * 24));
+
+      // 태어난 지 며칠째
+      const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
+      const totalDays = Math.floor((today - birthDate) / (1000 * 60 * 60 * 24));
+
+      return { manAge, yeonAge, koreanAge, daysUntilBirthday, totalDays, birthdayPassed };
+    }
+
+    // ========================================
+    // 📄 ResultCard Component
+    // ========================================
+
+    function ResultCard({ label, value, unit, emoji, color, description }) {
+      return (
+        <div className={`fade-in rounded-xl p-4 sm:p-5 text-center ${color}`}>
+          <div className="text-3xl mb-2">{emoji}</div>
+          <div className="text-sm font-medium text-gray-500 mb-1">{label}</div>
+          <div className="text-3xl sm:text-4xl font-black text-gray-800">
+            {value.toLocaleString()}
+            <span className="text-lg font-medium text-gray-500 ml-1">{unit}</span>
+          </div>
+          {description && (
+            <div className="text-xs text-gray-400 mt-2 leading-relaxed">{description}</div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+
+    function App() {
+      const [year, setYear] = useState('');
+      const [month, setMonth] = useState('');
+      const [day, setDay] = useState('');
+      const [result, setResult] = useState(null);
+      const [error, setError] = useState('');
+
+      const handleCalculate = () => {
+        const y = parseInt(year);
+        const m = parseInt(month);
+        const d = parseInt(day);
+
+        // 유효성 검사
+        const today = new Date();
+        if (!y || !m || !d) {
+          setError('생년월일을 모두 입력해주세요.');
+          setResult(null);
+          return;
+        }
+        if (y < 1900 || y > today.getFullYear()) {
+          setError('올바른 연도를 입력해주세요. (1900~현재)');
+          setResult(null);
+          return;
+        }
+        if (m < 1 || m > 12) {
+          setError('월은 1~12 사이로 입력해주세요.');
+          setResult(null);
+          return;
+        }
+        // 해당 월의 최대 일수 확인
+        const maxDay = new Date(y, m, 0).getDate();
+        if (d < 1 || d > maxDay) {
+          setError(`${m}월은 1~${maxDay}일까지 입력 가능합니다.`);
+          setResult(null);
+          return;
+        }
+        const birthDate = new Date(y, m - 1, d);
+        if (birthDate > today) {
+          setError('미래 날짜는 입력할 수 없습니다.');
+          setResult(null);
+          return;
+        }
+
+        setError('');
+        setResult(calculateAllAges(y, m, d));
+      };
+
+      const handleReset = () => {
+        setYear('');
+        setMonth('');
+        setDay('');
+        setResult(null);
+        setError('');
+      };
+
+      const isToday = useMemo(() => {
+        if (!result) return false;
+        return result.daysUntilBirthday === 365 || result.daysUntilBirthday === 366;
+      }, [result]);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <Card>
+              {/* 타이틀 */}
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-black text-gray-800 mb-2">한국 나이 계산기</h1>
+                <p className="text-gray-400 text-sm">생년월일을 입력하면 3가지 나이 기준을 알려드려요</p>
+              </div>
+
+              {/* 입력 필드 */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <Input
+                  label="년"
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  placeholder="2000"
+                  min="1900"
+                  max={new Date().getFullYear()}
+                />
+                <Input
+                  label="월"
+                  type="number"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  placeholder="1"
+                  min="1"
+                  max="12"
+                />
+                <Input
+                  label="일"
+                  type="number"
+                  value={day}
+                  onChange={(e) => setDay(e.target.value)}
+                  placeholder="1"
+                  min="1"
+                  max="31"
+                />
+              </div>
+
+              {/* 에러 메시지 */}
+              {error && (
+                <div className="fade-in bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-4 text-center">
+                  {error}
+                </div>
+              )}
+
+              {/* 버튼 */}
+              <div className="flex gap-3">
+                <Button onClick={handleCalculate} className="flex-1">
+                  계산하기
+                </Button>
+                {result && (
+                  <Button onClick={handleReset} variant="secondary">
+                    초기화
+                  </Button>
+                )}
+              </div>
+
+              {/* 결과 */}
+              {result && (
+                <div className="mt-8 space-y-3 fade-in">
+                  {isToday && (
+                    <div className="text-center bg-yellow-50 rounded-xl p-4 mb-2">
+                      <span className="text-2xl">🎂</span>
+                      <p className="text-yellow-700 font-bold mt-1">오늘이 생일이에요! 축하합니다!</p>
+                    </div>
+                  )}
+
+                  {/* 3가지 나이 기준 */}
+                  <ResultCard
+                    label="만 나이 (국제 나이)"
+                    value={result.manAge}
+                    unit="세"
+                    emoji="🎈"
+                    color="bg-indigo-50"
+                    description="2023년부터 법적 기준 | 민법, 행정 등 대부분 적용"
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <ResultCard
+                      label="연 나이"
+                      value={result.yeonAge}
+                      unit="세"
+                      emoji="📋"
+                      color="bg-amber-50"
+                      description="올해 연도 - 출생 연도 | 청소년보호법, 병역법 등"
+                    />
+                    <ResultCard
+                      label="세는 나이"
+                      value={result.koreanAge}
+                      unit="세"
+                      emoji="🇰🇷"
+                      color="bg-emerald-50"
+                      description="전통 한국식 나이 | 2023년 이후 법적 효력 없음"
+                    />
+                  </div>
+
+                  {/* 참고 정보 */}
+                  <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500 leading-relaxed space-y-1">
+                    <p className="font-semibold text-gray-600 mb-2">적용 기준 안내</p>
+                    <p><span className="font-medium text-indigo-500">만 나이</span> — 민법, 도로교통법, 선거법, 연금법 등 대부분의 법률 (2023.6.28~ 통일)</p>
+                    <p><span className="font-medium text-amber-500">연 나이</span> — 청소년보호법(만 19세 미만), 병역법(만 18세) 등 일부 예외</p>
+                    <p><span className="font-medium text-emerald-500">세는 나이</span> — 법적 효력 없음, 일상 대화에서만 사용</p>
+                  </div>
+
+                  {/* 추가 정보 */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <ResultCard
+                      label="다음 생일까지"
+                      value={result.daysUntilBirthday}
+                      unit="일"
+                      emoji="🎁"
+                      color="bg-pink-50"
+                    />
+                    <ResultCard
+                      label="태어난 지"
+                      value={result.totalDays}
+                      unit="일"
+                      emoji="📅"
+                      color="bg-purple-50"
+                    />
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <p className="text-center text-gray-400 text-xs mt-4">
+              2023년 6월 28일부터 만 나이가 법적 통일 기준입니다
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
