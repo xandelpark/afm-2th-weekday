@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEX 컬러 변형 생성기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    .copied {
+      animation: copiedPulse 0.6s ease-out;
+    }
+    @keyframes copiedPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useCallback } = React;
+
+    // ========================================
+    // 🎨 컬러 변환 유틸리티
+    // ========================================
+
+    function hexToRgb(hex) {
+      const clean = hex.replace('#', '');
+      const r = parseInt(clean.substring(0, 2), 16);
+      const g = parseInt(clean.substring(2, 4), 16);
+      const b = parseInt(clean.substring(4, 6), 16);
+      return { r, g, b };
+    }
+
+    function rgbToHex(r, g, b) {
+      const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+      return '#' + [clamp(r), clamp(g), clamp(b)]
+        .map(v => v.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+          case g: h = ((b - r) / d + 2) / 6; break;
+          case b: h = ((r - g) / d + 4) / 6; break;
+        }
+      }
+      return {
+        h: Math.round(h * 360),
+        s: Math.round(s * 100),
+        l: Math.round(l * 100)
+      };
+    }
+
+    function hslToRgb(h, s, l) {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+      };
+    }
+
+    function generateVariants(hex, count = 5) {
+      const { r, g, b } = hexToRgb(hex);
+      const hsl = rgbToHsl(r, g, b);
+
+      const lighter = [];
+      const darker = [];
+
+      for (let i = 1; i <= count; i++) {
+        // 밝은 변형: lightness를 점진적으로 증가
+        const lightL = Math.min(97, hsl.l + i * ((97 - hsl.l) / (count + 1)));
+        const lightRgb = hslToRgb(hsl.h, Math.max(hsl.s - i * 3, 10), lightL);
+        lighter.push(rgbToHex(lightRgb.r, lightRgb.g, lightRgb.b));
+
+        // 어두운 변형: lightness를 점진적으로 감소
+        const darkL = Math.max(5, hsl.l - i * ((hsl.l - 5) / (count + 1)));
+        const darkRgb = hslToRgb(hsl.h, Math.min(hsl.s + i * 2, 100), darkL);
+        darker.push(rgbToHex(darkRgb.r, darkRgb.g, darkRgb.b));
+      }
+
+      return { lighter, darker };
+    }
+
+    function getLuminance(hex) {
+      const { r, g, b } = hexToRgb(hex);
+      const [rs, gs, bs] = [r, g, b].map(c => {
+        c /= 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    }
+
+    function getTextColor(hex) {
+      return getLuminance(hex) > 0.4 ? '#1f2937' : '#ffffff';
+    }
+
+    function isValidHex(hex) {
+      return /^#?[0-9A-Fa-f]{6}$/.test(hex);
+    }
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white rounded-2xl shadow-lg p-6 sm:p-8 ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 ColorSwatch Component
+    // ========================================
+
+    function ColorSwatch({ hex, label, size = 'md', showFormats = false }) {
+      const [copied, setCopied] = useState(false);
+      const textColor = getTextColor(hex);
+      const upperHex = hex.toUpperCase();
+
+      const handleCopy = useCallback(() => {
+        navigator.clipboard.writeText(upperHex);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      }, [upperHex]);
+
+      const rgb = hexToRgb(hex);
+      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+      const sizeClasses = size === 'lg'
+        ? 'h-28 sm:h-32 rounded-2xl text-lg'
+        : 'h-16 sm:h-20 rounded-xl text-sm';
+
+      return (
+        <div className="fade-in">
+          <button
+            onClick={handleCopy}
+            className={`w-full ${sizeClasses} flex flex-col items-center justify-center font-bold transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${copied ? 'copied ring-2 ring-offset-2 ring-indigo-400' : ''}`}
+            style={{ backgroundColor: hex, color: textColor }}
+            title="클릭하면 복사됩니다"
+          >
+            {copied ? '복사됨!' : upperHex}
+            {label && <span className="text-xs opacity-70 mt-0.5">{label}</span>}
+          </button>
+          {showFormats && (
+            <div className="mt-2 space-y-1 text-xs text-gray-400 text-center">
+              <p>RGB({rgb.r}, {rgb.g}, {rgb.b})</p>
+              <p>HSL({hsl.h}°, {hsl.s}%, {hsl.l}%)</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 VariantRow Component
+    // ========================================
+
+    function VariantRow({ title, colors, emoji }) {
+      return (
+        <div className="fade-in">
+          <h3 className="text-sm font-bold text-gray-500 mb-3">{emoji} {title}</h3>
+          <div className="grid grid-cols-5 gap-2">
+            {colors.map((hex, i) => (
+              <ColorSwatch key={hex + i} hex={hex} label={`${i + 1}단계`} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 FormatTable Component
+    // ========================================
+
+    function FormatTable({ hex }) {
+      const rgb = hexToRgb(hex);
+      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+      const upperHex = hex.toUpperCase();
+
+      const formats = [
+        { label: 'HEX', value: upperHex },
+        { label: 'RGB', value: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` },
+        { label: 'HSL', value: `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)` },
+        { label: 'RGB %', value: `rgb(${Math.round(rgb.r/2.55)}%, ${Math.round(rgb.g/2.55)}%, ${Math.round(rgb.b/2.55)}%)` },
+        { label: 'CSS 변수', value: `--color: ${upperHex};` },
+        { label: 'Tailwind', value: `bg-[${upperHex}]` },
+      ];
+
+      const [copiedIdx, setCopiedIdx] = useState(null);
+
+      const handleCopy = (value, idx) => {
+        navigator.clipboard.writeText(value);
+        setCopiedIdx(idx);
+        setTimeout(() => setCopiedIdx(null), 1200);
+      };
+
+      return (
+        <div className="fade-in">
+          <h3 className="text-sm font-bold text-gray-500 mb-3">📋 같은 정보, 다른 형태</h3>
+          <div className="bg-gray-50 rounded-xl overflow-hidden divide-y divide-gray-100">
+            {formats.map((f, i) => (
+              <button
+                key={f.label}
+                onClick={() => handleCopy(f.value, i)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-100 transition-colors text-left"
+              >
+                <span className="text-xs font-bold text-gray-400 w-16 shrink-0">{f.label}</span>
+                <span className="text-sm font-mono text-gray-700 flex-1 text-right">
+                  {copiedIdx === i ? <span className="text-indigo-500 font-bold">복사됨!</span> : f.value}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+
+    function App() {
+      const [input, setInput] = useState('#6366F1');
+      const [activeHex, setActiveHex] = useState('#6366F1');
+      const [error, setError] = useState('');
+
+      const handleInput = (e) => {
+        let val = e.target.value;
+        setInput(val);
+
+        // # 자동 추가
+        const clean = val.startsWith('#') ? val : '#' + val;
+        if (isValidHex(clean)) {
+          setActiveHex(clean.toUpperCase());
+          setError('');
+        } else if (val.length > 0) {
+          setError('올바른 HEX 코드를 입력해주세요 (예: #FF5733)');
+        }
+      };
+
+      const handleColorPicker = (e) => {
+        const val = e.target.value.toUpperCase();
+        setInput(val);
+        setActiveHex(val);
+        setError('');
+      };
+
+      const variants = useMemo(() => {
+        if (!isValidHex(activeHex)) return null;
+        return generateVariants(activeHex, 5);
+      }, [activeHex]);
+
+      const rgb = hexToRgb(activeHex);
+      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-100 via-slate-50 to-gray-200 p-4">
+          <div className="max-w-lg mx-auto pt-6 pb-12 space-y-4">
+
+            {/* 헤더 */}
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-black text-gray-800 mb-2">HEX 컬러 변형 생성기</h1>
+              <p className="text-gray-400 text-sm">HEX 코드를 입력하면 밝은/어두운 변형 5단계를 생성합니다</p>
+            </div>
+
+            {/* 입력 영역 */}
+            <Card>
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-600 block mb-1">HEX 코드</label>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={handleInput}
+                    placeholder="#6366F1"
+                    maxLength={7}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 text-lg font-mono font-bold text-center focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all"
+                  />
+                </div>
+                <div className="relative">
+                  <label className="text-sm font-medium text-gray-600 block mb-1">선택</label>
+                  <div
+                    className="w-14 h-[50px] rounded-xl border-2 border-gray-200 overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                    style={{ backgroundColor: activeHex }}
+                  >
+                    <input
+                      type="color"
+                      value={activeHex}
+                      onChange={handleColorPicker}
+                      className="w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+              {error && (
+                <p className="text-red-500 text-xs mt-2 text-center">{error}</p>
+              )}
+            </Card>
+
+            {/* 원본 컬러 미리보기 */}
+            {variants && (
+              <>
+                <Card>
+                  <h3 className="text-sm font-bold text-gray-500 mb-3">🎯 원본 컬러</h3>
+                  <ColorSwatch hex={activeHex} size="lg" showFormats />
+                </Card>
+
+                {/* 밝은 변형 */}
+                <Card>
+                  <VariantRow title="밝은 변형 (Lighter)" colors={variants.lighter} emoji="☀️" />
+                </Card>
+
+                {/* 어두운 변형 */}
+                <Card>
+                  <VariantRow title="어두운 변형 (Darker)" colors={variants.darker} emoji="🌙" />
+                </Card>
+
+                {/* 전체 팔레트 그라데이션 */}
+                <Card>
+                  <h3 className="text-sm font-bold text-gray-500 mb-3">🌈 전체 팔레트</h3>
+                  <div className="flex rounded-xl overflow-hidden h-14">
+                    {[...variants.lighter].reverse().map((hex, i) => (
+                      <button
+                        key={'l' + i}
+                        onClick={() => { navigator.clipboard.writeText(hex.toUpperCase()); }}
+                        className="flex-1 transition-all hover:flex-[2] cursor-pointer group relative"
+                        style={{ backgroundColor: hex }}
+                        title={hex.toUpperCase()}
+                      />
+                    ))}
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(activeHex.toUpperCase()); }}
+                      className="flex-[2] transition-all hover:flex-[3] cursor-pointer border-x-2 border-white/50 flex items-center justify-center"
+                      style={{ backgroundColor: activeHex, color: getTextColor(activeHex) }}
+                      title={activeHex.toUpperCase()}
+                    >
+                      <span className="text-xs font-bold">원본</span>
+                    </button>
+                    {variants.darker.map((hex, i) => (
+                      <button
+                        key={'d' + i}
+                        onClick={() => { navigator.clipboard.writeText(hex.toUpperCase()); }}
+                        className="flex-1 transition-all hover:flex-[2] cursor-pointer"
+                        style={{ backgroundColor: hex }}
+                        title={hex.toUpperCase()}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 text-center mt-2">클릭하면 HEX 코드가 복사됩니다</p>
+                </Card>
+
+                {/* 같은 정보, 다른 형태 */}
+                <Card>
+                  <FormatTable hex={activeHex} />
+                </Card>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
