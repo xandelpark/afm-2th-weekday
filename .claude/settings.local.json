@@ -6,7 +6,14 @@
       "Bash(gh auth:*)",
       "Bash(gh repo:*)",
       "Bash(open:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh:*)",
+      "WebSearch",
+      "WebFetch(domain:unsplash.com)",
+      "Bash(curl:*)",
+      "Bash(for id:*)",
+      "Bash(git commit:*)",
+      "Bash(git reset:*)"
     ]
   }
 }
