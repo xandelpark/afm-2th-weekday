@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부가가치세(VAT) 계산기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes pulse-badge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    .pulse-badge { animation: pulse-badge 2s ease-in-out infinite; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useCallback, useRef, useEffect } = React;
+
+    // ========================================
+    // 유틸리티 함수
+    // ========================================
+
+    function formatNumber(num) {
+      if (num === 0) return '0';
+      if (!num && num !== 0) return '';
+      return Math.round(num).toLocaleString('ko-KR');
+    }
+
+    function parseFormattedNumber(str) {
+      if (!str) return 0;
+      const cleaned = str.replace(/[^0-9.-]/g, '');
+      return parseInt(cleaned, 10) || 0;
+    }
+
+    // ========================================
+    // 디자인 시스템 컴포넌트
+    // ========================================
+
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function NumberInput({ label, value, onChange, placeholder = '0', suffix = '원', disabled = false, helpText = '', className = '' }) {
+      const inputRef = useRef(null);
+      const [displayValue, setDisplayValue] = useState(value ? formatNumber(value) : '');
+
+      useEffect(() => {
+        setDisplayValue(value ? formatNumber(value) : '');
+      }, [value]);
+
+      const handleChange = (e) => {
+        const raw = e.target.value.replace(/[^0-9]/g, '');
+        const num = parseInt(raw, 10) || 0;
+        setDisplayValue(raw ? formatNumber(num) : '');
+        onChange(num);
+      };
+
+      return (
+        <div className={`${className}`}>
+          {label && <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>}
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="numeric"
+              value={displayValue}
+              onChange={handleChange}
+              placeholder={placeholder}
+              disabled={disabled}
+              className={`w-full px-4 py-3 text-right text-lg font-medium border rounded-xl transition-all duration-200 pr-10
+                ${disabled
+                  ? 'bg-gray-50 text-gray-500 border-gray-200 cursor-not-allowed'
+                  : 'bg-white text-gray-900 border-gray-300 hover:border-brand-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none'
+                }`}
+            />
+            {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">{suffix}</span>}
+          </div>
+          {helpText && <p className="mt-1 text-xs text-gray-500">{helpText}</p>}
+        </div>
+      );
+    }
+
+    function ReadonlyField({ label, value, highlight = false, negative = false, className = '' }) {
+      return (
+        <div className={className}>
+          {label && <label className="block text-sm font-medium text-gray-600 mb-1.5">{label}</label>}
+          <div className={`px-4 py-3 text-right text-lg font-semibold rounded-xl border
+            ${highlight
+              ? negative
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-blue-50 border-blue-200 text-blue-700'
+              : 'bg-gray-50 border-gray-200 text-gray-700'
+            }`}>
+            {formatNumber(value)} 원
+          </div>
+        </div>
+      );
+    }
+
+    function SelectInput({ label, value, onChange, options, className = '' }) {
+      return (
+        <div className={className}>
+          {label && <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>}
+          <select
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl bg-white hover:border-brand-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all duration-200 cursor-pointer"
+          >
+            {options.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    function Badge({ children, color = 'blue', className = '' }) {
+      const colors = {
+        blue: 'bg-blue-100 text-blue-800',
+        green: 'bg-green-100 text-green-800',
+        red: 'bg-red-100 text-red-800',
+        yellow: 'bg-yellow-100 text-yellow-800',
+        gray: 'bg-gray-100 text-gray-700',
+        purple: 'bg-purple-100 text-purple-800',
+      };
+      return (
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colors[color]} ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    function SectionTitle({ children, sub = '' }) {
+      return (
+        <div className="mb-4">
+          <h3 className="text-lg font-bold text-gray-800">{children}</h3>
+          {sub && <p className="text-sm text-gray-500 mt-0.5">{sub}</p>}
+        </div>
+      );
+    }
+
+    function Divider() {
+      return <hr className="border-gray-200 my-6" />;
+    }
+
+    // ========================================
+    // 간이과세자 업종 데이터
+    // ========================================
+
+    const INDUSTRY_RATES = [
+      { value: '15', label: '소매업, 재생용 재료수집 및 판매업 (15%)', rate: 15 },
+      { value: '20', label: '제조업, 농업·임업·어업, 소화물전문운송업 (20%)', rate: 20 },
+      { value: '30_food', label: '음식점업 (30%)', rate: 30 },
+      { value: '30_construct', label: '건설업, 운수 및 창고업, 정보통신업 (30%)', rate: 30 },
+      { value: '40_finance', label: '금융·보험 관련, 전문·과학·기술, 사업시설관리 (40%)', rate: 40 },
+      { value: '40_realestate', label: '부동산 임대업 (40%)', rate: 40 },
+      { value: '30_etc', label: '그 밖의 서비스업 (30%)', rate: 30 },
+    ];
+
+    // ========================================
+    // 일반과세자 계산기 컴포넌트
+    // ========================================
+
+    function GeneralTaxCalculator({ period }) {
+      const [salesAmount, setSalesAmount] = useState(0);
+      const [purchaseAmount, setPurchaseAmount] = useState(0);
+      const [electronicFiling, setElectronicFiling] = useState(0);
+      const [creditCardDeduction, setCreditCardDeduction] = useState(0);
+      const [otherDeductions, setOtherDeductions] = useState(0);
+      const [additionalTax, setAdditionalTax] = useState(0);
+      const [prePaidTax, setPrePaidTax] = useState(0);
+
+      const calc = useMemo(() => {
+        const salesTax = Math.round(salesAmount * 0.1);
+        const purchaseTax = Math.round(purchaseAmount * 0.1);
+        const totalDeductions = electronicFiling + creditCardDeduction + otherDeductions;
+        const preTax = salesTax - purchaseTax - totalDeductions + additionalTax;
+        const finalTax = preTax - prePaidTax;
+        return { salesTax, purchaseTax, totalDeductions, preTax, finalTax };
+      }, [salesAmount, purchaseAmount, electronicFiling, creditCardDeduction, otherDeductions, additionalTax, prePaidTax]);
+
+      const isRefund = calc.finalTax < 0;
+
+      const handleReset = () => {
+        setSalesAmount(0);
+        setPurchaseAmount(0);
+        setElectronicFiling(0);
+        setCreditCardDeduction(0);
+        setOtherDeductions(0);
+        setAdditionalTax(0);
+        setPrePaidTax(0);
+      };
+
+      return (
+        <div className="fade-in space-y-6">
+          {/* 매출 */}
+          <Card className="p-6">
+            <SectionTitle sub="세금계산서 발급분 기준">매출 내역</SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <NumberInput
+                label="매출액 (공급가액)"
+                value={salesAmount}
+                onChange={setSalesAmount}
+                helpText="세금계산서상의 공급가액 합계"
+              />
+              <ReadonlyField
+                label="매출세액 (10%)"
+                value={calc.salesTax}
+              />
+            </div>
+          </Card>
+
+          {/* 매입 */}
+          <Card className="p-6">
+            <SectionTitle sub="세금계산서 수취분 기준">매입 내역</SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <NumberInput
+                label="매입액 (공급가액)"
+                value={purchaseAmount}
+                onChange={setPurchaseAmount}
+                helpText="세금계산서상의 공급가액 합계"
+              />
+              <ReadonlyField
+                label="매입세액 (10%)"
+                value={calc.purchaseTax}
+              />
+            </div>
+          </Card>
+
+          {/* 공제/가산세 */}
+          <Card className="p-6">
+            <SectionTitle sub="해당 항목만 입력하세요">공제 및 가산세</SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <NumberInput
+                label="전자신고 세액공제"
+                value={electronicFiling}
+                onChange={setElectronicFiling}
+                helpText="전자신고시 최대 10,000원"
+              />
+              <NumberInput
+                label="신용카드매출전표 발행공제"
+                value={creditCardDeduction}
+                onChange={setCreditCardDeduction}
+                helpText="매출의 1.3% (한도 1,000만원)"
+              />
+              <NumberInput
+                label="기타 공제세액"
+                value={otherDeductions}
+                onChange={setOtherDeductions}
+                helpText="기타 세액공제 합계"
+              />
+              <NumberInput
+                label="가산세"
+                value={additionalTax}
+                onChange={setAdditionalTax}
+                helpText="무신고·과소신고 등 가산세"
+              />
+              <NumberInput
+                label="예정신고 미환급세액"
+                value={prePaidTax}
+                onChange={setPrePaidTax}
+                helpText="예정신고시 납부(환급)한 세액"
+              />
+            </div>
+          </Card>
+
+          {/* 결과 */}
+          <Card className={`p-6 border-2 ${isRefund ? 'border-red-300 bg-red-50/30' : 'border-blue-300 bg-blue-50/30'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <SectionTitle>계산 결과</SectionTitle>
+              {isRefund ? (
+                <Badge color="red" className="pulse-badge text-sm">환급 발생</Badge>
+              ) : (
+                <Badge color="blue" className="text-sm">납부</Badge>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">매출세액</span>
+                <span className="font-semibold text-gray-800">{formatNumber(calc.salesTax)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">(-) 매입세액</span>
+                <span className="font-semibold text-gray-800">{formatNumber(calc.purchaseTax)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">(-) 공제세액 합계</span>
+                <span className="font-semibold text-gray-800">{formatNumber(calc.totalDeductions)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">(+) 가산세</span>
+                <span className="font-semibold text-gray-800">{formatNumber(additionalTax)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">(-) 예정신고 미환급세액</span>
+                <span className="font-semibold text-gray-800">{formatNumber(prePaidTax)} 원</span>
+              </div>
+
+              <div className={`flex justify-between items-center py-4 px-4 rounded-xl mt-2 ${isRefund ? 'bg-red-100' : 'bg-blue-100'}`}>
+                <span className={`text-lg font-bold ${isRefund ? 'text-red-800' : 'text-blue-800'}`}>
+                  {isRefund ? '환급세액' : '납부세액'}
+                </span>
+                <span className={`text-2xl font-black ${isRefund ? 'text-red-700' : 'text-blue-700'}`}>
+                  {formatNumber(Math.abs(calc.finalTax))} 원
+                </span>
+              </div>
+
+              {isRefund && (
+                <div className="mt-3 p-4 bg-red-50 rounded-xl border border-red-200">
+                  <p className="text-sm text-red-700 font-medium">
+                    환급세액이 발생했습니다. 매입세액이 매출세액보다 큰 경우 환급을 받을 수 있습니다.
+                    확정신고 시 관할 세무서에 환급 신청하시기 바랍니다.
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <div className="flex justify-center">
+            <button
+              onClick={handleReset}
+              className="px-8 py-3 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+            >
+              초기화
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 간이과세자 계산기 컴포넌트
+    // ========================================
+
+    function SimplifiedTaxCalculator({ period }) {
+      const [salesAmount, setSalesAmount] = useState(0);
+      const [industryRate, setIndustryRate] = useState('15');
+      const [purchaseInvoiceAmount, setPurchaseInvoiceAmount] = useState(0);
+      const [electronicFiling, setElectronicFiling] = useState(0);
+      const [prePaidTax, setPrePaidTax] = useState(0);
+
+      const selectedRate = INDUSTRY_RATES.find(r => r.value === industryRate)?.rate || 15;
+
+      const calc = useMemo(() => {
+        const annualSales = salesAmount * 2;
+        const isExempt = annualSales < 48000000;
+        const taxBase = Math.round(salesAmount * (selectedRate / 100));
+        const salesTax = Math.round(taxBase * 0.1);
+        const purchaseDeduction = Math.round(purchaseInvoiceAmount * 0.005);
+        const totalDeductions = purchaseDeduction + electronicFiling;
+        const preTax = salesTax - totalDeductions;
+        const finalTax = isExempt ? 0 : Math.max(0, preTax - prePaidTax);
+        return { annualSales, isExempt, taxBase, salesTax, purchaseDeduction, totalDeductions, preTax, finalTax };
+      }, [salesAmount, selectedRate, purchaseInvoiceAmount, electronicFiling, prePaidTax]);
+
+      const handleReset = () => {
+        setSalesAmount(0);
+        setIndustryRate('15');
+        setPurchaseInvoiceAmount(0);
+        setElectronicFiling(0);
+        setPrePaidTax(0);
+      };
+
+      return (
+        <div className="fade-in space-y-6">
+          {/* 매출 및 업종 */}
+          <Card className="p-6">
+            <SectionTitle sub="해당 과세기간의 매출액을 입력하세요">매출 내역</SectionTitle>
+            <div className="space-y-4">
+              <NumberInput
+                label="매출액 (공급대가)"
+                value={salesAmount}
+                onChange={setSalesAmount}
+                helpText="부가가치세 포함 금액"
+              />
+              <SelectInput
+                label="업종 선택 (부가가치율)"
+                value={industryRate}
+                onChange={setIndustryRate}
+                options={INDUSTRY_RATES.map(r => ({ value: r.value, label: r.label }))}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <ReadonlyField
+                  label={`과세표준 (매출액 x ${selectedRate}%)`}
+                  value={calc.taxBase}
+                />
+                <ReadonlyField
+                  label="납부세액 (과세표준 x 10%)"
+                  value={calc.salesTax}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* 연매출 면제 알림 */}
+          {calc.isExempt && salesAmount > 0 && (
+            <div className="p-4 bg-yellow-50 border-2 border-yellow-300 rounded-2xl fade-in">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl mt-0.5">&#9888;&#65039;</span>
+                <div>
+                  <p className="font-bold text-yellow-800 text-base">납부의무 면제 대상</p>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    연환산 매출액: <strong>{formatNumber(calc.annualSales)}원</strong> (4,800만원 미만)
+                  </p>
+                  <p className="text-sm text-yellow-700 mt-0.5">
+                    간이과세자 중 연매출 4,800만원 미만인 경우 부가가치세 납부의무가 면제됩니다.
+                    다만, 신고의무는 있으므로 부가가치세 신고는 하셔야 합니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 공제 */}
+          <Card className="p-6">
+            <SectionTitle sub="세금계산서 수취분 등">공제 항목</SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <NumberInput
+                label="세금계산서 매입액"
+                value={purchaseInvoiceAmount}
+                onChange={setPurchaseInvoiceAmount}
+                helpText="세금계산서 수취분의 매입액 (공제율 0.5%)"
+              />
+              <ReadonlyField
+                label="매입세액 공제 (0.5%)"
+                value={calc.purchaseDeduction}
+              />
+              <NumberInput
+                label="전자신고 세액공제"
+                value={electronicFiling}
+                onChange={setElectronicFiling}
+                helpText="전자신고시 최대 10,000원"
+              />
+              <NumberInput
+                label="예정신고 미환급세액"
+                value={prePaidTax}
+                onChange={setPrePaidTax}
+                helpText="예정부과세액 등 기납부세액"
+              />
+            </div>
+          </Card>
+
+          {/* 결과 */}
+          <Card className={`p-6 border-2 ${calc.isExempt && salesAmount > 0 ? 'border-yellow-300 bg-yellow-50/30' : 'border-blue-300 bg-blue-50/30'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <SectionTitle>계산 결과</SectionTitle>
+              {calc.isExempt && salesAmount > 0 ? (
+                <Badge color="yellow" className="pulse-badge text-sm">납부 면제</Badge>
+              ) : (
+                <Badge color="blue" className="text-sm">납부</Badge>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">매출액</span>
+                <span className="font-semibold text-gray-800">{formatNumber(salesAmount)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">업종별 부가가치율</span>
+                <span className="font-semibold text-gray-800">{selectedRate}%</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">과세표준</span>
+                <span className="font-semibold text-gray-800">{formatNumber(calc.taxBase)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">세율 (10%)</span>
+                <span className="font-semibold text-gray-800">{formatNumber(calc.salesTax)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">(-) 공제세액 합계</span>
+                <span className="font-semibold text-gray-800">{formatNumber(calc.totalDeductions)} 원</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-gray-600">(-) 예정신고 미환급세액</span>
+                <span className="font-semibold text-gray-800">{formatNumber(prePaidTax)} 원</span>
+              </div>
+
+              <div className={`flex justify-between items-center py-4 px-4 rounded-xl mt-2
+                ${calc.isExempt && salesAmount > 0 ? 'bg-yellow-100' : 'bg-blue-100'}`}>
+                <span className={`text-lg font-bold ${calc.isExempt && salesAmount > 0 ? 'text-yellow-800' : 'text-blue-800'}`}>
+                  납부세액
+                </span>
+                <span className={`text-2xl font-black ${calc.isExempt && salesAmount > 0 ? 'text-yellow-700' : 'text-blue-700'}`}>
+                  {calc.isExempt && salesAmount > 0 ? '0 (면제)' : `${formatNumber(calc.finalTax)} 원`}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex justify-center">
+            <button
+              onClick={handleReset}
+              className="px-8 py-3 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+            >
+              초기화
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 앱 컴포넌트
+    // ========================================
+
+    function App() {
+      const [taxType, setTaxType] = useState('general');
+      const [period, setPeriod] = useState('1');
+
+      const currentYear = new Date().getFullYear();
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+          {/* 헤더 */}
+          <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
+            <div className="max-w-3xl mx-auto px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">부가가치세 계산기</h1>
+                  <p className="text-xs md:text-sm text-gray-500 mt-0.5">한국 VAT 간편 계산</p>
+                </div>
+                <Badge color="purple">{currentYear}년</Badge>
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-3xl mx-auto px-4 py-6 pb-20">
+            {/* 과세기간 선택 */}
+            <Card className="p-4 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">과세기간</span>
+                <div className="flex gap-2 flex-1">
+                  <button
+                    onClick={() => setPeriod('1')}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-200
+                      ${period === '1'
+                        ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    제1기 (1월~6월)
+                  </button>
+                  <button
+                    onClick={() => setPeriod('2')}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-200
+                      ${period === '2'
+                        ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                  >
+                    제2기 (7월~12월)
+                  </button>
+                </div>
+              </div>
+            </Card>
+
+            {/* 사업자 유형 탭 */}
+            <div className="flex mb-6 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100">
+              <button
+                onClick={() => setTaxType('general')}
+                className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all duration-300
+                  ${taxType === 'general'
+                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30 scale-[1.02]'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                일반과세자
+              </button>
+              <button
+                onClick={() => setTaxType('simplified')}
+                className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all duration-300
+                  ${taxType === 'simplified'
+                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30 scale-[1.02]'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                간이과세자
+              </button>
+            </div>
+
+            {/* 유형별 안내 */}
+            <div className="mb-6 p-4 bg-white/60 rounded-xl border border-gray-100">
+              {taxType === 'general' ? (
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  <strong className="text-gray-800">일반과세자</strong>는 연매출 8,000만원 이상인 사업자입니다.
+                  매출세액(10%)에서 매입세액을 차감하여 납부세액을 계산합니다.
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  <strong className="text-gray-800">간이과세자</strong>는 연매출 8,000만원 미만인 사업자입니다.
+                  업종별 부가가치율을 적용하여 세액을 계산하며, 연매출 4,800만원 미만 시 납부의무가 면제됩니다.
+                </p>
+              )}
+            </div>
+
+            {/* 계산기 본문 */}
+            {taxType === 'general' ? (
+              <GeneralTaxCalculator period={period} />
+            ) : (
+              <SimplifiedTaxCalculator period={period} />
+            )}
+
+            {/* 안내사항 */}
+            <div className="mt-8 p-5 bg-gray-50 rounded-2xl border border-gray-200">
+              <h4 className="text-sm font-bold text-gray-700 mb-2">참고 사항</h4>
+              <ul className="text-xs text-gray-500 space-y-1.5 leading-relaxed">
+                <li>* 본 계산기는 참고용이며 실제 세액과 차이가 있을 수 있습니다.</li>
+                <li>* 정확한 신고는 국세청 홈택스(hometax.go.kr)를 이용하세요.</li>
+                <li>* 부가가치세 확정신고: 1기 7/25까지, 2기 1/25까지</li>
+                <li>* 예정신고: 1기 4/25까지, 2기 10/25까지</li>
+                <li>* 간이과세자 기준금액 및 부가가치율은 세법 개정에 따라 변경될 수 있습니다.</li>
+              </ul>
+            </div>
+          </main>
+
+          {/* 푸터 */}
+          <footer className="border-t border-gray-200 bg-white/50 py-4">
+            <p className="text-center text-xs text-gray-400">부가가치세 계산기 | 참고용 계산 도구</p>
+          </footer>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 렌더링
+    // ========================================
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

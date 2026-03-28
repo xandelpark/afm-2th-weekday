@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF 생성기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    * { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif; }
+    body { background: #F5F5F7; margin: 0; }
+
+    .apple-shadow { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .apple-shadow-lg { box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+
+    .ios-toggle { position: relative; width: 51px; height: 31px; border-radius: 16px; background: #E5E5EA; transition: background 0.3s ease; cursor: pointer; flex-shrink: 0; }
+    .ios-toggle.active { background: #007AFF; }
+    .ios-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.3s ease; }
+    .ios-toggle.active::after { transform: translateX(20px); }
+
+    .segment-control { display: inline-flex; background: rgba(118,118,128,0.12); border-radius: 8px; padding: 2px; }
+    .segment-item { padding: 6px 16px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; color: #666; user-select: none; }
+    .segment-item.active { background: white; color: #1D1D1F; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+    .nav-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); background: rgba(255,255,255,0.72); }
+
+    .block-card { transition: all 0.3s ease; border: 2px solid transparent; }
+    .block-card:hover { border-color: #007AFF33; }
+    .block-card.selected { border-color: #007AFF; }
+
+    .btn-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; border: none; background: transparent; color: #86868B; }
+    .btn-icon:hover { background: rgba(0,0,0,0.05); color: #1D1D1F; }
+
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .preview-page { width: 210mm; min-height: 297mm; background: white; position: relative; box-sizing: border-box; }
+    .preview-page.landscape { width: 297mm; min-height: 210mm; }
+    .preview-page.letter { width: 215.9mm; min-height: 279.4mm; }
+    .preview-page.letter.landscape { width: 279.4mm; min-height: 215.9mm; }
+    .preview-page.legal { width: 215.9mm; min-height: 355.6mm; }
+    .preview-page.legal.landscape { width: 355.6mm; min-height: 215.9mm; }
+
+    .preview-wrapper { transform-origin: top center; }
+
+    textarea:focus, input:focus, select:focus { outline: none; box-shadow: 0 0 0 3px rgba(0,122,255,0.2); border-color: #007AFF; }
+    textarea, input[type="text"], input[type="number"], select { transition: all 0.2s ease; }
+
+    @media print { .no-print { display: none !important; } }
+
+    .modal-overlay { animation: modalBgIn 0.3s ease; }
+    .modal-content { animation: modalIn 0.3s ease; }
+    @keyframes modalBgIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #C7C7CC; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #8E8E93; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
+
+    // ========================================
+    // Constants & Helpers
+    // ========================================
+    const STORAGE_KEY = 'pdf-generator-data';
+    const FONT_SIZES = [12, 14, 16, 18, 24];
+    const PAPER_SIZES = {
+      a4: { name: 'A4', w: 210, h: 297 },
+      letter: { name: 'Letter', w: 215.9, h: 279.4 },
+      legal: { name: 'Legal', w: 215.9, h: 355.6 },
+    };
+
+    const TEMPLATES = {
+      blank: { name: '빈 문서', icon: '📄', blocks: [] },
+      resume: {
+        name: '이력서', icon: '👤',
+        blocks: [
+          { id: 'd1', type: 'heading', content: '홍길동', fontSize: 24, bold: true, italic: false, underline: false, align: 'center' },
+          { id: 'd2', type: 'text', content: 'email@example.com | 010-1234-5678 | 서울특별시', fontSize: 12, bold: false, italic: false, underline: false, align: 'center' },
+          { id: 'd3', type: 'divider' },
+          { id: 'd4', type: 'heading', content: '경력사항', fontSize: 18, bold: true, italic: false, underline: false, align: 'left' },
+          { id: 'd5', type: 'text', content: '2022.03 - 현재  |  ABC 주식회사  |  프론트엔드 개발자\n- React, TypeScript 기반 웹 애플리케이션 개발\n- UI/UX 개선 및 성능 최적화\n- 팀 내 코드 리뷰 문화 정착', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' },
+          { id: 'd6', type: 'divider' },
+          { id: 'd7', type: 'heading', content: '학력', fontSize: 18, bold: true, italic: false, underline: false, align: 'left' },
+          { id: 'd8', type: 'text', content: '2018.03 - 2022.02  |  서울대학교  |  컴퓨터공학과', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' },
+          { id: 'd9', type: 'divider' },
+          { id: 'd10', type: 'heading', content: '기술 스택', fontSize: 18, bold: true, italic: false, underline: false, align: 'left' },
+          { id: 'd11', type: 'text', content: 'JavaScript, TypeScript, React, Next.js, Node.js, Python, Git, Docker', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' },
+        ]
+      },
+      report: {
+        name: '보고서', icon: '📊',
+        blocks: [
+          { id: 'r1', type: 'heading', content: '프로젝트 보고서', fontSize: 24, bold: true, italic: false, underline: false, align: 'center' },
+          { id: 'r2', type: 'text', content: '작성일: 2026년 3월 28일\n작성자: 홍길동', fontSize: 12, bold: false, italic: false, underline: false, align: 'center' },
+          { id: 'r3', type: 'divider' },
+          { id: 'r4', type: 'heading', content: '1. 개요', fontSize: 18, bold: true, italic: false, underline: false, align: 'left' },
+          { id: 'r5', type: 'text', content: '본 보고서는 프로젝트의 진행 상황과 성과를 요약한 문서입니다.', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' },
+          { id: 'r6', type: 'heading', content: '2. 주요 성과', fontSize: 18, bold: true, italic: false, underline: false, align: 'left' },
+          { id: 'r7', type: 'text', content: '- 목표 달성률: 95%\n- 일정 준수율: 100%\n- 품질 지표: A등급', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' },
+          { id: 'r8', type: 'heading', content: '3. 향후 계획', fontSize: 18, bold: true, italic: false, underline: false, align: 'left' },
+          { id: 'r9', type: 'text', content: '다음 분기에는 추가 기능 개발과 성능 최적화에 집중할 예정입니다.', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' },
+        ]
+      },
+      letter: {
+        name: '편지', icon: '✉️',
+        blocks: [
+          { id: 'l1', type: 'text', content: '2026년 3월 28일', fontSize: 12, bold: false, italic: false, underline: false, align: 'right' },
+          { id: 'l2', type: 'text', content: '\n\n', fontSize: 12, bold: false, italic: false, underline: false, align: 'left' },
+          { id: 'l3', type: 'text', content: '받는 사람께,', fontSize: 14, bold: true, italic: false, underline: false, align: 'left' },
+          { id: 'l4', type: 'text', content: '\n안녕하세요.\n\n이 편지를 통해 전하고 싶은 말씀이 있어 글을 씁니다.\n\n\n\n감사합니다.\n\n보내는 사람 드림', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' },
+        ]
+      }
+    };
+
+    const uid = () => Math.random().toString(36).slice(2, 10);
+
+    const createBlock = (type) => {
+      const base = { id: uid(), type };
+      switch (type) {
+        case 'heading': return { ...base, content: '', fontSize: 24, bold: true, italic: false, underline: false, align: 'left' };
+        case 'text': return { ...base, content: '', fontSize: 14, bold: false, italic: false, underline: false, align: 'left' };
+        case 'image': return { ...base, src: '', alt: '' };
+        case 'divider': return base;
+        default: return base;
+      }
+    };
+
+    // ========================================
+    // Design System Components
+    // ========================================
+    const Button = ({ children, variant = 'secondary', size = 'md', onClick, disabled, className = '', ...props }) => {
+      const base = 'inline-flex items-center justify-center font-medium transition-all duration-200 ease-out rounded-xl';
+      const variants = {
+        primary: 'bg-[#007AFF] text-white hover:bg-[#0066D6] active:bg-[#004EA2]',
+        secondary: 'bg-[#F2F2F7] text-[#1D1D1F] hover:bg-[#E5E5EA] active:bg-[#D1D1D6]',
+        danger: 'bg-[#FF3B30] text-white hover:bg-[#D63028] active:bg-[#B32520]',
+        ghost: 'bg-transparent text-[#007AFF] hover:bg-[#007AFF10] active:bg-[#007AFF20]',
+        text: 'bg-transparent text-[#007AFF] hover:opacity-70',
+      };
+      const sizes = {
+        sm: 'px-3 py-1.5 text-sm gap-1.5',
+        md: 'px-5 py-2.5 text-sm gap-2',
+        lg: 'px-6 py-3 text-base gap-2',
+      };
+      return (
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          className={`${base} ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${className}`}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+    };
+
+    const Input = ({ label, value, onChange, type = 'text', placeholder, error, className = '', ...props }) => (
+      <div className={className}>
+        {label && <label className="block text-xs font-medium text-[#86868B] mb-1.5">{label}</label>}
+        <input
+          type={type}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`w-full px-3.5 py-2.5 rounded-xl border ${error ? 'border-[#FF3B30]' : 'border-[#D1D1D6]'} bg-white text-[#1D1D1F] text-sm placeholder-[#C7C7CC]`}
+          {...props}
+        />
+        {error && <p className="text-xs text-[#FF3B30] mt-1">{error}</p>}
+      </div>
+    );
+
+    const Card = ({ children, className = '', ...props }) => (
+      <div className={`bg-white rounded-2xl apple-shadow ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
+      if (!isOpen) return null;
+      const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' };
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div className={`relative bg-white rounded-2xl apple-shadow-lg w-full ${sizes[size]} modal-content overflow-hidden`} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2F2F7]">
+              <h3 className="text-lg font-semibold text-[#1D1D1F]">{title}</h3>
+              <button onClick={onClose} className="btn-icon text-lg">&#10005;</button>
+            </div>
+            <div className="p-6">{children}</div>
+          </div>
+        </div>
+      );
+    };
+
+    const SegmentControl = ({ items, value, onChange }) => (
+      <div className="segment-control">
+        {items.map(item => (
+          <div
+            key={item.value}
+            className={`segment-item ${value === item.value ? 'active' : ''}`}
+            onClick={() => onChange(item.value)}
+          >
+            {item.label}
+          </div>
+        ))}
+      </div>
+    );
+
+    const Toggle = ({ checked, onChange, label }) => (
+      <div className="flex items-center justify-between">
+        {label && <span className="text-sm text-[#1D1D1F]">{label}</span>}
+        <div className={`ios-toggle ${checked ? 'active' : ''}`} onClick={() => onChange(!checked)} role="switch" aria-checked={checked} />
+      </div>
+    );
+
+    const Select = ({ label, value, onChange, options, className = '' }) => (
+      <div className={className}>
+        {label && <label className="block text-xs font-medium text-[#86868B] mb-1.5">{label}</label>}
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-[#D1D1D6] bg-white text-[#1D1D1F] text-sm appearance-none cursor-pointer"
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%2386868B' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+        >
+          {options.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+    );
+
+    // ========================================
+    // Block Editor Component
+    // ========================================
+    const BlockEditor = ({ block, onChange, onDelete, onMoveUp, onMoveDown, isFirst, isLast }) => {
+      const fileInputRef = useRef(null);
+
+      const update = (key, val) => onChange({ ...block, [key]: val });
+
+      if (block.type === 'divider') {
+        return (
+          <Card className="p-4 block-card fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-[#86868B] bg-[#F2F2F7] px-2 py-1 rounded-lg">구분선</span>
+                <div className="w-48 h-px bg-[#D1D1D6]" />
+              </div>
+              <div className="flex gap-1">
+                <button className="btn-icon text-xs" onClick={onMoveUp} disabled={isFirst} title="위로">&#9650;</button>
+                <button className="btn-icon text-xs" onClick={onMoveDown} disabled={isLast} title="아래로">&#9660;</button>
+                <button className="btn-icon text-xs text-[#FF3B30]" onClick={onDelete} title="삭제">&#10005;</button>
+              </div>
+            </div>
+          </Card>
+        );
+      }
+
+      if (block.type === 'image') {
+        const handleImageUpload = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => onChange({ ...block, src: ev.target.result, alt: file.name });
+          reader.readAsDataURL(file);
+        };
+        return (
+          <Card className="p-4 block-card fade-in">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium text-[#86868B] bg-[#F2F2F7] px-2 py-1 rounded-lg">이미지</span>
+              <div className="flex gap-1">
+                <button className="btn-icon text-xs" onClick={onMoveUp} disabled={isFirst}>&#9650;</button>
+                <button className="btn-icon text-xs" onClick={onMoveDown} disabled={isLast}>&#9660;</button>
+                <button className="btn-icon text-xs text-[#FF3B30]" onClick={onDelete}>&#10005;</button>
+              </div>
+            </div>
+            {block.src ? (
+              <div className="relative group">
+                <img src={block.src} alt={block.alt} className="max-w-full rounded-xl max-h-64 object-contain mx-auto" />
+                <button
+                  onClick={() => onChange({ ...block, src: '', alt: '' })}
+                  className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                >&#10005;</button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-[#D1D1D6] rounded-xl p-8 text-center cursor-pointer hover:border-[#007AFF] hover:bg-[#007AFF08] transition-all"
+              >
+                <div className="text-3xl mb-2">🖼</div>
+                <p className="text-sm text-[#86868B]">클릭하여 이미지를 선택하세요</p>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          </Card>
+        );
+      }
+
+      const isHeading = block.type === 'heading';
+
+      return (
+        <Card className="p-4 block-card fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-[#86868B] bg-[#F2F2F7] px-2 py-1 rounded-lg">
+              {isHeading ? '제목' : '본문'}
+            </span>
+            <div className="flex gap-1">
+              <button className="btn-icon text-xs" onClick={onMoveUp} disabled={isFirst}>&#9650;</button>
+              <button className="btn-icon text-xs" onClick={onMoveDown} disabled={isLast}>&#9660;</button>
+              <button className="btn-icon text-xs text-[#FF3B30]" onClick={onDelete}>&#10005;</button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <select
+              value={block.fontSize}
+              onChange={e => update('fontSize', Number(e.target.value))}
+              className="px-2 py-1.5 rounded-lg border border-[#D1D1D6] text-xs bg-white"
+            >
+              {FONT_SIZES.map(s => <option key={s} value={s}>{s}pt</option>)}
+            </select>
+
+            <div className="flex gap-0.5 bg-[#F2F2F7] rounded-lg p-0.5">
+              <button
+                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${block.bold ? 'bg-white apple-shadow text-[#007AFF]' : 'text-[#86868B]'}`}
+                onClick={() => update('bold', !block.bold)}
+              >B</button>
+              <button
+                className={`px-2.5 py-1 rounded-md text-xs italic transition-all ${block.italic ? 'bg-white apple-shadow text-[#007AFF]' : 'text-[#86868B]'}`}
+                onClick={() => update('italic', !block.italic)}
+              >I</button>
+              <button
+                className={`px-2.5 py-1 rounded-md text-xs underline transition-all ${block.underline ? 'bg-white apple-shadow text-[#007AFF]' : 'text-[#86868B]'}`}
+                onClick={() => update('underline', !block.underline)}
+              >U</button>
+            </div>
+
+            <div className="flex gap-0.5 bg-[#F2F2F7] rounded-lg p-0.5">
+              {['left', 'center', 'right'].map(a => (
+                <button
+                  key={a}
+                  className={`px-2.5 py-1 rounded-md text-xs transition-all ${block.align === a ? 'bg-white apple-shadow text-[#007AFF]' : 'text-[#86868B]'}`}
+                  onClick={() => update('align', a)}
+                >
+                  {a === 'left' ? '◧' : a === 'center' ? '◫' : '◨'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <textarea
+            value={block.content}
+            onChange={e => update('content', e.target.value)}
+            placeholder={isHeading ? '제목을 입력하세요...' : '내용을 입력하세요...'}
+            rows={isHeading ? 1 : 4}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-[#D1D1D6] text-[#1D1D1F] placeholder-[#C7C7CC] resize-none"
+            style={{
+              fontSize: `${Math.min(block.fontSize, 18)}px`,
+              fontWeight: block.bold ? 700 : 400,
+              fontStyle: block.italic ? 'italic' : 'normal',
+              textDecoration: block.underline ? 'underline' : 'none',
+              textAlign: block.align,
+            }}
+          />
+        </Card>
+      );
+    };
+
+    // ========================================
+    // Settings Panel Component
+    // ========================================
+    const SettingsPanel = ({ settings, setSettings }) => {
+      const updateMargin = (key, val) => {
+        setSettings(prev => ({ ...prev, margins: { ...prev.margins, [key]: Number(val) || 0 } }));
+      };
+
+      return (
+        <div className="space-y-5">
+          <div>
+            <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider mb-3">용지</h4>
+            <div className="space-y-3">
+              <Select
+                label="용지 크기"
+                value={settings.paperSize}
+                onChange={v => setSettings(p => ({ ...p, paperSize: v }))}
+                options={Object.entries(PAPER_SIZES).map(([k, v]) => ({ value: k, label: v.name }))}
+              />
+              <div>
+                <label className="block text-xs font-medium text-[#86868B] mb-1.5">방향</label>
+                <SegmentControl
+                  items={[{ value: 'portrait', label: '세로' }, { value: 'landscape', label: '가로' }]}
+                  value={settings.orientation}
+                  onChange={v => setSettings(p => ({ ...p, orientation: v }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-[#F2F2F7]" />
+
+          <div>
+            <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider mb-3">여백 (mm)</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {[['top', '상'], ['bottom', '하'], ['left', '좌'], ['right', '우']].map(([key, label]) => (
+                <Input
+                  key={key}
+                  label={label}
+                  type="number"
+                  value={settings.margins[key]}
+                  onChange={e => updateMargin(key, e.target.value)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="h-px bg-[#F2F2F7]" />
+
+          <div>
+            <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider mb-3">머리글 / 바닥글</h4>
+            <div className="space-y-3">
+              <Input
+                label="머리글"
+                value={settings.header}
+                onChange={e => setSettings(p => ({ ...p, header: e.target.value }))}
+                placeholder="페이지 상단 텍스트"
+              />
+              <Toggle
+                label="페이지 번호 표시"
+                checked={settings.showPageNumbers}
+                onChange={v => setSettings(p => ({ ...p, showPageNumbers: v }))}
+              />
+              <Input
+                label="바닥글"
+                value={settings.footer}
+                onChange={e => setSettings(p => ({ ...p, footer: e.target.value }))}
+                placeholder="페이지 하단 텍스트"
+              />
+            </div>
+          </div>
+
+          <div className="h-px bg-[#F2F2F7]" />
+
+          <div>
+            <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider mb-3">배경색</h4>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={settings.bgColor}
+                onChange={e => setSettings(p => ({ ...p, bgColor: e.target.value }))}
+                className="w-10 h-10 rounded-xl border border-[#D1D1D6] cursor-pointer overflow-hidden"
+                style={{ padding: 0 }}
+              />
+              <span className="text-sm text-[#86868B]">{settings.bgColor}</span>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ========================================
+    // Preview Component
+    // ========================================
+    const Preview = React.forwardRef(({ blocks, settings }, ref) => {
+      const paper = PAPER_SIZES[settings.paperSize];
+      const isLandscape = settings.orientation === 'landscape';
+      const pageW = isLandscape ? paper.h : paper.w;
+      const pageH = isLandscape ? paper.w : paper.h;
+
+      const pageStyle = {
+        width: `${pageW}mm`,
+        minHeight: `${pageH}mm`,
+        padding: `${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm`,
+        background: settings.bgColor,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif',
+        position: 'relative',
+        boxSizing: 'border-box',
+      };
+
+      return (
+        <div ref={ref} style={{ display: 'inline-block' }}>
+          <div style={pageStyle} className="apple-shadow-lg rounded-lg overflow-hidden">
+            {settings.header && (
+              <div style={{ textAlign: 'center', fontSize: '9px', color: '#86868B', marginBottom: '4mm', paddingBottom: '2mm', borderBottom: '0.5px solid #E5E5EA' }}>
+                {settings.header}
+              </div>
+            )}
+
+            <div>
+              {blocks.map(block => {
+                if (block.type === 'divider') {
+                  return <hr key={block.id} style={{ border: 'none', borderTop: '1px solid #D1D1D6', margin: '4mm 0' }} />;
+                }
+                if (block.type === 'image') {
+                  return block.src ? (
+                    <div key={block.id} style={{ margin: '3mm 0', textAlign: 'center' }}>
+                      <img src={block.src} alt={block.alt} style={{ maxWidth: '100%', maxHeight: '80mm', objectFit: 'contain' }} />
+                    </div>
+                  ) : null;
+                }
+                const style = {
+                  fontSize: `${block.fontSize}pt`,
+                  fontWeight: block.bold ? 700 : 400,
+                  fontStyle: block.italic ? 'italic' : 'normal',
+                  textDecoration: block.underline ? 'underline' : 'none',
+                  textAlign: block.align,
+                  margin: block.type === 'heading' ? '3mm 0 2mm 0' : '1.5mm 0',
+                  lineHeight: 1.6,
+                  color: '#1D1D1F',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                };
+                return <div key={block.id} style={style}>{block.content || '\u00A0'}</div>;
+              })}
+            </div>
+
+            {(settings.showPageNumbers || settings.footer) && (
+              <div style={{ position: 'absolute', bottom: `${settings.margins.bottom}mm`, left: `${settings.margins.left}mm`, right: `${settings.margins.right}mm`, textAlign: 'center', fontSize: '9px', color: '#86868B', borderTop: '0.5px solid #E5E5EA', paddingTop: '2mm' }}>
+                {settings.footer && <span>{settings.footer}</span>}
+                {settings.footer && settings.showPageNumbers && <span> | </span>}
+                {settings.showPageNumbers && <span>1</span>}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    });
+
+    // ========================================
+    // Template Modal Component
+    // ========================================
+    const TemplateModal = ({ isOpen, onClose, onSelect }) => (
+      <Modal isOpen={isOpen} onClose={onClose} title="템플릿 선택" size="md">
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(TEMPLATES).map(([key, tmpl]) => (
+            <button
+              key={key}
+              onClick={() => { onSelect(key); onClose(); }}
+              className="flex flex-col items-center gap-2 p-6 rounded-2xl border-2 border-[#F2F2F7] hover:border-[#007AFF] hover:bg-[#007AFF08] transition-all text-center"
+            >
+              <span className="text-3xl">{tmpl.icon}</span>
+              <span className="text-sm font-medium text-[#1D1D1F]">{tmpl.name}</span>
+              <span className="text-xs text-[#86868B]">
+                {tmpl.blocks.length === 0 ? '빈 문서로 시작' : `${tmpl.blocks.length}개 블록`}
+              </span>
+            </button>
+          ))}
+        </div>
+      </Modal>
+    );
+
+    // ========================================
+    // App Component
+    // ========================================
+    const App = () => {
+      const [blocks, setBlocks] = useState([]);
+      const [settings, setSettings] = useState({
+        paperSize: 'a4',
+        orientation: 'portrait',
+        margins: { top: 20, bottom: 20, left: 20, right: 20 },
+        header: '',
+        footer: '',
+        showPageNumbers: true,
+        bgColor: '#FFFFFF',
+      });
+      const [fileName, setFileName] = useState('document');
+      const [mobileTab, setMobileTab] = useState('editor');
+      const [showSettings, setShowSettings] = useState(false);
+      const [showTemplates, setShowTemplates] = useState(false);
+      const [generating, setGenerating] = useState(false);
+      const [lastSaved, setLastSaved] = useState(null);
+      const previewRef = useRef(null);
+
+      // Load from localStorage on mount
+      useEffect(() => {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (data.blocks) setBlocks(data.blocks);
+            if (data.settings) setSettings(data.settings);
+            if (data.fileName) setFileName(data.fileName);
+            setLastSaved(new Date());
+          }
+        } catch (e) { /* ignore */ }
+      }, []);
+
+      // Auto-save every 5 seconds
+      useEffect(() => {
+        const timer = setInterval(() => {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ blocks, settings, fileName }));
+            setLastSaved(new Date());
+          } catch (e) { /* ignore */ }
+        }, 5000);
+        return () => clearInterval(timer);
+      }, [blocks, settings, fileName]);
+
+      const addBlock = useCallback((type) => {
+        setBlocks(prev => [...prev, createBlock(type)]);
+      }, []);
+
+      const updateBlock = useCallback((id, updated) => {
+        setBlocks(prev => prev.map(b => b.id === id ? updated : b));
+      }, []);
+
+      const deleteBlock = useCallback((id) => {
+        setBlocks(prev => prev.filter(b => b.id !== id));
+      }, []);
+
+      const moveBlock = useCallback((id, dir) => {
+        setBlocks(prev => {
+          const idx = prev.findIndex(b => b.id === id);
+          if ((dir === -1 && idx === 0) || (dir === 1 && idx === prev.length - 1)) return prev;
+          const next = [...prev];
+          [next[idx], next[idx + dir]] = [next[idx + dir], next[idx]];
+          return next;
+        });
+      }, []);
+
+      const applyTemplate = useCallback((key) => {
+        const tmpl = TEMPLATES[key];
+        setBlocks(tmpl.blocks.map(b => ({ ...b, id: uid() })));
+      }, []);
+
+      const resetAll = useCallback(() => {
+        if (!confirm('모든 내용을 초기화하시겠습니까?')) return;
+        setBlocks([]);
+        setSettings({
+          paperSize: 'a4', orientation: 'portrait',
+          margins: { top: 20, bottom: 20, left: 20, right: 20 },
+          header: '', footer: '', showPageNumbers: true, bgColor: '#FFFFFF',
+        });
+        setFileName('document');
+        localStorage.removeItem(STORAGE_KEY);
+      }, []);
+
+      const generatePDF = useCallback(async () => {
+        if (!previewRef.current) return;
+        setGenerating(true);
+        try {
+          const el = previewRef.current;
+          const canvas = await html2canvas(el, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: null,
+          });
+          const imgData = canvas.toDataURL('image/png');
+          const { jsPDF } = window.jspdf;
+          const paper = PAPER_SIZES[settings.paperSize];
+          const isLandscape = settings.orientation === 'landscape';
+          const pdfW = isLandscape ? paper.h : paper.w;
+          const pdfH = isLandscape ? paper.w : paper.h;
+          const pdf = new jsPDF({
+            orientation: isLandscape ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: [pdfW, pdfH],
+          });
+          const imgW = pdfW;
+          const imgH = (canvas.height * pdfW) / canvas.width;
+
+          let yOffset = 0;
+          let pageNum = 1;
+          while (yOffset < imgH) {
+            if (pageNum > 1) pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, -yOffset, imgW, imgH);
+            yOffset += pdfH;
+            pageNum++;
+          }
+
+          pdf.save(`${fileName || 'document'}.pdf`);
+        } catch (err) {
+          console.error('PDF generation failed:', err);
+          alert('PDF 생성에 실패했습니다. 다시 시도해주세요.');
+        } finally {
+          setGenerating(false);
+        }
+      }, [settings, fileName]);
+
+      // Calculate preview scale
+      const [previewScale, setPreviewScale] = useState(0.4);
+      const previewContainerRef = useRef(null);
+
+      useEffect(() => {
+        const updateScale = () => {
+          if (previewContainerRef.current) {
+            const containerW = previewContainerRef.current.offsetWidth - 48;
+            const paper = PAPER_SIZES[settings.paperSize];
+            const isLandscape = settings.orientation === 'landscape';
+            const pageWmm = isLandscape ? paper.h : paper.w;
+            const pageWpx = pageWmm * 3.7795; // mm to px approx
+            const scale = Math.min(containerW / pageWpx, 0.6);
+            setPreviewScale(Math.max(scale, 0.2));
+          }
+        };
+        updateScale();
+        window.addEventListener('resize', updateScale);
+        return () => window.removeEventListener('resize', updateScale);
+      }, [settings.paperSize, settings.orientation]);
+
+      return (
+        <div className="min-h-screen bg-[#F5F5F7]">
+          {/* Navigation */}
+          <nav className="fixed top-0 left-0 right-0 z-40 nav-blur border-b border-[#D1D1D620] no-print">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6">
+              <div className="flex items-center justify-between h-14">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-semibold text-[#1D1D1F]">PDF 생성기</span>
+                  {lastSaved && (
+                    <span className="text-xs text-[#86868B] hidden sm:block">
+                      마지막 저장: {lastSaved.toLocaleTimeString('ko-KR')}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:block">
+                    <Input
+                      value={fileName}
+                      onChange={e => setFileName(e.target.value)}
+                      placeholder="파일명"
+                      className="w-40"
+                    />
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setShowTemplates(true)}>템플릿</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowSettings(true)} className="sm:hidden">설정</Button>
+                  <Button variant="ghost" size="sm" onClick={resetAll}>초기화</Button>
+                  <Button variant="primary" size="sm" onClick={generatePDF} disabled={generating || blocks.length === 0}>
+                    {generating ? '생성 중...' : 'PDF 다운로드'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </nav>
+
+          {/* Mobile Tab Switcher */}
+          <div className="fixed top-14 left-0 right-0 z-30 bg-[#F5F5F7] px-4 py-2 sm:hidden no-print border-b border-[#E5E5EA]">
+            <SegmentControl
+              items={[
+                { value: 'editor', label: '편집' },
+                { value: 'preview', label: '미리보기' },
+              ]}
+              value={mobileTab}
+              onChange={setMobileTab}
+            />
+          </div>
+
+          {/* Main Content */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-20 sm:pt-20 pb-8">
+            {/* Mobile filename */}
+            <div className="sm:hidden mb-3 pt-10">
+              <Input
+                value={fileName}
+                onChange={e => setFileName(e.target.value)}
+                placeholder="파일명"
+                label="파일명"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-6">
+              {/* Left: Editor */}
+              <div className={`w-full sm:w-1/2 lg:w-5/12 space-y-4 no-print ${mobileTab !== 'editor' ? 'hidden sm:block' : ''}`}>
+                {/* Add Block Buttons */}
+                <Card className="p-4">
+                  <h3 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider mb-3">블록 추가</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => addBlock('heading')}>+ 제목</Button>
+                    <Button size="sm" variant="secondary" onClick={() => addBlock('text')}>+ 본문</Button>
+                    <Button size="sm" variant="secondary" onClick={() => addBlock('image')}>+ 이미지</Button>
+                    <Button size="sm" variant="secondary" onClick={() => addBlock('divider')}>+ 구분선</Button>
+                  </div>
+                </Card>
+
+                {/* Blocks */}
+                {blocks.length === 0 ? (
+                  <Card className="p-12 text-center">
+                    <div className="text-4xl mb-3">📝</div>
+                    <p className="text-[#86868B] text-sm mb-4">블록을 추가하여 문서를 작성하세요</p>
+                    <Button variant="ghost" size="sm" onClick={() => setShowTemplates(true)}>
+                      또는 템플릿으로 시작하기
+                    </Button>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {blocks.map((block, idx) => (
+                      <BlockEditor
+                        key={block.id}
+                        block={block}
+                        onChange={(updated) => updateBlock(block.id, updated)}
+                        onDelete={() => deleteBlock(block.id)}
+                        onMoveUp={() => moveBlock(block.id, -1)}
+                        onMoveDown={() => moveBlock(block.id, 1)}
+                        isFirst={idx === 0}
+                        isLast={idx === blocks.length - 1}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Settings (Desktop) */}
+                <div className="hidden sm:block">
+                  <Card className="p-5">
+                    <h3 className="text-sm font-semibold text-[#1D1D1F] mb-4">PDF 설정</h3>
+                    <SettingsPanel settings={settings} setSettings={setSettings} />
+                  </Card>
+                </div>
+              </div>
+
+              {/* Right: Preview */}
+              <div
+                className={`w-full sm:w-1/2 lg:w-7/12 ${mobileTab !== 'preview' ? 'hidden sm:block' : ''}`}
+                ref={previewContainerRef}
+              >
+                <div className="sticky top-20">
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-[#1D1D1F]">미리보기</h3>
+                      <span className="text-xs text-[#86868B]">{Math.round(previewScale * 100)}%</span>
+                    </div>
+                    <div className="overflow-auto rounded-xl bg-[#F2F2F7] p-6" style={{ maxHeight: '80vh' }}>
+                      <div className="preview-wrapper flex justify-center" style={{ transform: `scale(${previewScale})`, transformOrigin: 'top center' }}>
+                        <Preview ref={previewRef} blocks={blocks} settings={settings} />
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Settings Modal (Mobile) */}
+          <Modal isOpen={showSettings} onClose={() => setShowSettings(false)} title="PDF 설정" size="md">
+            <SettingsPanel settings={settings} setSettings={setSettings} />
+          </Modal>
+
+          {/* Template Modal */}
+          <TemplateModal
+            isOpen={showTemplates}
+            onClose={() => setShowTemplates(false)}
+            onSelect={applyTemplate}
+          />
+
+          {/* Generating Overlay */}
+          {generating && (
+            <div className="fixed inset-0 z-[100] bg-black/30 backdrop-blur-sm flex items-center justify-center">
+              <Card className="p-8 text-center">
+                <div className="w-10 h-10 border-3 border-[#007AFF] border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderWidth: '3px' }} />
+                <p className="text-sm font-medium text-[#1D1D1F]">PDF를 생성하고 있습니다...</p>
+              </Card>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

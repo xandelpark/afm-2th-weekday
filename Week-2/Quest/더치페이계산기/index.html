@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>더치페이 계산기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    .step-enter { animation: slideUp 0.3s ease-out; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .badge-pop { animation: pop 0.2s ease-out; }
+    @keyframes pop {
+      0% { transform: scale(0.8); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' },
+            accent: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' },
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useMemo, useCallback, useRef, useEffect } = React;
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+
+    function Button({ variant = 'primary', size = 'md', disabled = false, onClick, className = '', children, type = 'button' }) {
+      const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'bg-accent-600 text-white hover:bg-accent-700 focus:ring-accent-500 shadow-sm',
+        success: 'bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 shadow-sm',
+        danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-400 shadow-sm',
+        secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-400',
+        ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-400',
+        outline: 'border-2 border-accent-500 text-accent-600 hover:bg-accent-50 focus:ring-accent-400',
+      };
+      const sizes = {
+        sm: 'px-3 py-1.5 text-sm',
+        md: 'px-4 py-2 text-sm',
+        lg: 'px-6 py-3 text-base',
+      };
+      return (
+        <button type={type} disabled={disabled} onClick={onClick}
+          className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`}>
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ label, value, onChange, placeholder, type = 'text', error, disabled, className = '', suffix, inputClassName = '' }) {
+      return (
+        <div className={className}>
+          {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+          <div className="relative">
+            <input type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+              className={`w-full px-3 py-2 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 disabled:bg-gray-100 ${error ? 'border-red-400' : 'border-gray-300'} ${inputClassName}`} />
+            {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">{suffix}</span>}
+          </div>
+          {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+        </div>
+      );
+    }
+
+    function Card({ children, className = '', title, headerRight, accent }) {
+      const accentColors = {
+        blue: 'border-t-4 border-t-accent-500',
+        green: 'border-t-4 border-t-brand-500',
+        orange: 'border-t-4 border-t-orange-500',
+        purple: 'border-t-4 border-t-purple-500',
+      };
+      return (
+        <div className={`bg-white rounded-xl shadow-sm ${accent ? accentColors[accent] : 'border border-gray-100'} ${className}`}>
+          {title && (
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+              {headerRight}
+            </div>
+          )}
+          <div className="p-5">{children}</div>
+        </div>
+      );
+    }
+
+    function Badge({ children, color = 'gray', className = '' }) {
+      const colors = {
+        gray: 'bg-gray-100 text-gray-700',
+        blue: 'bg-blue-100 text-blue-700',
+        green: 'bg-green-100 text-green-700',
+        red: 'bg-red-100 text-red-700',
+        orange: 'bg-orange-100 text-orange-700',
+        purple: 'bg-purple-100 text-purple-700',
+      };
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[color]} ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    function Checkbox({ checked, onChange, label, disabled }) {
+      return (
+        <label className={`inline-flex items-center gap-2 cursor-pointer select-none ${disabled ? 'opacity-50' : ''}`}>
+          <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled}
+            className="w-4 h-4 rounded border-gray-300 text-accent-600 focus:ring-accent-500" />
+          <span className="text-sm text-gray-700">{label}</span>
+        </label>
+      );
+    }
+
+    function StepIndicator({ steps, currentStep }) {
+      return (
+        <div className="flex items-center justify-center gap-1 sm:gap-2 mb-8">
+          {steps.map((step, index) => {
+            const stepNum = index + 1;
+            const isActive = stepNum === currentStep;
+            const isDone = stepNum < currentStep;
+            return (
+              <React.Fragment key={stepNum}>
+                {index > 0 && (
+                  <div className={`hidden sm:block w-8 md:w-12 h-0.5 ${isDone ? 'bg-accent-500' : 'bg-gray-200'}`} />
+                )}
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all
+                    ${isActive ? 'bg-accent-600 text-white shadow-md shadow-accent-200' : isDone ? 'bg-accent-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    {isDone ? '✓' : stepNum}
+                  </div>
+                  <span className={`hidden md:inline text-sm ${isActive ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>{step}</span>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function EmptyState({ icon, title, description }) {
+      return (
+        <div className="text-center py-8 text-gray-400">
+          <div className="text-4xl mb-3">{icon}</div>
+          <p className="font-medium text-gray-500">{title}</p>
+          {description && <p className="text-sm mt-1">{description}</p>}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧮 Utility / Calculation Functions
+    // ========================================
+
+    function formatNumber(num) {
+      if (num === undefined || num === null) return '0';
+      return Math.round(num).toLocaleString('ko-KR');
+    }
+
+    // 조건 분기 (Conditionals) - 할인 추천 로직
+    function getSuggestedDiscount(total) {
+      if (total > 100000) {
+        return { rate: 15, message: '총액이 10만원을 초과했습니다. 15% 할인을 추천합니다!' };
+      } else if (total > 50000) {
+        return { rate: 10, message: '총액이 5만원을 초과했습니다. 10% 할인을 추천합니다!' };
+      } else {
+        return null;
+      }
+    }
+
+    // 반복문 (Loops) + 배열 (Arrays) - 정산 계산 핵심 로직
+    function calculateSettlement(people, menuItems, discountType, discountValue) {
+      // 배열: 각 사람별 금액을 저장할 객체 배열 생성
+      const personShares = [];
+      people.forEach((person) => {
+        personShares.push({ id: person.id, name: person.name, items: [], rawTotal: 0 });
+      });
+
+      // 반복문: 각 메뉴 아이템을 순회하며 배정된 사람들에게 금액 분배
+      menuItems.forEach((menu) => {
+        // 조건 분기: 배정된 사람이 없으면 건너뛰기
+        if (!menu.assignedTo || menu.assignedTo.length === 0) return;
+
+        const splitCount = menu.assignedTo.length;
+        const perPersonCost = menu.price / splitCount;
+
+        // 반복문: 배정된 사람들을 순회
+        menu.assignedTo.forEach((personId) => {
+          // 배열 메서드: find로 해당 사람 찾기
+          const share = personShares.find((s) => s.id === personId);
+          if (share) {
+            share.items.push({ name: menu.name, price: menu.price, splitCount, perPersonCost });
+            share.rawTotal += perPersonCost;
+          }
+        });
+      });
+
+      // reduce로 전체 합계 계산
+      const totalBeforeDiscount = menuItems.reduce((sum, item) => sum + item.price, 0);
+
+      // 조건 분기: 할인 유형에 따른 할인 금액 계산
+      let discountAmount = 0;
+      if (discountType === 'percent' && discountValue > 0) {
+        discountAmount = totalBeforeDiscount * (discountValue / 100);
+      } else if (discountType === 'fixed' && discountValue > 0) {
+        discountAmount = Math.min(discountValue, totalBeforeDiscount);
+      }
+
+      const totalAfterDiscount = totalBeforeDiscount - discountAmount;
+
+      // 반복문: 할인을 비례적으로 적용
+      const discountRatio = totalBeforeDiscount > 0 ? totalAfterDiscount / totalBeforeDiscount : 1;
+      personShares.forEach((share) => {
+        share.discountedTotal = Math.round(share.rawTotal * discountRatio);
+        share.discountSaved = Math.round(share.rawTotal - share.discountedTotal);
+      });
+
+      // 반올림 차이 보정 (마지막 사람에게)
+      const sumOfRounded = personShares.reduce((s, p) => s + p.discountedTotal, 0);
+      const diff = Math.round(totalAfterDiscount) - sumOfRounded;
+      if (personShares.length > 0 && diff !== 0) {
+        // 가장 많이 내는 사람에게 보정
+        const maxPerson = personShares.reduce((a, b) => a.discountedTotal > b.discountedTotal ? a : b);
+        maxPerson.discountedTotal += diff;
+      }
+
+      return {
+        personShares,
+        totalBeforeDiscount,
+        discountAmount: Math.round(discountAmount),
+        totalAfterDiscount: Math.round(totalAfterDiscount),
+      };
+    }
+
+    // ========================================
+    // 📄 Step 1: 인원 설정
+    // ========================================
+
+    function StepPeople({ people, setPeople }) {
+      const nameInputRef = useRef(null);
+      const [newName, setNewName] = useState('');
+
+      const addPerson = useCallback(() => {
+        const trimmed = newName.trim();
+        if (!trimmed) return;
+        // 조건 분기: 중복 이름 검사
+        if (people.some((p) => p.name === trimmed)) {
+          alert('이미 같은 이름이 있습니다.');
+          return;
+        }
+        // 배열: 새 참가자 추가
+        setPeople((prev) => [...prev, { id: Date.now(), name: trimmed }]);
+        setNewName('');
+        setTimeout(() => nameInputRef.current?.focus(), 0);
+      }, [newName, people, setPeople]);
+
+      const removePerson = useCallback((id) => {
+        // 배열: filter로 참가자 제거
+        setPeople((prev) => prev.filter((p) => p.id !== id));
+      }, [setPeople]);
+
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); addPerson(); }
+      };
+
+      return (
+        <div className="step-enter">
+          <Card accent="blue" title="Step 1. 참가자 설정"
+            headerRight={<Badge color="blue">{people.length}명</Badge>}>
+
+            <div className="flex gap-2 mb-4">
+              <div className="flex-1">
+                <input ref={nameInputRef} type="text" value={newName}
+                  onChange={(e) => setNewName(e.target.value)} onKeyDown={handleKeyDown}
+                  placeholder="참가자 이름 입력" maxLength={10}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500" />
+              </div>
+              <Button onClick={addPerson} disabled={!newName.trim()}>추가</Button>
+            </div>
+
+            {/* 조건 분기: 참가자 유무에 따른 렌더링 */}
+            {people.length === 0 ? (
+              <EmptyState icon="👥" title="참가자를 추가해주세요" description="이름을 입력하고 추가 버튼을 눌러주세요" />
+            ) : (
+              <div className="space-y-2">
+                {/* 반복문: map으로 참가자 목록 렌더링 */}
+                {people.map((person, index) => (
+                  <div key={person.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5 group hover:bg-blue-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-full bg-accent-100 text-accent-700 flex items-center justify-center text-xs font-bold">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">{person.name}</span>
+                    </div>
+                    <button onClick={() => removePerson(person.id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label={`${person.name} 제거`}>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Step 2: 메뉴 추가
+    // ========================================
+
+    function StepMenu({ people, menuItems, setMenuItems }) {
+      const [menuName, setMenuName] = useState('');
+      const [menuPrice, setMenuPrice] = useState('');
+      const [selectedPeople, setSelectedPeople] = useState([]);
+      const [editingId, setEditingId] = useState(null);
+
+      const resetForm = () => {
+        setMenuName('');
+        setMenuPrice('');
+        setSelectedPeople([]);
+        setEditingId(null);
+      };
+
+      const togglePerson = (personId) => {
+        setSelectedPeople((prev) =>
+          prev.includes(personId)
+            ? prev.filter((id) => id !== personId)
+            : [...prev, personId]
+        );
+      };
+
+      const selectAll = () => {
+        // 배열: map으로 전체 ID 배열 생성
+        setSelectedPeople(people.map((p) => p.id));
+      };
+
+      const selectNone = () => { setSelectedPeople([]); };
+
+      const addOrUpdateMenu = () => {
+        const trimmedName = menuName.trim();
+        const price = parseInt(menuPrice, 10);
+
+        // 조건 분기: 유효성 검사
+        if (!trimmedName) { alert('메뉴 이름을 입력해주세요.'); return; }
+        if (isNaN(price) || price <= 0) { alert('올바른 가격을 입력해주세요.'); return; }
+        if (selectedPeople.length === 0) { alert('최소 1명 이상 선택해주세요.'); return; }
+
+        if (editingId) {
+          // 배열: map으로 수정
+          setMenuItems((prev) => prev.map((item) =>
+            item.id === editingId
+              ? { ...item, name: trimmedName, price, assignedTo: [...selectedPeople] }
+              : item
+          ));
+        } else {
+          // 배열: 새 메뉴 추가
+          setMenuItems((prev) => [...prev, {
+            id: Date.now(),
+            name: trimmedName,
+            price,
+            assignedTo: [...selectedPeople],
+          }]);
+        }
+        resetForm();
+      };
+
+      const removeMenu = (id) => {
+        setMenuItems((prev) => prev.filter((item) => item.id !== id));
+        if (editingId === id) resetForm();
+      };
+
+      const startEdit = (item) => {
+        setMenuName(item.name);
+        setMenuPrice(String(item.price));
+        setSelectedPeople([...item.assignedTo]);
+        setEditingId(item.id);
+      };
+
+      // reduce로 총 합계 계산
+      const menuTotal = menuItems.reduce((sum, item) => sum + item.price, 0);
+
+      return (
+        <div className="step-enter">
+          <Card accent="green" title="Step 2. 메뉴 추가"
+            headerRight={<Badge color="green">{menuItems.length}개 메뉴</Badge>}>
+
+            {/* 메뉴 입력 폼 */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input label="메뉴 이름" value={menuName} onChange={(e) => setMenuName(e.target.value)}
+                  placeholder="예: 김치찌개" />
+                <Input label="가격" type="number" value={menuPrice}
+                  onChange={(e) => setMenuPrice(e.target.value)} placeholder="예: 9000" suffix="원" />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">먹은 사람</label>
+                  <div className="flex gap-2">
+                    <button onClick={selectAll} className="text-xs text-accent-600 hover:underline">전체 선택</button>
+                    <span className="text-gray-300">|</span>
+                    <button onClick={selectNone} className="text-xs text-gray-500 hover:underline">전체 해제</button>
+                  </div>
+                </div>
+                {/* 조건 분기: 참가자 유무 체크 */}
+                {people.length === 0 ? (
+                  <p className="text-sm text-gray-400">먼저 참가자를 추가해주세요.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {/* 반복문: map으로 체크박스 렌더링 */}
+                    {people.map((person) => (
+                      <label key={person.id}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition-all select-none
+                          ${selectedPeople.includes(person.id)
+                            ? 'bg-accent-50 border-accent-300 text-accent-700 font-medium'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                        <input type="checkbox" className="sr-only"
+                          checked={selectedPeople.includes(person.id)}
+                          onChange={() => togglePerson(person.id)} />
+                        {selectedPeople.includes(person.id) && <span>✓</span>}
+                        {person.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button onClick={addOrUpdateMenu} variant={editingId ? 'success' : 'primary'}>
+                  {editingId ? '수정 완료' : '메뉴 추가'}
+                </Button>
+                {editingId && (
+                  <Button onClick={resetForm} variant="secondary">취소</Button>
+                )}
+              </div>
+            </div>
+
+            {/* 메뉴 목록 */}
+            {menuItems.length === 0 ? (
+              <EmptyState icon="🍽️" title="메뉴를 추가해주세요" description="메뉴 이름, 가격을 입력하고 먹은 사람을 선택해주세요" />
+            ) : (
+              <div className="space-y-2">
+                {menuItems.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between border border-gray-100 rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors group">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-gray-800 text-sm">{item.name}</span>
+                        <span className="text-accent-600 font-semibold text-sm">{formatNumber(item.price)}원</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {/* 반복문: 배정된 사람 목록 렌더링 */}
+                        {item.assignedTo.map((pid) => {
+                          const person = people.find((p) => p.id === pid);
+                          return person ? (
+                            <Badge key={pid} color="gray" className="badge-pop">{person.name}</Badge>
+                          ) : null;
+                        })}
+                        <span className="text-xs text-gray-400 self-center ml-1">
+                          (1인 {formatNumber(item.price / item.assignedTo.length)}원)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                      <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-accent-600 rounded" aria-label="수정">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </button>
+                      <button onClick={() => removeMenu(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded" aria-label="삭제">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {/* 합계 */}
+                <div className="flex items-center justify-between bg-green-50 rounded-lg px-4 py-3 mt-3">
+                  <span className="text-sm font-medium text-green-800">메뉴 합계</span>
+                  <span className="text-lg font-bold text-green-700">{formatNumber(menuTotal)}원</span>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Step 3: 할인 적용
+    // ========================================
+
+    function StepDiscount({ menuItems, discountType, setDiscountType, discountValue, setDiscountValue }) {
+      // reduce로 합계 계산
+      const total = menuItems.reduce((sum, item) => sum + item.price, 0);
+      const suggestion = getSuggestedDiscount(total);
+
+      // 조건 분기: 할인 금액 계산
+      let discountAmount = 0;
+      if (discountType === 'percent') {
+        discountAmount = total * (discountValue / 100);
+      } else if (discountType === 'fixed') {
+        discountAmount = Math.min(discountValue, total);
+      }
+      const finalTotal = total - discountAmount;
+
+      const applySuggestion = () => {
+        if (suggestion) {
+          setDiscountType('percent');
+          setDiscountValue(suggestion.rate);
+        }
+      };
+
+      return (
+        <div className="step-enter">
+          <Card accent="orange" title="Step 3. 할인 적용">
+            {/* 조건 분기: 할인 추천 메시지 */}
+            {suggestion && (
+              <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-3">
+                <span className="text-xl shrink-0">💡</span>
+                <div className="flex-1">
+                  <p className="text-sm text-orange-800">{suggestion.message}</p>
+                  <button onClick={applySuggestion}
+                    className="text-sm font-medium text-orange-600 hover:text-orange-700 mt-1 underline">
+                    {suggestion.rate}% 할인 적용하기
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* 할인 유형 선택 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">할인 유형</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'none', label: '할인 없음' },
+                    { value: 'percent', label: '퍼센트 (%)' },
+                    { value: 'fixed', label: '정액 (원)' },
+                  ].map((opt) => (
+                    <button key={opt.value}
+                      onClick={() => { setDiscountType(opt.value); if (opt.value === 'none') setDiscountValue(0); }}
+                      className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium border-2 transition-all
+                        ${discountType === opt.value
+                          ? 'border-orange-400 bg-orange-50 text-orange-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 조건 분기: 할인 입력 표시 */}
+              {discountType !== 'none' && (
+                <Input
+                  label={discountType === 'percent' ? '할인율' : '할인 금액'}
+                  type="number"
+                  value={discountValue || ''}
+                  onChange={(e) => {
+                    let val = Number(e.target.value);
+                    // 조건 분기: 범위 제한
+                    if (discountType === 'percent') val = Math.min(100, Math.max(0, val));
+                    if (discountType === 'fixed') val = Math.max(0, val);
+                    setDiscountValue(val);
+                  }}
+                  placeholder={discountType === 'percent' ? '예: 10' : '예: 5000'}
+                  suffix={discountType === 'percent' ? '%' : '원'}
+                />
+              )}
+
+              {/* 할인 요약 */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">총 주문 금액</span>
+                  <span className="font-medium">{formatNumber(total)}원</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">할인 금액</span>
+                  <span className={`font-medium ${discountAmount > 0 ? 'text-red-500' : ''}`}>
+                    {discountAmount > 0 ? `-${formatNumber(discountAmount)}원` : '0원'}
+                  </span>
+                </div>
+                <div className="border-t border-gray-200 pt-2 flex justify-between">
+                  <span className="font-semibold text-gray-800">최종 금액</span>
+                  <span className="font-bold text-lg text-orange-600">{formatNumber(finalTotal)}원</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Step 4: 정산 결과
+    // ========================================
+
+    function StepResult({ people, menuItems, discountType, discountValue }) {
+      const result = useMemo(
+        () => calculateSettlement(people, menuItems, discountType, discountValue),
+        [people, menuItems, discountType, discountValue]
+      );
+
+      const { personShares, totalBeforeDiscount, discountAmount, totalAfterDiscount } = result;
+
+      // 배열 + 반복문: 결과 정렬 (많이 내는 순)
+      const sortedShares = [...personShares].sort((a, b) => b.discountedTotal - a.discountedTotal);
+
+      // 반복문: 가장 많이/적게 내는 사람 찾기
+      let maxPayer = null;
+      let minPayer = null;
+      if (sortedShares.length > 0) {
+        maxPayer = sortedShares[0];
+        minPayer = sortedShares[sortedShares.length - 1];
+      }
+
+      const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-red-400'];
+
+      const copyResult = () => {
+        // 반복문: 결과 텍스트 생성
+        let text = `=== 더치페이 정산 ===\n`;
+        text += `총액: ${formatNumber(totalBeforeDiscount)}원\n`;
+        if (discountAmount > 0) {
+          text += `할인: -${formatNumber(discountAmount)}원\n`;
+          text += `최종: ${formatNumber(totalAfterDiscount)}원\n`;
+        }
+        text += `\n--- 1인당 정산 ---\n`;
+        sortedShares.forEach((share) => {
+          text += `${share.name}: ${formatNumber(share.discountedTotal)}원\n`;
+        });
+        navigator.clipboard.writeText(text).then(() => alert('클립보드에 복사되었습니다!'));
+      };
+
+      return (
+        <div className="step-enter space-y-4">
+          {/* 요약 카드 */}
+          <Card accent="purple" title="Step 4. 정산 결과"
+            headerRight={
+              <Button variant="secondary" size="sm" onClick={copyResult}>
+                <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                복사
+              </Button>
+            }>
+
+            {/* 상단 요약 통계 */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="text-center bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-500 mb-1">총 주문</p>
+                <p className="text-lg font-bold text-gray-800">{formatNumber(totalBeforeDiscount)}원</p>
+              </div>
+              <div className="text-center bg-red-50 rounded-lg p-3">
+                <p className="text-xs text-red-500 mb-1">할인</p>
+                <p className="text-lg font-bold text-red-600">-{formatNumber(discountAmount)}원</p>
+              </div>
+              <div className="text-center bg-purple-50 rounded-lg p-3">
+                <p className="text-xs text-purple-500 mb-1">최종 금액</p>
+                <p className="text-lg font-bold text-purple-700">{formatNumber(totalAfterDiscount)}원</p>
+              </div>
+            </div>
+
+            {/* 조건 분기: 결과가 없는 경우 */}
+            {sortedShares.length === 0 ? (
+              <EmptyState icon="📊" title="정산할 내역이 없습니다" />
+            ) : (
+              <div className="space-y-3">
+                {/* 반복문: 각 참가자별 정산 결과 */}
+                {sortedShares.map((share, index) => {
+                  const barWidth = totalAfterDiscount > 0
+                    ? Math.max(5, (share.discountedTotal / totalAfterDiscount) * 100)
+                    : 0;
+                  const colorClass = colors[index % colors.length];
+                  const isMax = maxPayer && share.id === maxPayer.id && sortedShares.length > 1;
+                  const isMin = minPayer && share.id === minPayer.id && sortedShares.length > 1 && maxPayer.id !== minPayer.id;
+
+                  return (
+                    <div key={share.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-sm transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full ${colorClass} text-white flex items-center justify-center text-sm font-bold`}>
+                            {share.name.charAt(0)}
+                          </div>
+                          <span className="font-semibold text-gray-800">{share.name}</span>
+                          {isMax && <Badge color="red">최대</Badge>}
+                          {isMin && <Badge color="green">최소</Badge>}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-lg font-bold text-gray-800">{formatNumber(share.discountedTotal)}원</span>
+                          {share.discountSaved > 0 && (
+                            <p className="text-xs text-red-400">-{formatNumber(share.discountSaved)}원 할인</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 비율 바 */}
+                      <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
+                        <div className={`h-2 rounded-full ${colorClass} transition-all duration-500`}
+                          style={{ width: `${barWidth}%` }} />
+                      </div>
+
+                      {/* 상세 내역 */}
+                      {share.items.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {share.items.map((item, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs text-gray-500">
+                              <span>
+                                {item.name}
+                                {item.splitCount > 1 && (
+                                  <span className="text-gray-400 ml-1">({formatNumber(item.price)}원 ÷ {item.splitCount}명)</span>
+                                )}
+                              </span>
+                              <span className="font-medium text-gray-600">{formatNumber(item.perPersonCost)}원</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+
+    function App() {
+      const [step, setStep] = useState(1);
+      // 배열: 참가자 목록, 메뉴 아이템 목록
+      const [people, setPeople] = useState([]);
+      const [menuItems, setMenuItems] = useState([]);
+      const [discountType, setDiscountType] = useState('none');
+      const [discountValue, setDiscountValue] = useState(0);
+
+      const steps = ['인원 설정', '메뉴 추가', '할인 적용', '정산 결과'];
+
+      // 조건 분기: 다음 단계 진행 가능 여부
+      const canGoNext = useMemo(() => {
+        if (step === 1) return people.length >= 2;
+        if (step === 2) return menuItems.length >= 1;
+        if (step === 3) return true;
+        return false;
+      }, [step, people, menuItems]);
+
+      const goNext = () => { if (canGoNext && step < 4) setStep(step + 1); };
+      const goPrev = () => { if (step > 1) setStep(step - 1); };
+
+      // 메뉴 아이템에서 삭제된 참가자 제거 (연동)
+      useEffect(() => {
+        const peopleIds = people.map((p) => p.id);
+        setMenuItems((prev) =>
+          prev.map((item) => ({
+            ...item,
+            assignedTo: item.assignedTo.filter((id) => peopleIds.includes(id)),
+          })).filter((item) => item.assignedTo.length > 0 || prev.length === menuItems.length)
+        );
+      }, [people]);
+
+      // 샘플 데이터 로드
+      const loadSampleData = () => {
+        const samplePeople = [
+          { id: 1, name: '김민수' },
+          { id: 2, name: '이수진' },
+          { id: 3, name: '박지훈' },
+          { id: 4, name: '최유나' },
+        ];
+        const sampleMenus = [
+          { id: 101, name: '김치찌개', price: 9000, assignedTo: [1, 2, 3, 4] },
+          { id: 102, name: '제육볶음', price: 12000, assignedTo: [1, 2, 3, 4] },
+          { id: 103, name: '된장찌개', price: 8000, assignedTo: [1, 3] },
+          { id: 104, name: '소주 2병', price: 10000, assignedTo: [1, 2, 3] },
+          { id: 105, name: '콜라', price: 3000, assignedTo: [4] },
+          { id: 106, name: '공기밥 4개', price: 4000, assignedTo: [1, 2, 3, 4] },
+        ];
+        setPeople(samplePeople);
+        setMenuItems(sampleMenus);
+        setDiscountType('percent');
+        setDiscountValue(10);
+        setStep(4);
+      };
+
+      const resetAll = () => {
+        setPeople([]);
+        setMenuItems([]);
+        setDiscountType('none');
+        setDiscountValue(0);
+        setStep(1);
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+          {/* Header */}
+          <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+            <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-accent-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-xl shadow-sm">
+                  💰
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">더치페이 계산기</h1>
+                  <p className="text-xs text-gray-500">공정한 N빵 정산</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={loadSampleData}>샘플 데이터</Button>
+                <Button variant="ghost" size="sm" onClick={resetAll}>초기화</Button>
+              </div>
+            </div>
+          </header>
+
+          {/* Main */}
+          <main className="max-w-2xl mx-auto px-4 py-6">
+            <StepIndicator steps={steps} currentStep={step} />
+
+            {/* 조건 분기: 현재 단계에 따른 컴포넌트 렌더링 */}
+            {step === 1 && <StepPeople people={people} setPeople={setPeople} />}
+            {step === 2 && <StepMenu people={people} menuItems={menuItems} setMenuItems={setMenuItems} />}
+            {step === 3 && <StepDiscount menuItems={menuItems} discountType={discountType}
+              setDiscountType={setDiscountType} discountValue={discountValue} setDiscountValue={setDiscountValue} />}
+            {step === 4 && <StepResult people={people} menuItems={menuItems}
+              discountType={discountType} discountValue={discountValue} />}
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between mt-6 mb-12">
+              <Button variant="secondary" onClick={goPrev} disabled={step === 1}>
+                <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                이전
+              </Button>
+              <span className="text-sm text-gray-400">{step} / {steps.length}</span>
+              {step < 4 ? (
+                <Button onClick={goNext} disabled={!canGoNext}>
+                  다음
+                  <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </Button>
+              ) : (
+                <Button variant="success" onClick={() => setStep(1)}>
+                  처음부터
+                </Button>
+              )}
+            </div>
+
+            {/* Validation hint */}
+            {step === 1 && people.length < 2 && people.length > 0 && (
+              <p className="text-center text-sm text-amber-600 -mt-4 mb-8">
+                최소 2명 이상 추가해야 다음 단계로 진행할 수 있습니다.
+              </p>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

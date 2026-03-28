@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2024 종합소득세 계산기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    .tax-bracket-active {
+      animation: bracketPulse 1.5s ease-in-out infinite;
+    }
+    @keyframes bracketPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useMemo, useCallback, useRef, useEffect } = React;
+
+    // ========================================
+    // Constants & Tax Data
+    // ========================================
+    const TAX_BRACKETS = [
+      { min: 0, max: 14000000, rate: 0.06, deduction: 0, label: '1,400만원 이하' },
+      { min: 14000000, max: 50000000, rate: 0.15, deduction: 1260000, label: '1,400만 ~ 5,000만원' },
+      { min: 50000000, max: 88000000, rate: 0.24, deduction: 5760000, label: '5,000만 ~ 8,800만원' },
+      { min: 88000000, max: 150000000, rate: 0.35, deduction: 15440000, label: '8,800만 ~ 1억5천만원' },
+      { min: 150000000, max: 300000000, rate: 0.38, deduction: 19940000, label: '1억5천만 ~ 3억원' },
+      { min: 300000000, max: 500000000, rate: 0.40, deduction: 25940000, label: '3억 ~ 5억원' },
+      { min: 500000000, max: 1000000000, rate: 0.42, deduction: 35940000, label: '5억 ~ 10억원' },
+      { min: 1000000000, max: Infinity, rate: 0.45, deduction: 65940000, label: '10억원 초과' },
+    ];
+
+    const EXPENSE_RATES = [
+      { label: '직접 입력', value: 0 },
+      { label: '단순경비율 - 소매업 (11.7%)', value: 0.117 },
+      { label: '단순경비율 - 음식업 (13.5%)', value: 0.135 },
+      { label: '단순경비율 - 제조업 (13.0%)', value: 0.130 },
+      { label: '단순경비율 - 건설업 (12.2%)', value: 0.122 },
+      { label: '단순경비율 - 서비스업 (17.4%)', value: 0.174 },
+      { label: '단순경비율 - IT/소프트웨어 (20.7%)', value: 0.207 },
+      { label: '단순경비율 - 프리랜서 (64.1%)', value: 0.641 },
+      { label: '단순경비율 - 작가/예술가 (61.2%)', value: 0.612 },
+      { label: '단순경비율 - 학원강사 (51.6%)', value: 0.516 },
+    ];
+
+    // ========================================
+    // Utility Functions
+    // ========================================
+    function formatNumber(num) {
+      if (num === 0) return '0';
+      if (!num && num !== 0) return '';
+      return Math.floor(num).toLocaleString('ko-KR');
+    }
+
+    function parseFormattedNumber(str) {
+      if (!str) return 0;
+      const cleaned = str.replace(/[^0-9]/g, '');
+      return parseInt(cleaned, 10) || 0;
+    }
+
+    function formatWon(num) {
+      if (num >= 100000000) {
+        const eok = Math.floor(num / 100000000);
+        const man = Math.floor((num % 100000000) / 10000);
+        return man > 0 ? `${eok}억 ${formatNumber(man)}만원` : `${eok}억원`;
+      }
+      if (num >= 10000) {
+        return `${formatNumber(Math.floor(num / 10000))}만원`;
+      }
+      return `${formatNumber(num)}원`;
+    }
+
+    function calculateTax(taxableIncome) {
+      if (taxableIncome <= 0) return { tax: 0, bracketIndex: -1 };
+      let bracketIndex = 0;
+      for (let i = 0; i < TAX_BRACKETS.length; i++) {
+        if (taxableIncome > TAX_BRACKETS[i].min) bracketIndex = i;
+      }
+      const bracket = TAX_BRACKETS[bracketIndex];
+      const tax = taxableIncome * bracket.rate - bracket.deduction;
+      return { tax: Math.max(0, tax), bracketIndex };
+    }
+
+    // ========================================
+    // Design System Components
+    // ========================================
+    function Card({ children, className = '', title, subtitle }) {
+      return (
+        <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+          {title && (
+            <div className="px-6 pt-6 pb-2">
+              <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+              {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+            </div>
+          )}
+          <div className="px-6 pb-6">{children}</div>
+        </div>
+      );
+    }
+
+    function MoneyInput({ label, value, onChange, placeholder = '0', helpText, disabled = false }) {
+      const displayValue = value > 0 ? formatNumber(value) : '';
+      const handleChange = (e) => {
+        const num = parseFormattedNumber(e.target.value);
+        onChange(num);
+      };
+      return (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={displayValue}
+              onChange={handleChange}
+              placeholder={placeholder}
+              disabled={disabled}
+              className={`w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl text-right text-lg
+                focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all
+                ${disabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-800 hover:border-gray-300'}`}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">원</span>
+          </div>
+          {helpText && <p className="text-xs text-gray-400 mt-1.5">{helpText}</p>}
+          {value > 0 && <p className="text-xs text-blue-500 mt-1">{formatWon(value)}</p>}
+        </div>
+      );
+    }
+
+    function Toggle({ label, checked, onChange, helpText }) {
+      return (
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <span className="text-sm font-medium text-gray-700">{label}</span>
+            {helpText && <p className="text-xs text-gray-400 mt-0.5">{helpText}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange(!checked)}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-200
+              ${checked ? 'bg-blue-500' : 'bg-gray-200'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200
+              ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
+      );
+    }
+
+    function NumberStepper({ label, value, onChange, min = 0, max = 10, helpText }) {
+      return (
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <span className="text-sm font-medium text-gray-700">{label}</span>
+            {helpText && <p className="text-xs text-gray-400 mt-0.5">{helpText}</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onChange(Math.max(min, value - 1))}
+              disabled={value <= min}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200
+                hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-gray-600"
+            >-</button>
+            <span className="w-8 text-center font-medium text-gray-800">{value}</span>
+            <button
+              onClick={() => onChange(Math.min(max, value + 1))}
+              disabled={value >= max}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200
+                hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-gray-600"
+            >+</button>
+          </div>
+        </div>
+      );
+    }
+
+    function ResultRow({ label, value, isMoney = true, highlight = false, negative = false, bold = false, large = false }) {
+      return (
+        <div className={`flex items-center justify-between py-2.5
+          ${highlight ? 'bg-blue-50 -mx-4 px-4 rounded-xl' : ''}
+          ${large ? 'py-4' : ''}`}>
+          <span className={`${bold ? 'font-semibold' : 'font-medium'}
+            ${large ? 'text-base' : 'text-sm'}
+            ${highlight ? 'text-blue-800' : 'text-gray-600'}`}>
+            {label}
+          </span>
+          <span className={`${bold ? 'font-bold' : 'font-semibold'}
+            ${large ? 'text-xl' : 'text-base'}
+            ${negative ? 'text-red-500' : highlight ? 'text-blue-700' : 'text-gray-800'}`}>
+            {negative && value > 0 ? '-' : ''}{isMoney ? `${formatNumber(value)}원` : value}
+          </span>
+        </div>
+      );
+    }
+
+    function Divider() {
+      return <div className="border-t border-dashed border-gray-200 my-1" />;
+    }
+
+    // ========================================
+    // Tax Bracket Visualization
+    // ========================================
+    function TaxBracketChart({ taxableIncome, activeBracketIndex }) {
+      const maxDisplayIncome = Math.max(taxableIncome * 1.2, 200000000);
+      return (
+        <div className="space-y-2">
+          {TAX_BRACKETS.map((bracket, idx) => {
+            const isActive = idx === activeBracketIndex;
+            const bracketMax = bracket.max === Infinity ? maxDisplayIncome : bracket.max;
+            const fillRatio = taxableIncome <= bracket.min ? 0
+              : taxableIncome >= bracketMax ? 1
+              : (taxableIncome - bracket.min) / (bracketMax - bracket.min);
+            const isPartial = fillRatio > 0 && fillRatio < 1;
+
+            return (
+              <div key={idx} className={`rounded-xl p-3 transition-all duration-300
+                ${isActive ? 'tax-bracket-active bg-blue-50 border-2 border-blue-300' :
+                  fillRatio > 0 ? 'bg-gray-50 border border-gray-200' : 'bg-gray-50/50 border border-gray-100'}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-xs font-medium ${isActive ? 'text-blue-700' : fillRatio > 0 ? 'text-gray-600' : 'text-gray-400'}`}>
+                    {bracket.label}
+                  </span>
+                  <span className={`text-sm font-bold ${isActive ? 'text-blue-600' : fillRatio > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+                    {(bracket.rate * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500
+                      ${isActive ? 'bg-blue-500' : fillRatio > 0 ? 'bg-blue-300' : 'bg-transparent'}`}
+                    style={{ width: `${Math.max(fillRatio * 100, 0)}%` }}
+                  />
+                </div>
+                {isActive && bracket.deduction > 0 && (
+                  <p className="text-xs text-blue-500 mt-1">누진공제: {formatNumber(bracket.deduction)}원</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ========================================
+    // App Component
+    // ========================================
+    function App() {
+      // Income inputs
+      const [totalIncome, setTotalIncome] = useState(0);
+      const [expenseRateIndex, setExpenseRateIndex] = useState(0);
+      const [manualExpense, setManualExpense] = useState(0);
+
+      // Deductions
+      const [hasSpouse, setHasSpouse] = useState(false);
+      const [dependents, setDependents] = useState(0);
+      const [childrenUnder7, setChildrenUnder7] = useState(0);
+      const [nationalPension, setNationalPension] = useState(0);
+      const [healthInsurance, setHealthInsurance] = useState(0);
+      const [otherDeductions, setOtherDeductions] = useState(0);
+
+      // Tax credits
+      const [earnedIncomeCredit, setEarnedIncomeCredit] = useState(false);
+      const [childTaxCredit, setChildTaxCredit] = useState(false);
+      const [otherCredits, setOtherCredits] = useState(0);
+
+      // Calculation
+      const result = useMemo(() => {
+        // 1. Necessary expenses
+        const selectedRate = EXPENSE_RATES[expenseRateIndex];
+        const expenses = selectedRate.value > 0
+          ? Math.floor(totalIncome * selectedRate.value)
+          : manualExpense;
+
+        // 2. Income amount
+        const incomeAmount = Math.max(0, totalIncome - expenses);
+
+        // 3. Income deductions
+        const basicDeduction = 1500000; // 본인 기본공제
+        const spouseDeduction = hasSpouse ? 1500000 : 0;
+        const dependentDeduction = dependents * 1500000;
+        const pensionDeduction = nationalPension;
+        const healthDeduction = healthInsurance;
+
+        const totalDeductions = basicDeduction + spouseDeduction + dependentDeduction
+          + pensionDeduction + healthDeduction + otherDeductions;
+
+        // 4. Taxable income
+        const taxableIncome = Math.max(0, incomeAmount - totalDeductions);
+
+        // 5. Calculated tax
+        const { tax: calculatedTax, bracketIndex } = calculateTax(taxableIncome);
+
+        // 6. Tax credits
+        let totalCredits = 0;
+
+        // 근로소득세액공제 (simplified)
+        if (earnedIncomeCredit && calculatedTax > 0) {
+          let credit;
+          if (calculatedTax <= 1300000) {
+            credit = calculatedTax * 0.55;
+          } else {
+            credit = 715000 + (calculatedTax - 1300000) * 0.30;
+          }
+          // 한도
+          if (totalIncome <= 33000000) credit = Math.min(credit, 740000);
+          else if (totalIncome <= 70000000) credit = Math.min(credit, 660000);
+          else credit = Math.min(credit, 500000);
+          totalCredits += Math.floor(credit);
+        }
+
+        // 자녀세액공제
+        if (childTaxCredit && childrenUnder7 > 0) {
+          if (childrenUnder7 === 1) totalCredits += 150000;
+          else if (childrenUnder7 === 2) totalCredits += 350000;
+          else totalCredits += 350000 + (childrenUnder7 - 2) * 300000;
+        }
+
+        totalCredits += otherCredits;
+
+        // 7. Determined tax
+        const determinedTax = Math.max(0, Math.floor(calculatedTax - totalCredits));
+
+        // 8. Local income tax (10%)
+        const localTax = Math.floor(determinedTax * 0.1);
+
+        // 9. Total
+        const totalTax = determinedTax + localTax;
+
+        // Effective tax rate
+        const effectiveRate = totalIncome > 0 ? (totalTax / totalIncome * 100) : 0;
+
+        return {
+          totalIncome,
+          expenses,
+          incomeAmount,
+          basicDeduction,
+          spouseDeduction,
+          dependentDeduction,
+          pensionDeduction,
+          healthDeduction,
+          otherDeductions,
+          totalDeductions,
+          taxableIncome,
+          calculatedTax: Math.floor(calculatedTax),
+          bracketIndex,
+          totalCredits,
+          determinedTax,
+          localTax,
+          totalTax,
+          effectiveRate,
+        };
+      }, [totalIncome, expenseRateIndex, manualExpense, hasSpouse, dependents,
+          childrenUnder7, nationalPension, healthInsurance, otherDeductions,
+          earnedIncomeCredit, childTaxCredit, otherCredits]);
+
+      const handleReset = () => {
+        setTotalIncome(0);
+        setExpenseRateIndex(0);
+        setManualExpense(0);
+        setHasSpouse(false);
+        setDependents(0);
+        setChildrenUnder7(0);
+        setNationalPension(0);
+        setHealthInsurance(0);
+        setOtherDeductions(0);
+        setEarnedIncomeCredit(false);
+        setChildTaxCredit(false);
+        setOtherCredits(0);
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+          {/* Header */}
+          <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-10">
+            <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">종합소득세 계산기</h1>
+                <p className="text-xs text-gray-400 mt-0.5">2024년 귀속 기준</p>
+              </div>
+              <button
+                onClick={handleReset}
+                className="text-sm text-gray-400 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
+              >
+                초기화
+              </button>
+            </div>
+          </header>
+
+          <main className="max-w-5xl mx-auto px-4 py-8">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* Left Column - Inputs */}
+              <div className="lg:col-span-3 space-y-6">
+                {/* Step 1: Income */}
+                <Card title="1. 수입금액" subtitle="총 수입금액과 필요경비를 입력하세요">
+                  <div className="space-y-4 mt-3">
+                    <MoneyInput
+                      label="총 수입금액"
+                      value={totalIncome}
+                      onChange={setTotalIncome}
+                      helpText="사업소득, 근로소득 등 연간 총 수입금액"
+                    />
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">업종별 경비율</label>
+                      <select
+                        value={expenseRateIndex}
+                        onChange={(e) => {
+                          setExpenseRateIndex(Number(e.target.value));
+                          if (Number(e.target.value) > 0) setManualExpense(0);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm
+                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white
+                          hover:border-gray-300 transition-all appearance-none cursor-pointer"
+                      >
+                        {EXPENSE_RATES.map((rate, idx) => (
+                          <option key={idx} value={idx}>{rate.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <MoneyInput
+                      label="필요경비"
+                      value={expenseRateIndex > 0 ? Math.floor(totalIncome * EXPENSE_RATES[expenseRateIndex].value) : manualExpense}
+                      onChange={setManualExpense}
+                      disabled={expenseRateIndex > 0}
+                      helpText={expenseRateIndex > 0 ? '경비율에 의해 자동 계산됩니다' : '실제 지출한 필요경비를 입력하세요'}
+                    />
+
+                    {totalIncome > 0 && (
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">소득금액</span>
+                          <span className="text-base font-semibold text-gray-800">
+                            {formatNumber(result.incomeAmount)}원
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                {/* Step 2: Deductions */}
+                <Card title="2. 소득공제" subtitle="해당하는 공제 항목을 입력하세요">
+                  <div className="space-y-1 mt-3">
+                    <div className="flex items-center justify-between py-2.5">
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">기본공제 (본인)</span>
+                        <p className="text-xs text-gray-400 mt-0.5">기본 150만원 공제</p>
+                      </div>
+                      <span className="text-sm font-semibold text-blue-600">1,500,000원</span>
+                    </div>
+                    <div className="border-t border-gray-100" />
+
+                    <Toggle
+                      label="배우자공제"
+                      checked={hasSpouse}
+                      onChange={setHasSpouse}
+                      helpText="연간 소득 100만원 이하 배우자 (150만원)"
+                    />
+                    <div className="border-t border-gray-100" />
+
+                    <NumberStepper
+                      label="부양가족 수"
+                      value={dependents}
+                      onChange={setDependents}
+                      helpText="1인당 150만원 공제"
+                    />
+                    <div className="border-t border-gray-100" />
+
+                    <div className="space-y-3 pt-2">
+                      <MoneyInput
+                        label="국민연금 납부액"
+                        value={nationalPension}
+                        onChange={setNationalPension}
+                        helpText="연간 납부한 국민연금 보험료"
+                      />
+                      <MoneyInput
+                        label="건강보험료 납부액"
+                        value={healthInsurance}
+                        onChange={setHealthInsurance}
+                        helpText="건강보험료 + 장기요양보험료"
+                      />
+                      <MoneyInput
+                        label="기타 소득공제"
+                        value={otherDeductions}
+                        onChange={setOtherDeductions}
+                        helpText="신용카드, 주택자금, 개인연금저축 등"
+                      />
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Step 3: Tax Credits */}
+                <Card title="3. 세액공제" subtitle="해당하는 세액공제를 선택하세요">
+                  <div className="space-y-1 mt-3">
+                    <Toggle
+                      label="근로소득세액공제"
+                      checked={earnedIncomeCredit}
+                      onChange={setEarnedIncomeCredit}
+                      helpText="근로소득자 대상, 산출세액 기준 자동 계산"
+                    />
+                    <div className="border-t border-gray-100" />
+
+                    <Toggle
+                      label="자녀세액공제"
+                      checked={childTaxCredit}
+                      onChange={(val) => {
+                        setChildTaxCredit(val);
+                        if (!val) setChildrenUnder7(0);
+                      }}
+                      helpText="만 8세 이상 자녀 대상"
+                    />
+
+                    {childTaxCredit && (
+                      <div className="pl-4 border-l-2 border-blue-200 ml-1">
+                        <NumberStepper
+                          label="대상 자녀 수"
+                          value={childrenUnder7}
+                          onChange={setChildrenUnder7}
+                          max={5}
+                          helpText="1명 15만, 2명 35만, 3명부터 +30만원"
+                        />
+                      </div>
+                    )}
+                    <div className="border-t border-gray-100" />
+
+                    <div className="pt-2">
+                      <MoneyInput
+                        label="기타 세액공제"
+                        value={otherCredits}
+                        onChange={setOtherCredits}
+                        helpText="의료비, 교육비, 기부금, 월세 세액공제 등"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Right Column - Results */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Summary Result */}
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 sticky top-20">
+                  <p className="text-blue-200 text-sm font-medium mb-1">총 납부세액</p>
+                  <p className="text-3xl font-bold mb-1">{formatNumber(result.totalTax)}원</p>
+                  {totalIncome > 0 && (
+                    <p className="text-blue-200 text-sm">
+                      실효세율 {result.effectiveRate.toFixed(1)}%
+                      {result.totalTax > 0 && ` (월 약 ${formatNumber(Math.round(result.totalTax / 12))}원)`}
+                    </p>
+                  )}
+
+                  <div className="mt-5 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-blue-200">결정세액</span>
+                      <span className="font-semibold">{formatNumber(result.determinedTax)}원</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-200">지방소득세 (10%)</span>
+                      <span className="font-semibold">{formatNumber(result.localTax)}원</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Breakdown */}
+                <Card title="세액 산출 내역">
+                  <div className="space-y-0 mt-2">
+                    <ResultRow label="총 수입금액" value={result.totalIncome} />
+                    <ResultRow label="필요경비" value={result.expenses} negative />
+                    <Divider />
+                    <ResultRow label="소득금액" value={result.incomeAmount} bold />
+                    <div className="h-2" />
+
+                    <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">소득공제 내역</p>
+                    <ResultRow label="기본공제 (본인)" value={result.basicDeduction} negative />
+                    {result.spouseDeduction > 0 && <ResultRow label="배우자공제" value={result.spouseDeduction} negative />}
+                    {result.dependentDeduction > 0 && <ResultRow label="부양가족공제" value={result.dependentDeduction} negative />}
+                    {result.pensionDeduction > 0 && <ResultRow label="국민연금" value={result.pensionDeduction} negative />}
+                    {result.healthDeduction > 0 && <ResultRow label="건강보험료" value={result.healthDeduction} negative />}
+                    {result.otherDeductions > 0 && <ResultRow label="기타 공제" value={result.otherDeductions} negative />}
+                    <Divider />
+                    <ResultRow label="총 소득공제" value={result.totalDeductions} negative bold />
+
+                    <div className="h-3" />
+                    <ResultRow label="과세표준" value={result.taxableIncome} highlight bold />
+                    <div className="h-2" />
+
+                    <ResultRow label="산출세액" value={result.calculatedTax} bold />
+                    {result.totalCredits > 0 && <ResultRow label="세액공제" value={result.totalCredits} negative />}
+                    <Divider />
+                    <ResultRow label="결정세액" value={result.determinedTax} bold />
+                    <ResultRow label="지방소득세" value={result.localTax} />
+                    <div className="h-1" />
+                    <ResultRow label="총 납부세액" value={result.totalTax} highlight bold large />
+                  </div>
+                </Card>
+
+                {/* Tax Bracket Visualization */}
+                <Card title="과세표준 구간" subtitle="현재 적용되는 세율 구간">
+                  <div className="mt-3">
+                    <TaxBracketChart
+                      taxableIncome={result.taxableIncome}
+                      activeBracketIndex={result.bracketIndex}
+                    />
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <footer className="mt-12 text-center pb-8">
+              <p className="text-xs text-gray-400">
+                본 계산기는 2024년 귀속 종합소득세 기준으로 참고용입니다.
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                정확한 세액은 국세청 홈택스 또는 세무사에게 문의하세요.
+              </p>
+            </footer>
+          </main>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

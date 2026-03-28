@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>짤 메이커 - 카카오 스타일 밈 생성기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    * { font-family: 'Noto Sans KR', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #2a2a2a; }
+    ::-webkit-scrollbar-thumb { background: #FEE500; border-radius: 3px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes pulse-border { 0%,100% { border-color: #FEE500; } 50% { border-color: #3C1E1E; } }
+    .drop-zone-active { animation: pulse-border 1s infinite; background: rgba(254,229,0,0.1) !important; }
+    canvas { image-rendering: -webkit-optimize-contrast; }
+  </style>
+</head>
+<body class="bg-[#191919] text-white min-h-screen">
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useRef, useCallback, useMemo, useReducer, createContext, useContext } = React;
+
+    // ========================================
+    // Constants & Defaults
+    // ========================================
+    const KAKAO_YELLOW = '#FEE500';
+    const KAKAO_BROWN = '#3C1E1E';
+    const KAKAO_DARK = '#191919';
+    const KAKAO_GRAY = '#E5E5E5';
+
+    const COLOR_PRESETS = [
+      { label: '흰색', value: '#FFFFFF' },
+      { label: '검정', value: '#000000' },
+      { label: '노란색', value: '#FEE500' },
+      { label: '빨간색', value: '#FF3B30' },
+      { label: '파란색', value: '#007AFF' },
+      { label: '초록색', value: '#34C759' },
+      { label: '주황색', value: '#FF9500' },
+      { label: '보라색', value: '#AF52DE' },
+    ];
+
+    const EMOJI_PALETTE = ['😂','🤣','😭','💀','🔥','👍','❤️','🙏','😎','🥺','💯','🤡','👀','😱','🤔','💩','🎉','😤','🥳','😈','👻','💪','🤦','😘','🤮','🫠','😮‍💨','🫡','🗿','⚡'];
+
+    const ASPECT_RATIOS = [
+      { label: '1:1 정사각형', w: 800, h: 800 },
+      { label: '4:3 세로', w: 600, h: 800 },
+      { label: '16:9 가로', w: 960, h: 540 },
+    ];
+
+    const defaultTextElement = () => ({
+      id: Date.now() + Math.random(),
+      text: '',
+      x: 0.5,
+      y: 0.5,
+      fontSize: 36,
+      color: '#FFFFFF',
+      bold: true,
+      align: 'center',
+      strokeEnabled: true,
+      strokeColor: '#000000',
+      shadowEnabled: false,
+      lineHeight: 1.3,
+      type: 'free',
+    });
+
+    const defaultBubble = () => ({
+      id: Date.now() + Math.random(),
+      text: '안녕하세요!',
+      x: 0.5,
+      y: 0.5,
+      bgColor: KAKAO_YELLOW,
+      fontSize: 20,
+      type: 'bubble',
+    });
+
+    const defaultEmoji = () => ({
+      id: Date.now() + Math.random(),
+      emoji: '😂',
+      x: 0.5,
+      y: 0.5,
+      size: 60,
+      type: 'emoji',
+    });
+
+    const defaultUnread = () => ({
+      id: Date.now() + Math.random(),
+      x: 0.5,
+      y: 0.5,
+      type: 'unread',
+    });
+
+    // ========================================
+    // History Reducer (Undo/Redo)
+    // ========================================
+    function historyReducer(state, action) {
+      switch (action.type) {
+        case 'PUSH': {
+          const newPast = [...state.past, state.present].slice(-30);
+          return { past: newPast, present: action.payload, future: [] };
+        }
+        case 'UNDO': {
+          if (state.past.length === 0) return state;
+          const prev = state.past[state.past.length - 1];
+          return { past: state.past.slice(0, -1), present: prev, future: [state.present, ...state.future] };
+        }
+        case 'REDO': {
+          if (state.future.length === 0) return state;
+          const next = state.future[0];
+          return { past: [...state.past, state.present], present: next, future: state.future.slice(1) };
+        }
+        case 'RESET': {
+          return { past: [], present: action.payload, future: [] };
+        }
+        default: return state;
+      }
+    }
+
+    // ========================================
+    // Design System Components
+    // ========================================
+    function Button({ children, variant = 'primary', size = 'md', disabled, onClick, className = '', ...props }) {
+      const base = 'rounded-xl font-bold transition-all duration-200 inline-flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed';
+      const variants = {
+        primary: `bg-[${KAKAO_YELLOW}] text-[${KAKAO_BROWN}] hover:brightness-110 shadow-md`,
+        secondary: 'bg-[#2a2a2a] text-gray-200 hover:bg-[#3a3a3a] border border-gray-600',
+        danger: 'bg-red-600 text-white hover:bg-red-700',
+        ghost: 'bg-transparent text-gray-300 hover:bg-white/10',
+      };
+      const sizes = { sm: 'px-2.5 py-1 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-6 py-3 text-base' };
+      return (
+        <button className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} disabled={disabled} onClick={onClick} {...props}>
+          {children}
+        </button>
+      );
+    }
+
+    function TabButton({ active, children, onClick }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`px-3 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
+            active ? 'bg-[#FEE500] text-[#3C1E1E]' : 'bg-[#2a2a2a] text-gray-400 hover:text-white hover:bg-[#3a3a3a]'
+          }`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Slider({ label, value, min, max, step = 1, onChange }) {
+      return (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>{label}</span>
+            <span className="text-[#FEE500]">{value}</span>
+          </div>
+          <input
+            type="range" min={min} max={max} step={step} value={value}
+            onChange={e => onChange(Number(e.target.value))}
+            className="w-full h-1.5 rounded-full appearance-none bg-gray-600 accent-[#FEE500] cursor-pointer"
+          />
+        </div>
+      );
+    }
+
+    function ColorPicker({ label, value, onChange, presets = COLOR_PRESETS }) {
+      return (
+        <div className="space-y-1.5">
+          {label && <span className="text-xs text-gray-400">{label}</span>}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {presets.map(c => (
+              <button key={c.value} onClick={() => onChange(c.value)}
+                className={`w-6 h-6 rounded-full border-2 transition-all ${value === c.value ? 'border-[#FEE500] scale-110' : 'border-gray-600 hover:border-gray-400'}`}
+                style={{ background: c.value }} title={c.label}
+              />
+            ))}
+            <input type="color" value={value} onChange={e => onChange(e.target.value)}
+              className="w-6 h-6 rounded-full border-0 cursor-pointer bg-transparent"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    function Toggle({ label, checked, onChange }) {
+      return (
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div className={`w-9 h-5 rounded-full transition-all duration-200 relative ${checked ? 'bg-[#FEE500]' : 'bg-gray-600'}`}
+            onClick={() => onChange(!checked)}>
+            <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all duration-200 shadow ${checked ? 'left-[18px]' : 'left-0.5'}`} />
+          </div>
+          <span className="text-xs text-gray-300">{label}</span>
+        </label>
+      );
+    }
+
+    // ========================================
+    // Template Presets
+    // ========================================
+    const TEMPLATES = [
+      {
+        name: '짤방 스타일',
+        desc: '이미지 + 상하단 텍스트',
+        icon: '🖼️',
+        apply: () => ({
+          elements: [
+            { ...defaultTextElement(), text: '상단 텍스트', y: 0.08, fontSize: 42, bold: true, strokeEnabled: true, type: 'top' },
+            { ...defaultTextElement(), text: '하단 텍스트', y: 0.92, fontSize: 42, bold: true, strokeEnabled: true, type: 'bottom' },
+          ]
+        }),
+      },
+      {
+        name: '드레이크 밈',
+        desc: '위: 싫어요 / 아래: 좋아요',
+        icon: '🤨',
+        apply: () => ({
+          bgColor: '#F5F0EB',
+          elements: [
+            { ...defaultTextElement(), text: '이것은 싫어요', x: 0.75, y: 0.25, fontSize: 32, color: '#000000', strokeEnabled: false, bold: true },
+            { ...defaultTextElement(), text: '이것은 좋아요', x: 0.75, y: 0.75, fontSize: 32, color: '#000000', strokeEnabled: false, bold: true },
+          ]
+        }),
+      },
+      {
+        name: '확장 뇌',
+        desc: '단계별 텍스트 (4단계)',
+        icon: '🧠',
+        apply: () => ({
+          bgColor: '#1a1a2e',
+          elements: [
+            { ...defaultTextElement(), text: '1단계: 일반인', x: 0.5, y: 0.12, fontSize: 22, color: '#FFFFFF', strokeEnabled: false },
+            { ...defaultTextElement(), text: '2단계: 좀 아는 사람', x: 0.5, y: 0.37, fontSize: 24, color: '#FFD700', strokeEnabled: false },
+            { ...defaultTextElement(), text: '3단계: 고수', x: 0.5, y: 0.62, fontSize: 28, color: '#FF6B6B', strokeEnabled: false, bold: true },
+            { ...defaultTextElement(), text: '4단계: 신의 경지', x: 0.5, y: 0.87, fontSize: 34, color: '#FEE500', strokeEnabled: false, bold: true },
+          ]
+        }),
+      },
+      {
+        name: '카카오톡 대화',
+        desc: '대화창 레이아웃',
+        icon: '💬',
+        apply: () => ({
+          bgColor: '#B2C7D9',
+          elements: [
+            { ...defaultBubble(), text: 'ㅋㅋㅋㅋㅋ 진짜?', x: 0.35, y: 0.25, bgColor: '#FFFFFF' },
+            { ...defaultBubble(), text: '응 ㅋㅋ 실화야', x: 0.65, y: 0.45, bgColor: KAKAO_YELLOW },
+            { ...defaultBubble(), text: '대박 ㅋㅋㅋㅋ', x: 0.35, y: 0.65, bgColor: '#FFFFFF' },
+            { ...defaultUnread(), x: 0.82, y: 0.42 },
+          ]
+        }),
+      },
+      {
+        name: '심플 텍스트',
+        desc: '단색 배경 + 큰 텍스트',
+        icon: '✍️',
+        apply: () => ({
+          bgColor: KAKAO_YELLOW,
+          elements: [
+            { ...defaultTextElement(), text: '여기에 텍스트를 입력하세요', x: 0.5, y: 0.5, fontSize: 48, color: KAKAO_BROWN, strokeEnabled: false, bold: true },
+          ]
+        }),
+      },
+    ];
+
+    // ========================================
+    // Canvas Renderer (pure function)
+    // ========================================
+    function renderCanvas(canvas, { image, bgColor, elements, canvasSize, selectedId, dragOffset }) {
+      const ctx = canvas.getContext('2d');
+      const W = canvasSize.w;
+      const H = canvasSize.h;
+      canvas.width = W;
+      canvas.height = H;
+
+      // Background
+      ctx.fillStyle = bgColor || KAKAO_YELLOW;
+      ctx.fillRect(0, 0, W, H);
+
+      // Image
+      if (image) {
+        const imgRatio = image.width / image.height;
+        const canvasRatio = W / H;
+        let dw, dh, dx, dy;
+        if (imgRatio > canvasRatio) {
+          dh = H; dw = H * imgRatio; dx = (W - dw) / 2; dy = 0;
+        } else {
+          dw = W; dh = W / imgRatio; dx = 0; dy = (H - dh) / 2;
+        }
+        ctx.drawImage(image, dx, dy, dw, dh);
+      }
+
+      // Render elements
+      elements.forEach(el => {
+        const px = el.x * W;
+        const py = el.y * H;
+
+        if (el.type === 'emoji') {
+          ctx.font = `${el.size}px serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(el.emoji, px, py);
+        } else if (el.type === 'bubble') {
+          renderBubble(ctx, el, px, py, W);
+        } else if (el.type === 'unread') {
+          renderUnread(ctx, px, py);
+        } else {
+          renderText(ctx, el, px, py, W, H);
+        }
+      });
+    }
+
+    function renderText(ctx, el, px, py, W, H) {
+      const lines = (el.text || '').split('\n');
+      const fs = el.fontSize || 36;
+      const lh = (el.lineHeight || 1.3) * fs;
+      ctx.font = `${el.bold ? '900' : '400'} ${fs}px 'Noto Sans KR', sans-serif`;
+      ctx.textAlign = el.align || 'center';
+      ctx.textBaseline = 'middle';
+
+      const totalH = lines.length * lh;
+      const startY = py - totalH / 2 + lh / 2;
+
+      lines.forEach((line, i) => {
+        const ly = startY + i * lh;
+        if (el.shadowEnabled) {
+          ctx.shadowColor = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+        }
+        if (el.strokeEnabled) {
+          ctx.strokeStyle = el.strokeColor || '#000000';
+          ctx.lineWidth = Math.max(3, fs / 8);
+          ctx.lineJoin = 'round';
+          ctx.miterLimit = 2;
+          ctx.strokeText(line, px, ly);
+        }
+        ctx.fillStyle = el.color || '#FFFFFF';
+        ctx.fillText(line, px, ly);
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      });
+    }
+
+    function renderBubble(ctx, el, px, py, W) {
+      const fs = el.fontSize || 20;
+      ctx.font = `400 ${fs}px 'Noto Sans KR', sans-serif`;
+      const lines = (el.text || '').split('\n');
+      let maxW = 0;
+      lines.forEach(l => { maxW = Math.max(maxW, ctx.measureText(l).width); });
+      const padX = 16, padY = 10;
+      const bw = maxW + padX * 2;
+      const bh = lines.length * fs * 1.3 + padY * 2;
+      const rx = px - bw / 2, ry = py - bh / 2;
+      const radius = 16;
+
+      // Bubble shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.15)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+
+      ctx.fillStyle = el.bgColor || KAKAO_YELLOW;
+      ctx.beginPath();
+      ctx.roundRect(rx, ry, bw, bh, radius);
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+
+      // Tail
+      const tailSize = 8;
+      const isRight = el.bgColor === KAKAO_YELLOW;
+      ctx.fillStyle = el.bgColor || KAKAO_YELLOW;
+      ctx.beginPath();
+      if (isRight) {
+        ctx.moveTo(rx + bw, ry + 14);
+        ctx.lineTo(rx + bw + tailSize, ry + 10);
+        ctx.lineTo(rx + bw, ry + 22);
+      } else {
+        ctx.moveTo(rx, ry + 14);
+        ctx.lineTo(rx - tailSize, ry + 10);
+        ctx.lineTo(rx, ry + 22);
+      }
+      ctx.fill();
+
+      // Text in bubble
+      ctx.fillStyle = KAKAO_BROWN;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      lines.forEach((line, i) => {
+        ctx.fillText(line, px, ry + padY + fs * 0.65 + i * fs * 1.3);
+      });
+    }
+
+    function renderUnread(ctx, px, py) {
+      const text = '1';
+      ctx.font = 'bold 11px sans-serif';
+      const tw = ctx.measureText(text).width;
+      const bw = Math.max(tw + 10, 18);
+      const bh = 16;
+
+      ctx.fillStyle = '#FEE500';
+      ctx.beginPath();
+      ctx.roundRect(px - bw / 2, py - bh / 2, bw, bh, 8);
+      ctx.fill();
+
+      ctx.fillStyle = KAKAO_BROWN;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, px, py);
+    }
+
+    // ========================================
+    // Main App Component
+    // ========================================
+    function App() {
+      const initialState = {
+        image: null,
+        bgColor: KAKAO_YELLOW,
+        elements: [],
+        aspectIdx: 0,
+        selectedId: null,
+      };
+      const [history, dispatch] = useReducer(historyReducer, { past: [], present: initialState, future: [] });
+      const state = history.present;
+
+      const setState = useCallback((updater) => {
+        dispatch({ type: 'PUSH', payload: typeof updater === 'function' ? updater(history.present) : updater });
+      }, [history.present]);
+
+      const undo = () => dispatch({ type: 'UNDO' });
+      const redo = () => dispatch({ type: 'REDO' });
+
+      const canvasRef = useRef(null);
+      const fileInputRef = useRef(null);
+      const [activeTab, setActiveTab] = useState('text');
+      const [dragging, setDragging] = useState(null);
+      const [dropActive, setDropActive] = useState(false);
+      const [imgObj, setImgObj] = useState(null);
+
+      const canvasSize = ASPECT_RATIOS[state.aspectIdx];
+
+      // Load image object when state.image (dataURL) changes
+      useEffect(() => {
+        if (state.image) {
+          const img = new Image();
+          img.onload = () => setImgObj(img);
+          img.src = state.image;
+        } else {
+          setImgObj(null);
+        }
+      }, [state.image]);
+
+      // Render canvas
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        renderCanvas(canvasRef.current, {
+          image: imgObj,
+          bgColor: state.bgColor,
+          elements: state.elements,
+          canvasSize,
+          selectedId: state.selectedId,
+        });
+
+        // Draw selection indicator
+        if (state.selectedId) {
+          const ctx = canvasRef.current.getContext('2d');
+          const el = state.elements.find(e => e.id === state.selectedId);
+          if (el) {
+            const px = el.x * canvasSize.w;
+            const py = el.y * canvasSize.h;
+            ctx.strokeStyle = '#FEE500';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 3]);
+            let boxW = 80, boxH = 40;
+            if (el.type === 'emoji') { boxW = el.size + 10; boxH = el.size + 10; }
+            else if (el.type === 'bubble') {
+              ctx.font = `400 ${el.fontSize}px 'Noto Sans KR', sans-serif`;
+              const lines = (el.text || '').split('\n');
+              let mw = 0; lines.forEach(l => mw = Math.max(mw, ctx.measureText(l).width));
+              boxW = mw + 44; boxH = lines.length * el.fontSize * 1.3 + 30;
+            } else if (el.type === 'unread') { boxW = 30; boxH = 26; }
+            else {
+              ctx.font = `${el.bold ? '900' : '400'} ${el.fontSize}px 'Noto Sans KR', sans-serif`;
+              const lines = (el.text || '').split('\n');
+              let mw = 0; lines.forEach(l => mw = Math.max(mw, ctx.measureText(l).width));
+              boxW = mw + 16;
+              boxH = lines.length * (el.lineHeight || 1.3) * el.fontSize + 10;
+            }
+            ctx.strokeRect(px - boxW / 2, py - boxH / 2, boxW, boxH);
+            ctx.setLineDash([]);
+          }
+        }
+      }, [imgObj, state, canvasSize]);
+
+      // Keyboard shortcuts
+      useEffect(() => {
+        const handler = (e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+          if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (state.selectedId && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+              setState(s => ({ ...s, elements: s.elements.filter(el => el.id !== s.selectedId), selectedId: null }));
+            }
+          }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+      }, [state.selectedId]);
+
+      // Image upload handler
+      const handleImageUpload = useCallback((file) => {
+        if (!file || !file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setState(s => ({ ...s, image: e.target.result }));
+        };
+        reader.readAsDataURL(file);
+      }, []);
+
+      // Drag and drop on canvas
+      const getCanvasCoords = useCallback((e, canvas) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvasSize.w / rect.width;
+        const scaleY = canvasSize.h / rect.height;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+          x: (clientX - rect.left) * scaleX / canvasSize.w,
+          y: (clientY - rect.top) * scaleY / canvasSize.h,
+        };
+      }, [canvasSize]);
+
+      const findElementAt = useCallback((nx, ny) => {
+        const W = canvasSize.w, H = canvasSize.h;
+        for (let i = state.elements.length - 1; i >= 0; i--) {
+          const el = state.elements[i];
+          const ex = el.x, ey = el.y;
+          let hitW = 60 / W, hitH = 30 / H;
+          if (el.type === 'emoji') { hitW = el.size / W; hitH = el.size / H; }
+          else if (el.type === 'unread') { hitW = 30 / W; hitH = 20 / H; }
+          else {
+            hitW = Math.max(0.15, 0.3);
+            hitH = Math.max(0.05, 0.12);
+          }
+          if (Math.abs(nx - ex) < hitW / 2 && Math.abs(ny - ey) < hitH / 2) return el;
+        }
+        return null;
+      }, [state.elements, canvasSize]);
+
+      const handleCanvasMouseDown = useCallback((e) => {
+        e.preventDefault();
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const coords = getCanvasCoords(e, canvas);
+        const el = findElementAt(coords.x, coords.y);
+        if (el) {
+          setDragging({ id: el.id, offsetX: coords.x - el.x, offsetY: coords.y - el.y });
+          setState(s => ({ ...s, selectedId: el.id }));
+        } else {
+          setState(s => ({ ...s, selectedId: null }));
+        }
+      }, [getCanvasCoords, findElementAt]);
+
+      const handleCanvasMouseMove = useCallback((e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const coords = getCanvasCoords(e, canvas);
+        const nx = Math.max(0, Math.min(1, coords.x - dragging.offsetX));
+        const ny = Math.max(0, Math.min(1, coords.y - dragging.offsetY));
+        // Direct mutation for performance during drag, push to history on mouseup
+        setState(s => ({
+          ...s,
+          elements: s.elements.map(el => el.id === dragging.id ? { ...el, x: nx, y: ny } : el),
+        }));
+      }, [dragging, getCanvasCoords]);
+
+      const handleCanvasMouseUp = useCallback(() => {
+        setDragging(null);
+      }, []);
+
+      useEffect(() => {
+        window.addEventListener('mousemove', handleCanvasMouseMove);
+        window.addEventListener('mouseup', handleCanvasMouseUp);
+        window.addEventListener('touchmove', handleCanvasMouseMove, { passive: false });
+        window.addEventListener('touchend', handleCanvasMouseUp);
+        return () => {
+          window.removeEventListener('mousemove', handleCanvasMouseMove);
+          window.removeEventListener('mouseup', handleCanvasMouseUp);
+          window.removeEventListener('touchmove', handleCanvasMouseMove);
+          window.removeEventListener('touchend', handleCanvasMouseUp);
+        };
+      }, [handleCanvasMouseMove, handleCanvasMouseUp]);
+
+      // Download
+      const handleDownload = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        // Re-render without selection
+        renderCanvas(canvas, { image: imgObj, bgColor: state.bgColor, elements: state.elements, canvasSize, selectedId: null });
+        const link = document.createElement('a');
+        link.download = `짤_${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        // Re-render with selection
+        renderCanvas(canvas, { image: imgObj, bgColor: state.bgColor, elements: state.elements, canvasSize, selectedId: state.selectedId });
+      };
+
+      // Reset
+      const handleReset = () => {
+        dispatch({ type: 'RESET', payload: { ...initialState, aspectIdx: state.aspectIdx } });
+        setImgObj(null);
+      };
+
+      // Element update helper
+      const updateElement = (id, changes) => {
+        setState(s => ({
+          ...s,
+          elements: s.elements.map(el => el.id === id ? { ...el, ...changes } : el),
+        }));
+      };
+
+      const deleteElement = (id) => {
+        setState(s => ({
+          ...s,
+          elements: s.elements.filter(el => el.id !== id),
+          selectedId: s.selectedId === id ? null : s.selectedId,
+        }));
+      };
+
+      const addElement = (el) => {
+        setState(s => ({ ...s, elements: [...s.elements, el], selectedId: el.id }));
+      };
+
+      const applyTemplate = (template) => {
+        const result = template.apply();
+        setState(s => ({
+          ...s,
+          bgColor: result.bgColor || s.bgColor,
+          elements: result.elements || [],
+          selectedId: null,
+        }));
+      };
+
+      const selectedEl = state.elements.find(e => e.id === state.selectedId);
+
+      // ========================================
+      // Render
+      // ========================================
+      return (
+        <div className="min-h-screen bg-[#191919]">
+          {/* Header */}
+          <header className="bg-[#1f1f1f] border-b border-gray-800 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-[#FEE500] rounded-xl flex items-center justify-center text-lg">💬</div>
+              <div>
+                <h1 className="text-base font-bold text-white">짤 메이커</h1>
+                <p className="text-[10px] text-gray-500">카카오 스타일 밈 생성기</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={undo} disabled={history.past.length === 0} title="실행취소 (Ctrl+Z)">
+                ↩️
+              </Button>
+              <Button variant="ghost" size="sm" onClick={redo} disabled={history.future.length === 0} title="다시실행 (Ctrl+Y)">
+                ↪️
+              </Button>
+              <Button variant="danger" size="sm" onClick={handleReset}>초기화</Button>
+              <Button variant="primary" size="sm" onClick={handleDownload}>
+                PNG 다운로드
+              </Button>
+            </div>
+          </header>
+
+          <div className="flex flex-col lg:flex-row max-w-[1400px] mx-auto">
+            {/* Left Panel - Tools */}
+            <div className="lg:w-[360px] w-full lg:min-h-[calc(100vh-56px)] bg-[#1f1f1f] border-r border-gray-800 overflow-y-auto lg:order-1 order-2">
+              {/* 이미지 업로드 - 항상 표시 */}
+              <div className="p-3 border-b border-gray-800">
+                <div
+                  className={`border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer ${
+                    dropActive ? 'drop-zone-active border-[#FEE500]' : state.image ? 'border-green-600 bg-green-900/10' : 'border-gray-600 hover:border-gray-400'
+                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setDropActive(true); }}
+                  onDragLeave={() => setDropActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault(); setDropActive(false);
+                    const file = e.dataTransfer.files[0];
+                    handleImageUpload(file);
+                  }}
+                >
+                  {state.image ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-400 text-lg">✅</span>
+                        <span className="text-xs text-gray-300">이미지 적용됨 (클릭하여 변경)</span>
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); setState(s => ({ ...s, image: null })); setImgObj(null); }}
+                        className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-900/30 hover:bg-red-900/50 transition-all">제거</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl mb-1">🖼️</div>
+                      <p className="text-xs text-gray-400">클릭하거나 이미지를 드래그해서 놓으세요</p>
+                    </>
+                  )}
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                    onChange={(e) => handleImageUpload(e.target.files[0])} />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {ASPECT_RATIOS.map((ar, idx) => (
+                    <button key={ar.label} onClick={() => setState(s => ({ ...s, aspectIdx: idx }))}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        state.aspectIdx === idx ? 'bg-[#FEE500] text-[#3C1E1E]' : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#3a3a3a]'
+                      }`}>
+                      {ar.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-1.5 p-3 border-b border-gray-800 flex-wrap">
+                {[
+                  { key: 'text', label: '텍스트' },
+                  { key: 'style', label: '스타일' },
+                  { key: 'kakao', label: '카카오' },
+                  { key: 'template', label: '템플릿' },
+                ].map(t => (
+                  <TabButton key={t.key} active={activeTab === t.key} onClick={() => setActiveTab(t.key)}>
+                    {t.label}
+                  </TabButton>
+                ))}
+              </div>
+
+              <div className="p-4 space-y-4 fade-in">
+                {/* ==================== TEXT TAB ==================== */}
+                {activeTab === 'text' && (
+                  <>
+                    <div className="flex gap-2">
+                      <Button variant="primary" size="sm" className="flex-1" onClick={() => {
+                        addElement({ ...defaultTextElement(), text: '상단 텍스트', y: 0.08, type: 'top' });
+                      }}>+ 상단 텍스트</Button>
+                      <Button variant="primary" size="sm" className="flex-1" onClick={() => {
+                        addElement({ ...defaultTextElement(), text: '하단 텍스트', y: 0.92, type: 'bottom' });
+                      }}>+ 하단 텍스트</Button>
+                    </div>
+                    <Button variant="secondary" size="sm" className="w-full" onClick={() => {
+                      addElement(defaultTextElement());
+                    }}>+ 자유 텍스트 추가</Button>
+
+                    {/* Element list */}
+                    <div className="space-y-2 mt-3">
+                      {state.elements.filter(el => el.type !== 'bubble' && el.type !== 'emoji' && el.type !== 'unread').map(el => (
+                        <div key={el.id}
+                          className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
+                            state.selectedId === el.id ? 'border-[#FEE500] bg-[#FEE500]/10' : 'border-gray-700 bg-[#2a2a2a] hover:border-gray-500'
+                          }`}
+                          onClick={() => setState(s => ({ ...s, selectedId: el.id }))}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs text-gray-400">
+                              {el.type === 'top' ? '상단' : el.type === 'bottom' ? '하단' : '자유'} 텍스트
+                            </span>
+                            <button onClick={(e) => { e.stopPropagation(); deleteElement(el.id); }}
+                              className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+                          </div>
+                          <textarea
+                            value={el.text}
+                            onChange={(e) => updateElement(el.id, { text: e.target.value })}
+                            className="w-full bg-[#1a1a1a] text-white text-sm px-2 py-1.5 rounded border border-gray-700 focus:border-[#FEE500] outline-none resize-none"
+                            rows={2}
+                            placeholder="텍스트를 입력하세요..."
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {state.elements.filter(el => el.type !== 'bubble' && el.type !== 'emoji' && el.type !== 'unread').length === 0 && (
+                      <p className="text-xs text-gray-500 text-center py-4">텍스트를 추가해주세요</p>
+                    )}
+                  </>
+                )}
+
+                {/* ==================== STYLE TAB ==================== */}
+                {activeTab === 'style' && (
+                  <>
+                    {selectedEl && selectedEl.type !== 'bubble' && selectedEl.type !== 'emoji' && selectedEl.type !== 'unread' ? (
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-[#FEE500]">텍스트 스타일</h3>
+                        <Slider label="폰트 크기" value={selectedEl.fontSize} min={12} max={120} onChange={v => updateElement(selectedEl.id, { fontSize: v })} />
+                        <Slider label="줄간격" value={selectedEl.lineHeight} min={0.8} max={3} step={0.1} onChange={v => updateElement(selectedEl.id, { lineHeight: v })} />
+                        <ColorPicker label="텍스트 색상" value={selectedEl.color} onChange={v => updateElement(selectedEl.id, { color: v })} />
+
+                        <div className="flex gap-2">
+                          <Toggle label="굵게" checked={selectedEl.bold} onChange={v => updateElement(selectedEl.id, { bold: v })} />
+                        </div>
+
+                        <div>
+                          <span className="text-xs text-gray-400 block mb-1.5">정렬</span>
+                          <div className="flex gap-1">
+                            {['left', 'center', 'right'].map(a => (
+                              <button key={a} onClick={() => updateElement(selectedEl.id, { align: a })}
+                                className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${
+                                  selectedEl.align === a ? 'bg-[#FEE500] text-[#3C1E1E]' : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#3a3a3a]'
+                                }`}>
+                                {a === 'left' ? '왼쪽' : a === 'center' ? '가운데' : '오른쪽'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-gray-700">
+                          <Toggle label="텍스트 테두리" checked={selectedEl.strokeEnabled} onChange={v => updateElement(selectedEl.id, { strokeEnabled: v })} />
+                          {selectedEl.strokeEnabled && (
+                            <ColorPicker label="테두리 색상" value={selectedEl.strokeColor} onChange={v => updateElement(selectedEl.id, { strokeColor: v })} />
+                          )}
+                        </div>
+
+                        <Toggle label="텍스트 그림자" checked={selectedEl.shadowEnabled} onChange={v => updateElement(selectedEl.id, { shadowEnabled: v })} />
+                      </div>
+                    ) : selectedEl && selectedEl.type === 'bubble' ? (
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-[#FEE500]">말풍선 스타일</h3>
+                        <textarea
+                          value={selectedEl.text}
+                          onChange={(e) => updateElement(selectedEl.id, { text: e.target.value })}
+                          className="w-full bg-[#1a1a1a] text-white text-sm px-2 py-1.5 rounded border border-gray-700 focus:border-[#FEE500] outline-none resize-none"
+                          rows={2}
+                        />
+                        <Slider label="폰트 크기" value={selectedEl.fontSize} min={12} max={40} onChange={v => updateElement(selectedEl.id, { fontSize: v })} />
+                        <div>
+                          <span className="text-xs text-gray-400 block mb-1.5">말풍선 색상</span>
+                          <div className="flex gap-2">
+                            {[{ c: KAKAO_YELLOW, l: '카카오' }, { c: '#FFFFFF', l: '흰색' }, { c: '#E5E5E5', l: '회색' }].map(b => (
+                              <button key={b.c} onClick={() => updateElement(selectedEl.id, { bgColor: b.c })}
+                                className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${
+                                  selectedEl.bgColor === b.c ? 'ring-2 ring-[#FEE500]' : ''
+                                }`} style={{ background: b.c, color: KAKAO_BROWN }}>
+                                {b.l}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <button onClick={() => deleteElement(selectedEl.id)}
+                          className="w-full py-2 bg-red-900/30 text-red-400 rounded-lg text-xs font-bold hover:bg-red-900/50 transition-all">
+                          말풍선 삭제
+                        </button>
+                      </div>
+                    ) : selectedEl && selectedEl.type === 'emoji' ? (
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-[#FEE500]">이모지 스타일</h3>
+                        <Slider label="크기" value={selectedEl.size} min={20} max={150} onChange={v => updateElement(selectedEl.id, { size: v })} />
+                        <div className="flex flex-wrap gap-2">
+                          {EMOJI_PALETTE.map(em => (
+                            <button key={em} onClick={() => updateElement(selectedEl.id, { emoji: em })}
+                              className={`text-2xl p-1 rounded hover:bg-white/10 transition-all ${selectedEl.emoji === em ? 'bg-[#FEE500]/20 ring-1 ring-[#FEE500]' : ''}`}>
+                              {em}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => deleteElement(selectedEl.id)}
+                          className="w-full py-2 bg-red-900/30 text-red-400 rounded-lg text-xs font-bold hover:bg-red-900/50 transition-all">
+                          이모지 삭제
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 text-center py-8">캔버스에서 요소를 선택하면<br />스타일을 편집할 수 있습니다</p>
+                    )}
+                  </>
+                )}
+
+                {/* ==================== KAKAO TAB ==================== */}
+                {activeTab === 'kakao' && (
+                  <>
+                    <h3 className="text-sm font-bold text-[#FEE500]">카카오톡 요소</h3>
+                    <div className="space-y-2">
+                      <Button variant="primary" size="sm" className="w-full" onClick={() => addElement(defaultBubble())}>
+                        + 말풍선 추가
+                      </Button>
+                      <Button variant="secondary" size="sm" className="w-full" onClick={() => addElement(defaultUnread())}>
+                        + "읽지 않음 1" 추가
+                      </Button>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-700">
+                      <h3 className="text-sm font-bold text-[#FEE500] mb-2">이모지 추가</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {EMOJI_PALETTE.map(em => (
+                          <button key={em} onClick={() => addElement({ ...defaultEmoji(), emoji: em })}
+                            className="text-2xl p-1.5 rounded-lg hover:bg-white/10 transition-all active:scale-90">
+                            {em}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Element list for kakao elements */}
+                    <div className="pt-3 border-t border-gray-700 space-y-2">
+                      <h3 className="text-xs text-gray-400">추가된 요소</h3>
+                      {state.elements.filter(el => el.type === 'bubble' || el.type === 'emoji' || el.type === 'unread').map(el => (
+                        <div key={el.id}
+                          className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-all ${
+                            state.selectedId === el.id ? 'border-[#FEE500] bg-[#FEE500]/10' : 'border-gray-700 bg-[#2a2a2a]'
+                          }`}
+                          onClick={() => setState(s => ({ ...s, selectedId: el.id }))}
+                        >
+                          <span className="text-sm">
+                            {el.type === 'bubble' ? `💬 ${el.text.slice(0, 12)}` : el.type === 'emoji' ? el.emoji : '🔔 읽지않음'}
+                          </span>
+                          <button onClick={(e) => { e.stopPropagation(); deleteElement(el.id); }}
+                            className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* ==================== TEMPLATE TAB ==================== */}
+                {activeTab === 'template' && (
+                  <>
+                    <h3 className="text-sm font-bold text-[#FEE500]">템플릿 프리셋</h3>
+                    <p className="text-xs text-gray-500">템플릿을 선택하면 현재 요소가 교체됩니다</p>
+                    <div className="space-y-2">
+                      {TEMPLATES.map(t => (
+                        <button key={t.name} onClick={() => applyTemplate(t)}
+                          className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] border border-gray-700 hover:border-[#FEE500] hover:bg-[#2a2a2a]/80 transition-all text-left group">
+                          <span className="text-2xl">{t.icon}</span>
+                          <div>
+                            <div className="text-sm font-bold text-white group-hover:text-[#FEE500] transition-colors">{t.name}</div>
+                            <div className="text-xs text-gray-500">{t.desc}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* ==================== IMAGE TAB ==================== */}
+              </div>
+            </div>
+
+            {/* Right Panel - Canvas */}
+            <div className="flex-1 flex flex-col items-center justify-start p-4 lg:p-8 lg:order-2 order-1">
+              <div className="w-full max-w-[700px]">
+                {/* Canvas container with aspect ratio */}
+                <div className="bg-[#2a2a2a] rounded-2xl p-3 shadow-2xl border border-gray-800">
+                  <div className="relative" style={{ paddingBottom: `${(canvasSize.h / canvasSize.w) * 100}%` }}>
+                    <canvas
+                      ref={canvasRef}
+                      className="absolute inset-0 w-full h-full rounded-xl cursor-move"
+                      onMouseDown={handleCanvasMouseDown}
+                      onTouchStart={handleCanvasMouseDown}
+                    />
+                  </div>
+                </div>
+
+                {/* Bottom controls */}
+                <div className="flex items-center justify-between mt-4 gap-2 flex-wrap">
+                  <div className="text-xs text-gray-500">
+                    {canvasSize.w}x{canvasSize.h} | 요소: {state.elements.length}개
+                    {state.selectedId ? ' | 선택됨 (드래그로 이동, Delete로 삭제)' : ''}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={undo} disabled={history.past.length === 0}>
+                      실행취소
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={redo} disabled={history.future.length === 0}>
+                      다시실행
+                    </Button>
+                    <Button variant="primary" size="md" onClick={handleDownload}>
+                      PNG 다운로드
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

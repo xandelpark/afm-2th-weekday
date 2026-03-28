@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>신부 앨범 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.25s ease-out; }
+    .drag-active { border-color: #ec4899 !important; background-color: #fdf2f8 !important; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+    // ========================================
+    // Design System Components
+    // ========================================
+
+    function Button({ children, onClick, variant = 'primary', size = 'md', disabled = false, className = '' }) {
+      const base = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'bg-pink-600 text-white hover:bg-pink-700 focus:ring-pink-500 shadow-sm',
+        secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-pink-500',
+        danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+        ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-400',
+        success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500 shadow-sm',
+      };
+      const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2 text-sm', lg: 'px-6 py-3 text-base' };
+      return (
+        <button onClick={onClick} disabled={disabled}
+          className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}>
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ label, value, onChange, placeholder, error, type = 'text', required = false, className = '' }) {
+      return (
+        <div className={className}>
+          {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>}
+          <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+            className={`w-full px-3 py-2 border rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 ${error ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
+          {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+        </div>
+      );
+    }
+
+    function Card({ children, className = '' }) {
+      return <div className={`bg-white rounded-xl shadow-sm border border-gray-200 ${className}`}>{children}</div>;
+    }
+
+    function Modal({ isOpen, onClose, title, children }) {
+      if (!isOpen) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+          <div className="fixed inset-0 bg-black/40" />
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto fade-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+              <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="p-5">{children}</div>
+          </div>
+        </div>
+      );
+    }
+
+    function Badge({ children, color = 'gray' }) {
+      const colors = {
+        gray: 'bg-gray-100 text-gray-700',
+        pink: 'bg-pink-100 text-pink-700',
+        green: 'bg-emerald-100 text-emerald-700',
+        blue: 'bg-blue-100 text-blue-700',
+        yellow: 'bg-amber-100 text-amber-700',
+        red: 'bg-red-100 text-red-700',
+      };
+      return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>{children}</span>;
+    }
+
+    function Checkbox({ checked, onChange, label }) {
+      return (
+        <label className="flex items-center gap-2 cursor-pointer group">
+          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${checked ? 'bg-pink-600 border-pink-600' : 'border-gray-300 group-hover:border-pink-400'}`}
+            onClick={() => onChange(!checked)}>
+            {checked && <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>}
+          </div>
+          {label && <span className="text-sm text-gray-700 select-none">{label}</span>}
+        </label>
+      );
+    }
+
+    // ========================================
+    // Section Header Component
+    // ========================================
+
+    function SectionHeader({ icon, title, subtitle, action }) {
+      return (
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <span>{icon}</span> {title}
+            </h2>
+            {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+          </div>
+          {action}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Excel Upload Component
+    // ========================================
+
+    function ExcelUpload({ onDataLoaded }) {
+      const [isDragging, setIsDragging] = useState(false);
+      const [fileName, setFileName] = useState('');
+      const [previewData, setPreviewData] = useState(null);
+      const [columnMapping, setColumnMapping] = useState({});
+      const [headers, setHeaders] = useState([]);
+      const fileInputRef = useRef(null);
+
+      const FIELD_OPTIONS = [
+        { key: '', label: '-- 선택 안 함 --' },
+        { key: 'name', label: '신부 이름' },
+        { key: 'groom', label: '신랑 이름' },
+        { key: 'weddingDate', label: '예식 날짜' },
+        { key: 'phone', label: '연락처' },
+        { key: 'address', label: '주소' },
+      ];
+
+      const processFile = useCallback((file) => {
+        if (!file) return;
+        const validTypes = [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'text/csv',
+        ];
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!validTypes.includes(file.type) && !['xlsx', 'xls', 'csv'].includes(ext)) {
+          alert('엑셀 파일(.xlsx, .xls) 또는 CSV 파일만 업로드할 수 있습니다.');
+          return;
+        }
+        setFileName(file.name);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+            if (jsonData.length < 1) { alert('데이터가 없습니다.'); return; }
+            const hdrs = jsonData[0].map(h => String(h || '').trim());
+            const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
+            setHeaders(hdrs);
+            setPreviewData(rows);
+            // Auto-detect column mapping (신부 컬럼 우선)
+            const autoMap = {};
+            console.log('엑셀 헤더:', hdrs);
+            hdrs.forEach((h, i) => {
+              const lower = h.replace(/\s+/g, '').toLowerCase();
+              // 신랑 이름: "신랑" 단독 or "신랑이름" or "신랑명" or "신랑성명"
+              if (/^신랑(이름|명|성명)?$/.test(lower) || (lower.includes('신랑') && (lower.includes('이름') || lower.includes('성명')))) { autoMap[i] = 'groom'; return; }
+              // 신부 이름: "신부" 단독 or "신부이름" or "신부명" or "신부성명"
+              if (/^신부(이름|명|성명)?$/.test(lower) || (lower.includes('신부') && (lower.includes('이름') || lower.includes('성명')))) { autoMap[i] = 'name'; return; }
+              // 신부 연락처
+              if (lower.includes('신부') && (lower.includes('연락') || lower.includes('전화') || lower.includes('phone') || lower.includes('핸드폰') || lower.includes('휴대') || lower.includes('번호'))) { autoMap[i] = 'phone'; return; }
+              // 신부 주소
+              if (lower.includes('신부') && (lower.includes('주소') || lower.includes('address') || lower.includes('배송'))) { autoMap[i] = 'address'; return; }
+              // 예식 날짜
+              if (lower.includes('예식') || lower.includes('웨딩') || lower.includes('결혼') || lower.includes('촬영') || lower.includes('날짜') || lower.includes('일시') || lower.includes('일자') || lower === 'date') { if (!Object.values(autoMap).includes('weddingDate')) autoMap[i] = 'weddingDate'; return; }
+              // 연락처 (신부 한정 아니어도)
+              if (lower.includes('연락') || lower.includes('전화') || lower.includes('핸드폰') || lower.includes('휴대') || lower.includes('phone') || lower === 'hp' || lower === 'tel') { if (!Object.values(autoMap).includes('phone')) autoMap[i] = 'phone'; return; }
+              // 주소
+              if (lower.includes('주소') || lower.includes('address') || lower.includes('배송')) { if (!Object.values(autoMap).includes('address')) autoMap[i] = 'address'; return; }
+            });
+            // 2차: 신부 전용 컬럼이 없으면 일반 이름 컬럼 매핑 (신랑 제외)
+            if (!Object.values(autoMap).includes('name')) {
+              hdrs.forEach((h, i) => {
+                if (autoMap[i]) return;
+                const lower = h.replace(/\s+/g, '').toLowerCase();
+                if (lower.includes('신랑')) return;
+                if (!Object.values(autoMap).includes('name') && (lower.includes('이름') || lower.includes('name') || lower.includes('성명'))) autoMap[i] = 'name';
+              });
+            }
+            // 3차: weddingDate 매핑이 없으면 데이터 값으로 날짜 컬럼 추정
+            if (!Object.values(autoMap).includes('weddingDate')) {
+              for (let i = 0; i < hdrs.length; i++) {
+                if (autoMap[i]) continue;
+                const sample = rows.slice(0, 5).map(r => r[i]).filter(v => v != null);
+                const isDate = sample.length > 0 && sample.every(v => {
+                  if (typeof v === 'number' && v > 30000 && v < 60000) return true;
+                  const s = String(v);
+                  return /^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/.test(s) || /^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}/.test(s);
+                });
+                if (isDate) { autoMap[i] = 'weddingDate'; break; }
+              }
+            }
+            console.log('자동 매핑 결과:', autoMap, hdrs.map((h,i) => `${i}:${h}→${autoMap[i]||'없음'}`));
+            setColumnMapping(autoMap);
+            // 이름 컬럼이 자동 감지되면 바로 데이터 적용
+            const hasName = Object.values(autoMap).includes('name');
+            if (hasName) {
+              const excelDateToStr = (v) => {
+                if (typeof v === 'number' && v > 30000 && v < 60000) {
+                  const d = new Date((v - 25569) * 86400000);
+                  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                }
+                return String(v || '').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+              };
+              const mapped = rows.map(row => {
+                const entry = {};
+                Object.entries(autoMap).forEach(([colIdx, field]) => {
+                  if (!field) return;
+                  const val = row[parseInt(colIdx)];
+                  entry[field] = field === 'weddingDate' ? excelDateToStr(val) : String(val || '').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+                });
+                return entry;
+              }).filter(e => e.name);
+              onDataLoaded(mapped);
+            }
+          } catch (err) {
+            alert('파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }, [onDataLoaded]);
+
+      const handleDrop = useCallback((e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        processFile(e.dataTransfer.files[0]);
+      }, [processFile]);
+
+      const confirmMapping = () => {
+        if (!previewData) return;
+        const nameCol = Object.entries(columnMapping).find(([, v]) => v === 'name');
+        if (!nameCol) { alert('이름 컬럼을 지정해주세요.'); return; }
+        const excelDateToStr = (v) => {
+          if (typeof v === 'number' && v > 30000 && v < 60000) {
+            const d = new Date((v - 25569) * 86400000);
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+          }
+          return String(v || '').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+        };
+        const mapped = previewData.map(row => {
+          const entry = {};
+          Object.entries(columnMapping).forEach(([colIdx, field]) => {
+            if (!field) return;
+            const val = row[parseInt(colIdx)];
+            entry[field] = field === 'weddingDate' ? excelDateToStr(val) : String(val || '').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+          });
+          return entry;
+        }).filter(e => e.name);
+        onDataLoaded(mapped);
+      };
+
+      return (
+        <Card className="p-5">
+          <SectionHeader icon={"\uD83D\uDCC2"} title="엑셀 파일 업로드" subtitle="신부 명단이 담긴 엑셀 파일을 업로드하세요" />
+
+          <div
+            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${isDragging ? 'drag-active' : 'border-gray-300 hover:border-pink-400 hover:bg-pink-50/30'}`}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => processFile(e.target.files[0])} />
+            <div className="text-4xl mb-3">{isDragging ? '\uD83D\uDCE5' : '\uD83D\uDCC4'}</div>
+            <p className="text-gray-600 font-medium">
+              {fileName ? fileName : '파일을 여기에 끌어다 놓거나 클릭하여 선택'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">.xlsx, .xls, .csv 형식 지원</p>
+          </div>
+
+          {previewData && (
+            <div className="mt-5 fade-in">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium text-gray-700">미리보기 ({previewData.length}건)</p>
+                <Button variant="primary" size="sm" onClick={confirmMapping}>컬럼 매핑 확인 및 적용</Button>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      {headers.map((h, i) => (
+                        <th key={i} className="px-3 py-2 text-left font-medium text-gray-600 border-b min-w-[120px]">
+                          <div className="mb-1">{h}</div>
+                          <select
+                            value={columnMapping[i] || ''}
+                            onChange={(e) => setColumnMapping(prev => {
+                              const next = { ...prev };
+                              // Remove previous mapping of same field
+                              Object.keys(next).forEach(k => { if (next[k] === e.target.value && e.target.value) delete next[k]; });
+                              if (e.target.value) next[i] = e.target.value; else delete next[i];
+                              return next;
+                            })}
+                            className="w-full text-xs border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-pink-500 bg-white"
+                          >
+                            {FIELD_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                          </select>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewData.slice(0, 5).map((row, ri) => (
+                      <tr key={ri} className="hover:bg-gray-50">
+                        {headers.map((_, ci) => (
+                          <td key={ci} className="px-3 py-2 border-b border-gray-100 text-gray-700 truncate max-w-[200px]">
+                            {row[ci] ?? ''}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {previewData.length > 5 && <p className="text-xs text-gray-400 mt-2 text-center">... 외 {previewData.length - 5}건</p>}
+            </div>
+          )}
+        </Card>
+      );
+    }
+
+    // ========================================
+    // Search & Duplicate Selection Component
+    // ========================================
+
+    function SearchSection({ excelData, onSelectPerson }) {
+      const [query, setQuery] = useState('');
+
+      const results = useMemo(() => {
+        if (!query.trim() || !excelData.length) return [];
+        const q = query.trim().replace(/\s+/g, '').toLowerCase();
+        return excelData.filter(p => {
+          if (!p.name) return false;
+          const name = p.name.replace(/\s+/g, '').toLowerCase();
+          return name.includes(q) || q.includes(name);
+        });
+      }, [query, excelData]);
+
+      const maskAddress = (addr) => {
+        if (!addr) return '-';
+        return addr.length > 10 ? addr.slice(0, 10) + '...' : addr;
+      };
+
+      return (
+        <Card className="p-5">
+          <SectionHeader icon={"\uD83D\uDD0D"} title="신부 검색" subtitle="엑셀 데이터에서 신부 이름을 검색합니다" />
+
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input
+              type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="신부 이름을 입력하세요..."
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            )}
+          </div>
+
+          {!excelData.length && query && (
+            <p className="mt-3 text-sm text-gray-400 text-center py-4">먼저 엑셀 파일을 업로드해주세요.</p>
+          )}
+
+          {query.trim() && results.length === 0 && excelData.length > 0 && (
+            <p className="mt-3 text-sm text-gray-400 text-center py-4">검색 결과가 없습니다.</p>
+          )}
+
+          {results.length > 0 && (
+            <div className="mt-3 fade-in">
+              {results.length > 1 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge color="yellow">동명이인 {results.length}명</Badge>
+                  <span className="text-xs text-gray-500">원하는 사람을 선택하세요</span>
+                </div>
+              )}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {results.map((person, idx) => (
+                  <button key={idx} onClick={() => { onSelectPerson(person); setQuery(''); }}
+                    className="text-left p-3 border border-gray-200 rounded-lg hover:border-pink-400 hover:bg-pink-50/50 transition-all group">
+                    <div className="font-medium text-gray-900 group-hover:text-pink-700">{person.name}</div>
+                    <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                      <div>신랑: <span className="font-medium text-gray-700">{person.groom || '-'}</span></div>
+                      <div>예식일: <span className="font-medium text-gray-700">{person.weddingDate || '-'}</span></div>
+                      {person.address && <div>주소: {maskAddress(person.address)}</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      );
+    }
+
+    // ========================================
+    // Registration Form Component
+    // ========================================
+
+    function RegistrationForm({ selectedPerson, onRegister, onClearSelection }) {
+      const emptyForm = { name: '', phone: '', address: '', contactConfirmed: false, addressConfirmed: false, albumSent: false, received: false };
+      const [form, setForm] = useState(emptyForm);
+      const [errors, setErrors] = useState({});
+
+      useEffect(() => {
+        if (selectedPerson) {
+          setForm(prev => ({
+            ...prev,
+            name: selectedPerson.name || '',
+            phone: selectedPerson.phone || '',
+            address: selectedPerson.address || '',
+          }));
+          setErrors({});
+        }
+      }, [selectedPerson]);
+
+      const validate = () => {
+        const e = {};
+        if (!form.name.trim()) e.name = '이름을 입력하세요';
+        if (!form.phone.trim()) e.phone = '연락처를 입력하세요';
+        if (!form.address.trim()) e.address = '주소를 입력하세요';
+        setErrors(e);
+        return Object.keys(e).length === 0;
+      };
+
+      const handleSubmit = () => {
+        if (!validate()) return;
+        onRegister({
+          id: Date.now().toString(),
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          address: form.address.trim(),
+          contactConfirmed: form.contactConfirmed,
+          addressConfirmed: form.addressConfirmed,
+          albumSent: form.albumSent,
+          received: form.received,
+          createdAt: new Date().toISOString(),
+        });
+        setForm(emptyForm);
+        setErrors({});
+        onClearSelection();
+      };
+
+      const handleReset = () => {
+        setForm(emptyForm);
+        setErrors({});
+        onClearSelection();
+      };
+
+      return (
+        <Card className="p-5">
+          <SectionHeader icon={"\u270D\uFE0F"} title="신부 정보 등록"
+            subtitle={selectedPerson ? `"${selectedPerson.name}" 정보가 자동 입력되었습니다` : '신부 정보를 직접 입력하거나 검색 후 선택하세요'}
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Input label="신부 이름" required value={form.name} error={errors.name}
+              onChange={e => setForm(p => ({...p, name: e.target.value}))} placeholder="홍길동" />
+            <Input label="연락처" required value={form.phone} error={errors.phone} type="tel"
+              onChange={e => setForm(p => ({...p, phone: e.target.value}))} placeholder="010-1234-5678" />
+            <Input label="앨범 받을 주소" required value={form.address} error={errors.address} className="sm:col-span-2 lg:col-span-1"
+              onChange={e => setForm(p => ({...p, address: e.target.value}))} placeholder="서울시 강남구..." />
+          </div>
+
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 mb-2">상태 체크</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Checkbox label="연락처 확인 완료" checked={form.contactConfirmed}
+                onChange={v => setForm(p => ({...p, contactConfirmed: v}))} />
+              <Checkbox label="주소 확인 완료" checked={form.addressConfirmed}
+                onChange={v => setForm(p => ({...p, addressConfirmed: v}))} />
+              <Checkbox label="앨범 발송 완료" checked={form.albumSent}
+                onChange={v => setForm(p => ({...p, albumSent: v}))} />
+              <Checkbox label="수령 확인" checked={form.received}
+                onChange={v => setForm(p => ({...p, received: v}))} />
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <Button onClick={handleSubmit}>추가</Button>
+            <Button variant="ghost" onClick={handleReset}>초기화</Button>
+          </div>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // Management List Component
+    // ========================================
+
+    function ManagementList({ entries, onUpdate, onDelete }) {
+      const [filter, setFilter] = useState('all');
+      const [editId, setEditId] = useState(null);
+      const [editForm, setEditForm] = useState(null);
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+      const filters = [
+        { key: 'all', label: '전체', color: 'gray' },
+        { key: 'pending', label: '미발송', color: 'yellow' },
+        { key: 'sent', label: '발송완료', color: 'blue' },
+        { key: 'received', label: '수령확인', color: 'green' },
+      ];
+
+      const filtered = useMemo(() => {
+        switch (filter) {
+          case 'pending': return entries.filter(e => !e.albumSent);
+          case 'sent': return entries.filter(e => e.albumSent && !e.received);
+          case 'received': return entries.filter(e => e.received);
+          default: return entries;
+        }
+      }, [entries, filter]);
+
+      const stats = useMemo(() => ({
+        total: entries.length,
+        pending: entries.filter(e => !e.albumSent).length,
+        sent: entries.filter(e => e.albumSent && !e.received).length,
+        received: entries.filter(e => e.received).length,
+      }), [entries]);
+
+      const exportToExcel = () => {
+        if (!entries.length) { alert('내보낼 데이터가 없습니다.'); return; }
+        const data = entries.map(e => ({
+          '이름': e.name,
+          '연락처': e.phone,
+          '주소': e.address,
+          '연락처 확인': e.contactConfirmed ? 'O' : 'X',
+          '주소 확인': e.addressConfirmed ? 'O' : 'X',
+          '앨범 발송': e.albumSent ? 'O' : 'X',
+          '수령 확인': e.received ? 'O' : 'X',
+          '등록일': new Date(e.createdAt).toLocaleDateString('ko-KR'),
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '신부앨범관리');
+        XLSX.writeFile(wb, `신부앨범관리_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      };
+
+      const startEdit = (entry) => {
+        setEditId(entry.id);
+        setEditForm({ ...entry });
+      };
+
+      const saveEdit = () => {
+        if (!editForm.name.trim() || !editForm.phone.trim() || !editForm.address.trim()) {
+          alert('이름, 연락처, 주소는 필수입니다.');
+          return;
+        }
+        onUpdate(editForm);
+        setEditId(null);
+        setEditForm(null);
+      };
+
+      const StatusIcon = ({ checked }) => (
+        checked
+          ? <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
+            </span>
+          : <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-400">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"/></svg>
+            </span>
+      );
+
+      return (
+        <Card className="p-5">
+          <SectionHeader icon={"\uD83D\uDCCB"} title="관리 목록"
+            subtitle={`총 ${stats.total}명 | 미발송 ${stats.pending} | 발송완료 ${stats.sent} | 수령확인 ${stats.received}`}
+            action={<Button variant="success" size="sm" onClick={exportToExcel} disabled={!entries.length}>엑셀 내보내기</Button>}
+          />
+
+          {/* Filter Tabs */}
+          <div className="flex gap-1 mb-4 p-1 bg-gray-100 rounded-lg">
+            {filters.map(f => (
+              <button key={f.key} onClick={() => setFilter(f.key)}
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${filter === f.key ? 'bg-white shadow-sm text-pink-700' : 'text-gray-500 hover:text-gray-700'}`}>
+                {f.label}
+                <span className="ml-1 text-xs">({f.key === 'all' ? stats.total : stats[f.key]})</span>
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <div className="text-4xl mb-2">{entries.length === 0 ? '\uD83D\uDCED' : '\uD83D\uDD0D'}</div>
+              <p className="text-sm">{entries.length === 0 ? '등록된 신부가 없습니다. 위에서 추가해주세요.' : '해당 필터에 맞는 데이터가 없습니다.'}</p>
+            </div>
+          ) : (
+            <>
+              {/* Mobile Cards */}
+              <div className="sm:hidden space-y-3">
+                {filtered.map(entry => (
+                  <div key={entry.id} className="border border-gray-200 rounded-lg p-4 fade-in">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-bold text-gray-900">{entry.name}</p>
+                        <p className="text-xs text-gray-500">{entry.phone}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => startEdit(entry)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                        <button onClick={() => setDeleteConfirm(entry.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2 truncate">{entry.address}</p>
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div><StatusIcon checked={entry.contactConfirmed}/><div className="text-[10px] text-gray-500 mt-0.5">연락처</div></div>
+                      <div><StatusIcon checked={entry.addressConfirmed}/><div className="text-[10px] text-gray-500 mt-0.5">주소</div></div>
+                      <div><StatusIcon checked={entry.albumSent}/><div className="text-[10px] text-gray-500 mt-0.5">발송</div></div>
+                      <div><StatusIcon checked={entry.received}/><div className="text-[10px] text-gray-500 mt-0.5">수령</div></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table */}
+              <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">이름</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">연락처</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">주소</th>
+                      <th className="px-3 py-3 text-center font-semibold text-gray-600">연락처확인</th>
+                      <th className="px-3 py-3 text-center font-semibold text-gray-600">주소확인</th>
+                      <th className="px-3 py-3 text-center font-semibold text-gray-600">발송</th>
+                      <th className="px-3 py-3 text-center font-semibold text-gray-600">수령</th>
+                      <th className="px-3 py-3 text-center font-semibold text-gray-600">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(entry => (
+                      <tr key={entry.id} className="hover:bg-gray-50 border-t border-gray-100">
+                        <td className="px-4 py-3 font-medium text-gray-900">{entry.name}</td>
+                        <td className="px-4 py-3 text-gray-600">{entry.phone}</td>
+                        <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{entry.address}</td>
+                        <td className="px-3 py-3 text-center"><StatusIcon checked={entry.contactConfirmed}/></td>
+                        <td className="px-3 py-3 text-center"><StatusIcon checked={entry.addressConfirmed}/></td>
+                        <td className="px-3 py-3 text-center"><StatusIcon checked={entry.albumSent}/></td>
+                        <td className="px-3 py-3 text-center"><StatusIcon checked={entry.received}/></td>
+                        <td className="px-3 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => startEdit(entry)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="수정">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button onClick={() => setDeleteConfirm(entry.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="삭제">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* Edit Modal */}
+          <Modal isOpen={!!editId} onClose={() => { setEditId(null); setEditForm(null); }} title="신부 정보 수정">
+            {editForm && (
+              <div className="space-y-4">
+                <Input label="이름" required value={editForm.name}
+                  onChange={e => setEditForm(p => ({...p, name: e.target.value}))} />
+                <Input label="연락처" required value={editForm.phone} type="tel"
+                  onChange={e => setEditForm(p => ({...p, phone: e.target.value}))} />
+                <Input label="주소" required value={editForm.address}
+                  onChange={e => setEditForm(p => ({...p, address: e.target.value}))} />
+                <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+                  <Checkbox label="연락처 확인 완료" checked={editForm.contactConfirmed}
+                    onChange={v => setEditForm(p => ({...p, contactConfirmed: v}))} />
+                  <Checkbox label="주소 확인 완료" checked={editForm.addressConfirmed}
+                    onChange={v => setEditForm(p => ({...p, addressConfirmed: v}))} />
+                  <Checkbox label="앨범 발송 완료" checked={editForm.albumSent}
+                    onChange={v => setEditForm(p => ({...p, albumSent: v}))} />
+                  <Checkbox label="수령 확인" checked={editForm.received}
+                    onChange={v => setEditForm(p => ({...p, received: v}))} />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button variant="secondary" onClick={() => { setEditId(null); setEditForm(null); }}>취소</Button>
+                  <Button onClick={saveEdit}>저장</Button>
+                </div>
+              </div>
+            )}
+          </Modal>
+
+          {/* Delete Confirm Modal */}
+          <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="삭제 확인">
+            <p className="text-sm text-gray-600 mb-5">이 신부 정보를 정말 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>취소</Button>
+              <Button variant="danger" onClick={() => { onDelete(deleteConfirm); setDeleteConfirm(null); }}>삭제</Button>
+            </div>
+          </Modal>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // App Component
+    // ========================================
+
+    function App() {
+      const STORAGE_KEY = 'bride_album_entries';
+
+      const [excelData, setExcelData] = useState([]);
+      const [selectedPerson, setSelectedPerson] = useState(null);
+      const [entries, setEntries] = useState(() => {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+      });
+
+      useEffect(() => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      }, [entries]);
+
+      const handleRegister = (entry) => {
+        setEntries(prev => [entry, ...prev]);
+      };
+
+      const handleUpdate = (updated) => {
+        setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+      };
+
+      const handleDelete = (id) => {
+        setEntries(prev => prev.filter(e => e.id !== id));
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50">
+          {/* Header */}
+          <header className="bg-white/80 backdrop-blur-sm border-b border-pink-100 sticky top-0 z-30">
+            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl flex items-center justify-center text-white text-lg shadow-sm">
+                  {'\uD83D\uDC92'}
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-gray-900">신부 앨범 관리</h1>
+                  <p className="text-xs text-gray-500">Wedding Bride Album Manager</p>
+                </div>
+              </div>
+              <Badge color="pink">{entries.length}명 관리 중</Badge>
+            </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+            <ExcelUpload onDataLoaded={setExcelData} />
+            <SearchSection excelData={excelData} onSelectPerson={setSelectedPerson} />
+            <RegistrationForm selectedPerson={selectedPerson} onRegister={handleRegister} onClearSelection={() => setSelectedPerson(null)} />
+            <ManagementList entries={entries} onUpdate={handleUpdate} onDelete={handleDelete} />
+          </main>
+
+          {/* Footer */}
+          <footer className="text-center py-6 text-xs text-gray-400">
+            신부 앨범 관리 시스템
+          </footer>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
