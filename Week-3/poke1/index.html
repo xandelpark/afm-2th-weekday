@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>포켓몬 도감</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; }
+
+    .type-fire { background: #EE8130; }
+    .type-water { background: #6390F0; }
+    .type-electric { background: #F7D02C; color: #333; }
+    .type-grass { background: #7AC74C; }
+    .type-psychic { background: #F95587; }
+    .type-normal { background: #A8A77A; }
+    .type-flying { background: #A98FF3; }
+    .type-poison { background: #A33EA1; }
+
+    .card-enter { animation: cardIn 0.5s ease-out forwards; }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(40px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .stat-bar-fill { transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
+
+    .pokemon-img {
+      filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4));
+      transition: transform 0.3s ease;
+    }
+    .pokemon-img:hover { transform: scale(1.08) rotate(-2deg); }
+
+    .glow-red { box-shadow: 0 0 40px rgba(239,68,68,0.15); }
+  </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const POKEMON = [
+      {
+        id: 25, name: '피카츄', en: 'Pikachu',
+        types: ['전기'], height: 0.4, weight: 6.0, exp: 112,
+        img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png',
+        abilities: ['정전기', '피뢰침'],
+        desc: '꼬리를 세워서 주변의 상태를 살핀다. 자주 번개를 맞기 때문에 땅에 그을린 곳이 있으면 피카츄가 사는 곳이다.',
+        stats: { hp: 35, attack: 55, defense: 40, spAtk: 50, spDef: 50, speed: 90 }
+      },
+      {
+        id: 6, name: '리자몽', en: 'Charizard',
+        types: ['불꽃', '비행'], height: 1.7, weight: 90.5, exp: 267,
+        img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png',
+        abilities: ['맹화', '선파워'],
+        desc: '불꽃을 내뿜어 무엇이든 녹여 버린다. 산불을 일으키는 일도 있어서 문제가 되는 경우가 있다.',
+        stats: { hp: 78, attack: 84, defense: 78, spAtk: 109, spDef: 85, speed: 100 }
+      },
+      {
+        id: 150, name: '뮤츠', en: 'Mewtwo',
+        types: ['에스퍼'], height: 2.0, weight: 122.0, exp: 340,
+        img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/150.png',
+        abilities: ['프레셔', '긴장감'],
+        desc: '유전자 조작으로 만들어졌다. 인간의 과학력으로 몸은 만들 수 있었지만 마음씨가 착한 포켓몬은 만들 수 없었다.',
+        stats: { hp: 106, attack: 110, defense: 90, spAtk: 154, spDef: 90, speed: 130 }
+      },
+      {
+        id: 133, name: '이브이', en: 'Eevee',
+        types: ['노말'], height: 0.3, weight: 6.5, exp: 65,
+        img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/133.png',
+        abilities: ['도주', '적응력'],
+        desc: '불안정한 유전자를 가지고 있어서 주위 환경에 따라 다양한 모습으로 진화할 가능성을 가진다.',
+        stats: { hp: 55, attack: 55, defense: 50, spAtk: 45, spDef: 65, speed: 55 }
+      },
+      {
+        id: 94, name: '팬텀', en: 'Gengar',
+        types: ['고스트', '독'], height: 1.5, weight: 40.5, exp: 250,
+        img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png',
+        abilities: ['저주받은바디', '부유'],
+        desc: '깊은 어둠 속에 숨어 있다. 주위의 온도가 5도 정도 내려가면 팬텀이 가까이 있다는 증거이다.',
+        stats: { hp: 60, attack: 65, defense: 60, spAtk: 130, spDef: 75, speed: 110 }
+      }
+    ];
+
+    const TYPE_CLASS = {
+      '전기': 'type-electric', '불꽃': 'type-fire', '비행': 'type-flying',
+      '에스퍼': 'type-psychic', '노말': 'type-normal', '고스트': 'type-ghost',
+      '독': 'type-poison', '물': 'type-water', '풀': 'type-grass',
+    };
+
+    const STAT_LABELS = { hp: 'HP', attack: '공격', defense: '방어', spAtk: '특수공격', spDef: '특수방어', speed: '스피드' };
+    const STAT_COLORS = { hp: '#FF5959', attack: '#F5AC78', defense: '#FAE078', spAtk: '#9DB7F5', spDef: '#A7DB8D', speed: '#FA92B2' };
+
+    function StatBar({ statKey, value }) {
+      const [w, setW] = useState(0);
+      useEffect(() => { const t = setTimeout(() => setW((value / 255) * 100), 150); return () => clearTimeout(t); }, [value]);
+      return (
+        <div className="flex items-center gap-3 text-sm">
+          <span className="w-20 text-right text-gray-400 font-medium shrink-0">{STAT_LABELS[statKey]}</span>
+          <span className="w-10 text-right font-bold shrink-0">{value}</span>
+          <div className="flex-1 bg-gray-700/50 rounded-full h-3 overflow-hidden">
+            <div className="stat-bar-fill h-full rounded-full" style={{ width: `${w}%`, background: STAT_COLORS[statKey] }} />
+          </div>
+        </div>
+      );
+    }
+
+    function PokemonCard({ p }) {
+      const mainType = p.types[0];
+      const total = Object.values(p.stats).reduce((a, b) => a + b, 0);
+      return (
+        <div className="card-enter max-w-2xl mx-auto">
+          <div className="rounded-3xl overflow-hidden shadow-2xl border border-gray-700/50 glow-red" style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)' }}>
+            {/* Header */}
+            <div className={`${TYPE_CLASS[mainType] || 'type-normal'} p-6 relative overflow-hidden`}>
+              <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/10" />
+              <div className="flex justify-between items-start relative z-10">
+                <div>
+                  <p className="text-white/60 text-sm font-bold">#{String(p.id).padStart(4, '0')}</p>
+                  <h2 className="text-4xl font-black mt-1">{p.name}</h2>
+                  <p className="text-white/70 capitalize">{p.en}</p>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {p.types.map(t => (
+                    <span key={t} className={`${TYPE_CLASS[t] || ''} px-4 py-1 rounded-full text-sm font-bold shadow-lg border border-white/20`}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Image */}
+            <div className="flex justify-center -mt-4 mb-2">
+              <img src={p.img} alt={p.name} className="pokemon-img w-56 h-56 object-contain" />
+            </div>
+
+            <div className="px-6 pb-6 space-y-5">
+              {/* Desc */}
+              <p className="text-gray-300 text-center text-sm leading-relaxed bg-gray-800/50 rounded-xl p-4 italic">"{p.desc}"</p>
+
+              {/* Info */}
+              <div className="grid grid-cols-3 gap-4 text-center">
+                {[['키', `${p.height}m`], ['몸무게', `${p.weight}kg`], ['경험치', p.exp]].map(([label, val]) => (
+                  <div key={label} className="bg-gray-800/50 rounded-xl p-3">
+                    <p className="text-gray-500 text-xs mb-1">{label}</p>
+                    <p className="font-bold text-lg">{val}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Abilities */}
+              <div>
+                <h3 className="text-sm text-gray-500 uppercase tracking-wider mb-2 font-bold">특성</h3>
+                <div className="flex gap-2">
+                  {p.abilities.map((a, i) => (
+                    <span key={a} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${i === p.abilities.length - 1 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-gray-700/50 text-gray-300'}`}>
+                      {a}{i === p.abilities.length - 1 && <span className="ml-1 text-xs opacity-60">(숨겨진)</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm text-gray-500 uppercase tracking-wider font-bold">능력치</h3>
+                  <span className="text-xs text-gray-500">합계: <span className="text-white font-bold text-sm">{total}</span></span>
+                </div>
+                <div className="space-y-2.5">
+                  {Object.entries(p.stats).map(([k, v]) => <StatBar key={k} statKey={k} value={v} />)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [selected, setSelected] = useState(null);
+
+      return (
+        <div className="min-h-screen pb-12">
+          <header className="pt-10 pb-6 text-center">
+            <h1 className="text-5xl font-black"><span className="text-red-500">Poke</span><span className="text-white">Dex</span></h1>
+            <p className="text-gray-500 mt-2">포켓몬을 선택해서 상세 정보를 확인하세요</p>
+          </header>
+
+          {/* Pokemon selector */}
+          <div className="max-w-2xl mx-auto px-4 mb-8">
+            <div className="flex flex-wrap justify-center gap-3">
+              {POKEMON.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelected(p)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 transition-all duration-200 ${
+                    selected?.id === p.id
+                      ? 'border-red-500 bg-red-500/10 scale-105 shadow-lg shadow-red-500/20'
+                      : 'border-gray-700 bg-gray-800/60 hover:border-gray-500 hover:bg-gray-700/60'
+                  }`}
+                >
+                  <img src={p.img} alt={p.name} className="w-10 h-10 object-contain" />
+                  <div className="text-left">
+                    <p className="text-sm font-bold leading-tight">{p.name}</p>
+                    <p className="text-xs text-gray-500">#{String(p.id).padStart(3, '0')}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Detail */}
+          <div className="px-4">
+            {selected ? (
+              <PokemonCard key={selected.id} p={selected} />
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-6xl mb-4">👆</p>
+                <p className="text-gray-500 text-lg">위에서 포켓몬을 선택해 주세요</p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
