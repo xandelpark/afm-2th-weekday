@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NASA APOD — 오늘의 천문학 사진</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@300;400;500;600&family=Noto+Serif+KR:wght@400;700;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'display': ['"Playfair Display"', '"Noto Serif KR"', 'serif'],
+            'body': ['"Source Serif 4"', '"Noto Serif KR"', 'serif'],
+            'sans': ['"Inter"', 'sans-serif'],
+          },
+          colors: {
+            'mag': {
+              'bg': '#0a0a0f',
+              'surface': '#12121a',
+              'accent': '#c9a84c',
+              'accent2': '#8b6914',
+              'text': '#e8e4dc',
+              'muted': '#9a9590',
+              'border': '#2a2a35',
+              'highlight': '#1e1e2a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0a0a0f;
+      color: #e8e4dc;
+    }
+
+    .magazine-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .magazine-divider::before,
+    .magazine-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #c9a84c, transparent);
+    }
+
+    .hero-image-container {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-image-container::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60%;
+      background: linear-gradient(to top, #0a0a0f 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .drop-cap::first-letter {
+      float: left;
+      font-family: 'Playfair Display', serif;
+      font-size: 4.5rem;
+      line-height: 0.8;
+      padding-right: 0.6rem;
+      padding-top: 0.15rem;
+      color: #c9a84c;
+      font-weight: 900;
+    }
+
+    .text-balance {
+      text-wrap: balance;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.8s ease-out forwards;
+    }
+    .animate-delay-1 { animation-delay: 0.2s; opacity: 0; }
+    .animate-delay-2 { animation-delay: 0.4s; opacity: 0; }
+    .animate-delay-3 { animation-delay: 0.6s; opacity: 0; }
+    .animate-delay-4 { animation-delay: 0.8s; opacity: 0; }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #1a1a25 25%, #252535 50%, #1a1a25 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+    }
+
+    @keyframes starTwinkle {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      animation: starTwinkle var(--duration) ease-in-out infinite;
+      animation-delay: var(--delay);
+    }
+
+    .pullquote {
+      position: relative;
+      padding: 2rem 0;
+    }
+    .pullquote::before {
+      content: '\201C';
+      font-family: 'Playfair Display', serif;
+      font-size: 6rem;
+      color: #c9a84c;
+      opacity: 0.3;
+      position: absolute;
+      top: -1rem;
+      left: -0.5rem;
+      line-height: 1;
+    }
+
+    .image-zoom {
+      transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .image-zoom:hover {
+      transform: scale(1.02);
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a0f; }
+    ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #c9a84c; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========================================
+    // 🔧 Constants & API
+    // ========================================
+    const NASA_API_KEY = 'b2Jci38jaf2lPyfegtjV5SNnQmMU0y1hbX2qaGWH';
+    const APOD_URL = `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`;
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+    function StarField() {
+      const stars = useMemo(() =>
+        Array.from({ length: 60 }, (_, i) => ({
+          id: i,
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          duration: `${2 + Math.random() * 4}s`,
+          delay: `${Math.random() * 3}s`,
+          size: Math.random() > 0.8 ? '3px' : '2px',
+        }))
+      , []);
+
+      return (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+          {stars.map(s => (
+            <div
+              key={s.id}
+              className="star"
+              style={{
+                left: s.left,
+                top: s.top,
+                width: s.size,
+                height: s.size,
+                '--duration': s.duration,
+                '--delay': s.delay,
+              }}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    function MagazineHeader() {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long',
+      });
+      const volumeNum = Math.floor((today.getTime() - new Date('1995-06-16').getTime()) / (1000 * 60 * 60 * 24));
+
+      return (
+        <header className="relative z-10 border-b border-mag-border">
+          <div className="max-w-6xl mx-auto px-4 sm:px-8">
+            {/* Top bar */}
+            <div className="flex justify-between items-center py-3 text-xs font-sans text-mag-muted tracking-widest uppercase border-b border-mag-border/50">
+              <span>Vol. {volumeNum} — Daily Edition</span>
+              <span>{dateStr}</span>
+            </div>
+
+            {/* Masthead */}
+            <div className="py-6 sm:py-10 text-center">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <div className="h-px w-12 bg-mag-accent"></div>
+                <span className="text-mag-accent font-sans text-[10px] tracking-[0.4em] uppercase">National Aeronautics and Space Administration</span>
+                <div className="h-px w-12 bg-mag-accent"></div>
+              </div>
+              <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none">
+                <span className="text-mag-accent">ASTRO</span>
+                <span className="text-mag-text">DAILY</span>
+              </h1>
+              <p className="font-display italic text-sm sm:text-base text-mag-muted mt-2 tracking-wide">
+                Astronomy Picture of the Day — 오늘의 천문학 사진
+              </p>
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    function LoadingSkeleton() {
+      return (
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12">
+          <div className="skeleton h-[50vh] sm:h-[65vh] w-full mb-10 rounded-sm"></div>
+          <div className="max-w-3xl mx-auto space-y-4">
+            <div className="skeleton h-10 w-3/4 mx-auto"></div>
+            <div className="skeleton h-5 w-1/2 mx-auto"></div>
+            <div className="mt-8 space-y-3">
+              <div className="skeleton h-4 w-full"></div>
+              <div className="skeleton h-4 w-full"></div>
+              <div className="skeleton h-4 w-5/6"></div>
+              <div className="skeleton h-4 w-full"></div>
+              <div className="skeleton h-4 w-4/6"></div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ErrorDisplay({ error, onRetry }) {
+      return (
+        <div className="max-w-2xl mx-auto px-4 py-24 text-center">
+          <div className="text-6xl mb-6">🔭</div>
+          <h2 className="font-display text-2xl sm:text-3xl text-mag-text mb-4">
+            우주와의 연결이 끊어졌습니다
+          </h2>
+          <p className="font-body text-mag-muted mb-8 leading-relaxed">
+            NASA 서버에서 오늘의 천문학 사진을 가져오는 데 실패했습니다.<br />
+            <span className="text-sm opacity-70">{error}</span>
+          </p>
+          <button
+            onClick={onRetry}
+            className="px-8 py-3 bg-mag-accent text-mag-bg font-sans font-semibold text-sm tracking-wider uppercase rounded-sm hover:bg-mag-accent2 transition-colors"
+          >
+            다시 시도
+          </button>
+        </div>
+      );
+    }
+
+    function SectionDivider({ children }) {
+      return (
+        <div className="magazine-divider my-8 sm:my-12 text-mag-accent font-sans text-[10px] tracking-[0.5em] uppercase">
+          {children}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Hero Section — 메인 이미지
+    // ========================================
+    function HeroImage({ data }) {
+      const [loaded, setLoaded] = useState(false);
+      const isVideo = data.media_type === 'video';
+
+      return (
+        <section className="relative z-10 animate-fade-in-up">
+          <div className="hero-image-container max-w-7xl mx-auto">
+            {isVideo ? (
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  src={data.url}
+                  title={data.title}
+                  className="absolute inset-0 w-full h-full"
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                {!loaded && (
+                  <div className="skeleton w-full" style={{ height: '65vh' }}></div>
+                )}
+                <img
+                  src={data.hdurl || data.url}
+                  alt={data.title}
+                  className={`w-full object-cover image-zoom ${loaded ? 'block' : 'hidden'}`}
+                  style={{ maxHeight: '80vh' }}
+                  onLoad={() => setLoaded(true)}
+                />
+                {loaded && (
+                  <div className="absolute bottom-6 right-6 z-10">
+                    <a
+                      href={data.hdurl || data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-black/60 backdrop-blur-sm text-mag-accent text-xs font-sans tracking-wider uppercase border border-mag-accent/30 hover:bg-mag-accent hover:text-mag-bg transition-all rounded-sm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                      HD 원본 보기
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 Article Section — 본문
+    // ========================================
+    function ArticleBody({ data }) {
+      const dateObj = new Date(data.date + 'T00:00:00');
+      const formattedDate = dateObj.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      const explanation = data.explanation || '';
+      const sentences = explanation.split(/(?<=\.)\s+/);
+      const pullquoteText = sentences.length > 2
+        ? sentences.slice(0, 2).join(' ')
+        : sentences[0] || '';
+      const bodyText = sentences.length > 2
+        ? sentences.slice(2).join(' ')
+        : '';
+
+      return (
+        <article className="relative z-10 max-w-3xl mx-auto px-4 sm:px-8">
+          {/* Title Block */}
+          <div className="text-center mt-8 sm:mt-12 animate-fade-in-up animate-delay-1">
+            <span className="inline-block font-sans text-[10px] tracking-[0.5em] uppercase text-mag-accent mb-4 border border-mag-accent/30 px-4 py-1">
+              오늘의 사진
+            </span>
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-black leading-tight text-balance text-mag-text mt-2">
+              {data.title}
+            </h2>
+            <div className="flex items-center justify-center gap-4 mt-6 font-sans text-xs text-mag-muted tracking-wider">
+              <time dateTime={data.date}>{formattedDate}</time>
+              {data.copyright && (
+                <>
+                  <span className="text-mag-accent">|</span>
+                  <span>Credit: {data.copyright.trim()}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <SectionDivider>Feature</SectionDivider>
+
+          {/* Pull Quote */}
+          {pullquoteText && (
+            <div className="pullquote my-8 sm:my-12 animate-fade-in-up animate-delay-2">
+              <p className="font-display italic text-xl sm:text-2xl lg:text-[1.7rem] leading-relaxed text-mag-text/90 pl-4 border-l-2 border-mag-accent/40">
+                {pullquoteText}
+              </p>
+            </div>
+          )}
+
+          {/* Body Text */}
+          {bodyText && (
+            <div className="animate-fade-in-up animate-delay-3">
+              <p className="font-body text-base sm:text-lg leading-[1.9] text-mag-text/85 drop-cap">
+                {bodyText}
+              </p>
+            </div>
+          )}
+
+          {/* If short text, show all as body */}
+          {!bodyText && explanation && (
+            <div className="animate-fade-in-up animate-delay-3">
+              <p className="font-body text-base sm:text-lg leading-[1.9] text-mag-text/85 drop-cap">
+                {explanation}
+              </p>
+            </div>
+          )}
+        </article>
+      );
+    }
+
+    // ========================================
+    // 📄 Past Days Section — 지난 APOD
+    // ========================================
+    function PastApodCard({ item, index }) {
+      const [loaded, setLoaded] = useState(false);
+      const isVideo = item.media_type === 'video';
+      const thumbUrl = isVideo
+        ? `https://img.youtube.com/vi/${item.url.match(/embed\/([^?]+)/)?.[1]}/hqdefault.jpg`
+        : item.url;
+
+      const dateObj = new Date(item.date + 'T00:00:00');
+      const dateStr = dateObj.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+
+      return (
+        <div
+          className="group cursor-pointer animate-fade-in-up"
+          style={{ animationDelay: `${0.1 * index}s`, opacity: 0 }}
+        >
+          <div className="relative overflow-hidden rounded-sm aspect-[4/3] bg-mag-surface mb-3">
+            {!loaded && <div className="skeleton absolute inset-0"></div>}
+            <img
+              src={thumbUrl}
+              alt={item.title}
+              className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${loaded ? '' : 'opacity-0'}`}
+              onLoad={() => setLoaded(true)}
+              onError={(e) => {
+                e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect fill="%2312121a" width="400" height="300"/><text x="200" y="150" text-anchor="middle" fill="%239a9590" font-size="14">No Image</text></svg>';
+                setLoaded(true);
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-mag-bg/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute top-3 left-3 bg-mag-bg/70 backdrop-blur-sm px-2 py-1 text-[10px] font-sans tracking-wider text-mag-accent uppercase">
+              {dateStr}
+            </div>
+            {isVideo && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-mag-accent/80 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-mag-bg ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M6.5 5.5v9l7-4.5-7-4.5z"/>
+                  </svg>
+                </div>
+              </div>
+            )}
+          </div>
+          <h3 className="font-display text-sm font-bold text-mag-text group-hover:text-mag-accent transition-colors line-clamp-2 leading-snug">
+            {item.title}
+          </h3>
+        </div>
+      );
+    }
+
+    function PastApodGrid({ items }) {
+      if (!items || items.length === 0) return null;
+
+      return (
+        <section className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 mt-4">
+          <SectionDivider>Archive</SectionDivider>
+          <div className="text-center mb-8">
+            <h2 className="font-display text-2xl sm:text-3xl font-black text-mag-text">
+              이번 주의 <span className="text-mag-accent">천문학 사진</span>
+            </h2>
+            <p className="font-sans text-xs text-mag-muted tracking-wider mt-2 uppercase">
+              Recent Selections from the NASA APOD Archive
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {items.map((item, i) => (
+              <PastApodCard key={item.date} item={item} index={i} />
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 Info Sidebar — 부가 정보
+    // ========================================
+    function InfoPanel({ data }) {
+      const facts = [
+        { label: '미디어 유형', value: data.media_type === 'image' ? '이미지' : '동영상' },
+        { label: '날짜', value: data.date },
+        { label: '저작권', value: data.copyright?.trim() || 'Public Domain (NASA)' },
+        { label: '서비스', value: 'NASA APOD (est. 1995)' },
+      ];
+
+      return (
+        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-8 mt-12 sm:mt-16 animate-fade-in-up animate-delay-4">
+          <div className="bg-mag-surface/50 border border-mag-border rounded-sm p-6 sm:p-8">
+            <h3 className="font-sans text-[10px] tracking-[0.5em] uppercase text-mag-accent mb-6">
+              Image Data
+            </h3>
+            <div className="grid grid-cols-2 gap-y-4 gap-x-8">
+              {facts.map((f) => (
+                <div key={f.label}>
+                  <dt className="font-sans text-[11px] text-mag-muted uppercase tracking-wider">{f.label}</dt>
+                  <dd className="font-body text-sm text-mag-text mt-0.5">{f.value}</dd>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 Footer
+    // ========================================
+    function MagazineFooter() {
+      return (
+        <footer className="relative z-10 border-t border-mag-border mt-16 sm:mt-24">
+          <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
+              <div>
+                <span className="font-display text-lg font-black">
+                  <span className="text-mag-accent">ASTRO</span>
+                  <span className="text-mag-text">DAILY</span>
+                </span>
+                <p className="font-sans text-[10px] text-mag-muted tracking-widest uppercase mt-1">
+                  Powered by NASA Open API
+                </p>
+              </div>
+              <p className="font-sans text-xs text-mag-muted leading-relaxed max-w-md">
+                APOD(Astronomy Picture of the Day)는 1995년 6월 16일부터 NASA에서 매일 선정하는 천문학 사진입니다.
+                각 사진에는 전문 천문학자가 작성한 해설이 함께 제공됩니다.
+              </p>
+            </div>
+            <div className="mt-6 pt-6 border-t border-mag-border/50 text-center">
+              <p className="font-sans text-[10px] text-mag-muted/60 tracking-widest uppercase">
+                &copy; {new Date().getFullYear()} AstroDaily Magazine — Data courtesy of NASA
+              </p>
+            </div>
+          </div>
+        </footer>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+    function App() {
+      const [todayData, setTodayData] = useState(null);
+      const [pastData, setPastData] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
+      const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          // Fetch today's APOD
+          const todayRes = await fetch(APOD_URL);
+          if (!todayRes.ok) throw new Error(`API 오류: ${todayRes.status}`);
+          const todayJson = await todayRes.json();
+          setTodayData(todayJson);
+
+          // Fetch past 8 days for archive grid
+          const endDate = new Date();
+          endDate.setDate(endDate.getDate() - 1);
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - 8);
+          const fmt = (d) => d.toISOString().split('T')[0];
+
+          const pastRes = await fetch(
+            `${APOD_URL}&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}`
+          );
+          if (pastRes.ok) {
+            const pastJson = await pastRes.json();
+            setPastData(pastJson.reverse());
+          }
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      useEffect(() => {
+        fetchData();
+      }, [fetchData]);
+
+      return (
+        <div className="min-h-screen relative">
+          <StarField />
+          <MagazineHeader />
+
+          {loading && <LoadingSkeleton />}
+          {error && <ErrorDisplay error={error} onRetry={fetchData} />}
+
+          {!loading && !error && todayData && (
+            <>
+              <HeroImage data={todayData} />
+              <ArticleBody data={todayData} />
+              <InfoPanel data={todayData} />
+              <PastApodGrid items={pastData} />
+            </>
+          )}
+
+          <MagazineFooter />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🎬 Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
