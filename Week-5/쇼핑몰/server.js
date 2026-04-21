@@ -27,6 +27,11 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// 관리자 앱 명시적 fallback (한글 경로 + Vercel Serverless 환경 호환)
+app.get(["/관리자", "/관리자/"], (req, res) => {
+  res.sendFile(path.join(__dirname, "관리자", "index.html"));
+});
+
 // ── 미들웨어 ──────────────────────────────────────────────────
 function requireAuth(req, res, next) {
   const auth = req.headers.authorization || "";
