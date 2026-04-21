@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Camera News from Reddit | 2026.4.8 ~ 4.14</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: { bg: '#0a0a1a', card: '#12122a', border: '#1e1e40', hover: '#1a1a3a' },
+            accent: '#ff4500',
+            secondary: '#4fc3f7',
+          },
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans KR', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a1a; color: #e0e0e0; font-family: 'Inter', 'Noto Sans KR', sans-serif; }
+    html { scroll-behavior: smooth; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #0a0a1a; }
+    ::-webkit-scrollbar-thumb { background: #1e1e40; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2e2e50; }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes slideDown {
+      from { opacity: 0; max-height: 0; }
+      to { opacity: 1; max-height: 600px; }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes heroGlow {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.7; }
+    }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.7s ease-out forwards;
+      opacity: 0;
+    }
+    .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    .animate-scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-slide-down { animation: slideDown 0.4s ease-out forwards; overflow: hidden; }
+    .card-glass {
+      background: rgba(18, 18, 42, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(30, 30, 64, 0.6);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card-glass:hover {
+      background: rgba(26, 26, 58, 0.85);
+      border-color: rgba(255, 69, 0, 0.25);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 40px rgba(255, 69, 0, 0.06);
+    }
+    .img-thumb {
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+    .img-thumb:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+    .lightbox-overlay {
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .hero-gradient {
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2a 25%, #0a1a2a 50%, #1a0a1a 75%, #0a0a1a 100%);
+    }
+    .hero-glow {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      animation: heroGlow 4s ease-in-out infinite;
+    }
+    .text-gradient {
+      background: linear-gradient(135deg, #ff4500, #ff6b35, #4fc3f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .no-image-placeholder {
+      background: linear-gradient(135deg, #1a1a3a 0%, #0a1a2a 50%, #1a0a2a 100%);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
+
+    // ========================================
+    // Data
+    // ========================================
+    const newsData = [
+      {
+        id: 1,
+        title: "GoPro MISSION 1 - 프로급 시네마 카메라 공식 발표",
+        badge: "Official",
+        badgeColor: "#ff4500",
+        date: "2026-04-14",
+        subreddit: "r/gopro",
+        upvotes: 34,
+        comments: 21,
+        permalink: "https://www.reddit.com/r/gopro/comments/1sl85d3/new_gopro_mission_cameras/",
+        description: "GoPro가 완전히 새로운 프로급 시네마 카메라 라인 MISSION 1을 공식 발표. 1인치 50MP 센서, 8K 60fps, MFT 교환식 렌즈 마운트를 탑재한 혁신적 제품.",
+        specs: [
+          { label: "센서", value: "1인치, 50MP" },
+          { label: "영상", value: "8K 60fps / 1080p 960fps" },
+          { label: "다이나믹 레인지", value: "14 stops" },
+          { label: "렌즈", value: "교환식 (MFT 마운트)" },
+          { label: "부가기능", value: "무선 마이크 동봉" },
+        ],
+        images: [
+          "images/gopro-mission1-1.jpeg",
+          "images/gopro-mission1-2.jpeg",
+        ],
+        redditComments: [
+          { author: "shokwaav", score: 8, body: "Interchangeable lens is crazy, wonder how focus will work." },
+          { author: "homer027", score: 12, body: "50MP 1\" sensors 8K60fps" },
+          { author: "ninjasauruscam", score: 1, body: "MFT Lens compatibility is huge, bet it will be expensive as hell but looking forward to seeing what folks put out with these" },
+          { author: "notthobal", score: 1, body: "Not a fan of the high megapixel count, usually not beneficial for video, but 14 stops of dynamic range sounds interesting." },
+          { author: "Mr_Floppy_SP", score: 1, body: "I think they nailed it this time (let's see price though)." },
+        ],
+      },
+      {
+        id: 2,
+        title: "GoPro Hero 14 - YouTube 유출",
+        badge: "Leak",
+        badgeColor: "#ffd740",
+        date: "2026-04-13",
+        subreddit: "r/gopro",
+        upvotes: 137,
+        comments: 77,
+        permalink: "https://www.reddit.com/r/gopro/comments/1skjp45/gopro_hero_14_leaked_on_yt/",
+        description: "GoPro Hero 14의 영상이 YouTube에서 사전 유출. 이번 주 카메라 관련 게시글 중 최다 upvote(137)를 기록하며 가장 뜨거운 화제.",
+        specs: [],
+        images: [
+          "images/gopro-hero14-1.png",
+          "images/gopro-hero14-2.png",
+        ],
+        redditComments: [],
+      },
+      {
+        id: 3,
+        title: "GoPro 무선 마이크 출시 예정",
+        badge: "New",
+        badgeColor: "#4fc3f7",
+        date: "2026-04-13",
+        subreddit: "r/gopro",
+        upvotes: 63,
+        comments: 15,
+        permalink: "https://www.reddit.com/r/gopro/comments/1sk6lmx/so_gopro_is_going_to_release_wireless_mics_like/",
+        description: "GoPro가 DJI Mic, Rode Wireless Go와 경쟁하는 자체 무선 마이크를 출시할 예정. MISSION 1 프레스 릴리즈에서 함께 언급.",
+        specs: [
+          { label: "경쟁제품", value: "DJI Mic, Rode Wireless Go" },
+          { label: "발표 경로", value: "MISSION 1 프레스 릴리즈" },
+        ],
+        images: ["images/gopro-mic-1.jpeg"],
+        redditComments: [],
+      },
+      {
+        id: 4,
+        title: "DJI 신규 드론 라인업 발표",
+        badge: "Official",
+        badgeColor: "#ff4500",
+        date: "2026-04-14",
+        subreddit: "r/dji",
+        upvotes: 22,
+        comments: 2,
+        permalink: "https://www.reddit.com/r/dji/comments/1sl8ihu/dji_announces_new_drone_line/",
+        description: "DJI가 새로운 드론 라인업을 발표. GoPro MISSION 1과 같은 날 공개되어 경쟁 구도 심화.",
+        specs: [],
+        images: [
+          "images/dji-drone-1.png",
+        ],
+        redditComments: [],
+      },
+      {
+        id: 5,
+        title: "Sony A7V - 전자 셔터 노출 불일치 이슈",
+        badge: "Issue",
+        badgeColor: "#888",
+        date: "2026-04-12",
+        subreddit: "r/SonyAlpha",
+        upvotes: 56,
+        comments: 58,
+        permalink: "https://www.reddit.com/r/SonyAlpha/comments/1sjti6g/a7v_same_exact_settings_different_exposures/",
+        description: "동일 설정에서 다른 노출값이 나오는 문제 보고. 전자 전막 셔터(EFCS) 사용 시 고속 렌즈(f/1.4)에서 발생하는 현상. 풀 기계식 셔터 또는 풀 전자 셔터로 전환하면 해결.",
+        specs: [
+          { label: "문제", value: "EFCS + 고속렌즈 노출 불일치" },
+          { label: "해결방법", value: "풀 기계식/전자 셔터 전환" },
+        ],
+        images: [
+          "images/sony-a7v-1.jpg",
+          "images/sony-a7v-2.jpg",
+        ],
+        redditComments: [
+          { author: "ZET_unown_", score: 77, body: "Some lenses have problems with this when using electronic front curtain shutter, which is the default setting on modern Sony cameras. Try to turn on full mechanical shutter and retest." },
+          { author: "inorman", score: 7, body: "Either use fully mechanical shutter or fully electronic shutter. First curtain has issues with certain very fast (e.g f/1.4) lenses." },
+          { author: "Final-Signal5324", score: 14, body: "What's your burst rate? Seems like electronic shutter shenanigans. The exposure differences are easily fixable." },
+        ],
+      },
+      {
+        id: 6,
+        title: "Fujifilm X-E5 - 신품 렌즈 파손 보고",
+        badge: "Issue",
+        badgeColor: "#888",
+        date: "2026-04-13",
+        subreddit: "r/fujifilm",
+        upvotes: 1,
+        comments: 5,
+        permalink: "https://www.reddit.com/r/fujifilm/comments/1sjwezv/just_picked_up_a_brand_new_xe5_and_a_day_after/",
+        description: "X-E5 신품 구매 하루 만에 가방에 넣고 다니던 중 렌즈가 고장. Fuji 서비스센터 문의 권장.",
+        specs: [],
+        images: ["images/fuji-xe5-1.jpeg"],
+        redditComments: [
+          { author: "tacarl2808", score: 0, body: "Fuji customer service can give you an answer." },
+        ],
+      },
+      {
+        id: 7,
+        title: "Fujifilm X-M5 - 전자 수평계 사라짐 버그",
+        badge: "Issue",
+        badgeColor: "#888",
+        date: "2026-04-13",
+        subreddit: "r/fujifilm",
+        upvotes: 1,
+        comments: 9,
+        permalink: "https://www.reddit.com/r/fujifilm/comments/1sk0n3z/fujifilm_xm5_electronic_level_is_gone/",
+        description: "X-M5에서 전자 수평계가 사라지는 현상. DISP/BACK 버튼으로 디스플레이 모드 전환하면 해결.",
+        specs: [
+          { label: "문제", value: "전자 수평계 표시 사라짐" },
+          { label: "해결방법", value: "DISP/BACK 버튼 누르기" },
+        ],
+        images: ["images/fuji-xm5-1.jpeg"],
+        redditComments: [
+          { author: "Ok-Temperature-6393", score: 1, body: "Try cycling through the 'display back' button" },
+          { author: "txurete", score: 1, body: "A while back I had the same issue, gave up on it, used my camera for MONTHS missing my level meter and turns out I accidentally pressed the disp/back button. I've kept it to myself because I felt so stupid." },
+        ],
+      },
+    ];
+
+    // ========================================
+    // Utility Functions
+    // ========================================
+    function formatDate(dateStr) {
+      const d = new Date(dateStr);
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+      return `${month}/${day} (${weekdays[d.getDay()]})`;
+    }
+
+    function getAllImages() {
+      const all = [];
+      newsData.forEach(news => {
+        news.images.forEach((img, idx) => {
+          all.push({ src: img, newsId: news.id, title: news.title, idx });
+        });
+      });
+      return all;
+    }
+
+    // ========================================
+    // Design System Components
+    // ========================================
+    function Badge({ text, color, className = '' }) {
+      return (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${className}`}
+          style={{ backgroundColor: color + '22', color: color, border: `1px solid ${color}44` }}
+        >
+          {text}
+        </span>
+      );
+    }
+
+    function RedditStats({ upvotes, comments, subreddit, permalink }) {
+      return (
+        <div className="flex items-center gap-4 text-sm">
+          <a href={permalink} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-gray-400 hover:text-accent transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-4h2v-2h-2v2zm1-10c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/>
+            </svg>
+            <span className="font-medium">{subreddit}</span>
+          </a>
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19V5M5 12l7-7 7 7"/>
+            </svg>
+            <span className="font-semibold text-orange-400">{upvotes}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+            <span>{comments}</span>
+          </div>
+        </div>
+      );
+    }
+
+    function SpecTable({ specs }) {
+      if (!specs || specs.length === 0) return null;
+      return (
+        <div className="mt-4 rounded-lg overflow-hidden border border-dark-border">
+          {specs.map((spec, i) => (
+            <div key={i} className={`flex ${i > 0 ? 'border-t border-dark-border' : ''}`}>
+              <div className="w-28 sm:w-36 shrink-0 px-3 py-2 text-xs font-semibold text-gray-400 bg-dark-bg/50 uppercase tracking-wider">
+                {spec.label}
+              </div>
+              <div className="px-3 py-2 text-sm text-gray-200 flex-1">
+                {spec.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function ImagePlaceholder() {
+      return (
+        <div className="no-image-placeholder w-full aspect-video rounded-xl flex flex-col items-center justify-center gap-2 border border-dark-border">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="20" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="M2 15l5-5 5 5"/>
+            <path d="M14 13l3-3 5 5"/>
+          </svg>
+          <span className="text-gray-600 text-xs">이미지 없음</span>
+        </div>
+      );
+    }
+
+    function ImageGrid({ images, onImageClick }) {
+      if (!images || images.length === 0) return <ImagePlaceholder />;
+      const cols = images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3';
+      return (
+        <div className={`grid ${cols} gap-2`}>
+          {images.map((img, idx) => (
+            <div key={idx} className="relative overflow-hidden rounded-xl aspect-video bg-dark-bg group">
+              <img
+                src={img}
+                alt={`image-${idx}`}
+                loading="lazy"
+                className="img-thumb w-full h-full object-cover"
+                onClick={() => onImageClick(idx)}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 pointer-events-none flex items-center justify-center">
+                <svg className="w-8 h-8 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                </svg>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function RedditComment({ author, score, body }) {
+      return (
+        <div className="flex gap-3 py-3 border-b border-dark-border/50 last:border-0">
+          <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/30 to-blue-500/30 flex items-center justify-center text-xs font-bold text-gray-300">
+            {author.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold text-secondary">u/{author}</span>
+              <span className="text-xs text-gray-500 flex items-center gap-0.5">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                {score}
+              </span>
+            </div>
+            <p className="text-sm text-gray-300 leading-relaxed">{body}</p>
+          </div>
+        </div>
+      );
+    }
+
+    function CommentsSection({ comments }) {
+      const [isOpen, setIsOpen] = useState(false);
+      if (!comments || comments.length === 0) return null;
+
+      return (
+        <div className="mt-4">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center gap-2 text-sm font-medium text-secondary hover:text-white transition-colors group"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+            Reddit 반응 보기 ({comments.length})
+          </button>
+          {isOpen && (
+            <div className="animate-slide-down mt-3 pl-1 pr-1">
+              {comments.map((c, i) => (
+                <RedditComment key={i} author={c.author} score={c.score} body={c.body} />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Lightbox Component
+    // ========================================
+    function Lightbox({ images, currentIndex, onClose, onPrev, onNext, newsTitle }) {
+      useEffect(() => {
+        function handleKey(e) {
+          if (e.key === 'Escape') onClose();
+          if (e.key === 'ArrowLeft') onPrev();
+          if (e.key === 'ArrowRight') onNext();
+        }
+        document.addEventListener('keydown', handleKey);
+        document.body.style.overflow = 'hidden';
+        return () => {
+          document.removeEventListener('keydown', handleKey);
+          document.body.style.overflow = '';
+        };
+      }, [onClose, onPrev, onNext]);
+
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center lightbox-overlay animate-fade-in"
+          style={{ backgroundColor: 'rgba(0,0,0,0.88)' }}
+          onClick={onClose}
+        >
+          {/* Close button */}
+          <button
+            className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+
+          {/* Counter */}
+          <div className="absolute top-5 left-1/2 -translate-x-1/2 text-white/70 text-sm font-medium bg-black/40 px-3 py-1 rounded-full">
+            {currentIndex + 1} / {images.length}
+          </div>
+
+          {/* Title */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/60 text-sm font-medium bg-black/40 px-4 py-2 rounded-lg max-w-lg text-center truncate">
+            {newsTitle}
+          </div>
+
+          {/* Prev */}
+          {images.length > 1 && (
+            <button
+              className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-50 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors"
+              onClick={(e) => { e.stopPropagation(); onPrev(); }}
+              aria-label="Previous"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </button>
+          )}
+
+          {/* Next */}
+          {images.length > 1 && (
+            <button
+              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-50 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors"
+              onClick={(e) => { e.stopPropagation(); onNext(); }}
+              aria-label="Next"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          )}
+
+          {/* Image */}
+          <img
+            key={currentIndex}
+            src={images[currentIndex]}
+            alt=""
+            className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      );
+    }
+
+    // ========================================
+    // News Card Component
+    // ========================================
+    function NewsCard({ news, index, onImageClick }) {
+      return (
+        <article
+          className="card-glass rounded-2xl overflow-hidden animate-fade-in-up"
+          style={{ animationDelay: `${index * 0.1}s` }}
+        >
+          <div className="p-5 sm:p-7">
+            {/* Header */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <Badge text={news.badge} color={news.badgeColor} />
+              <span className="text-xs text-gray-500 font-medium">{formatDate(news.date)}</span>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-3 leading-tight">
+              <a href={news.permalink} target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
+                {news.title}
+              </a>
+            </h2>
+
+            {/* Description */}
+            <p className="text-sm text-gray-400 leading-relaxed mb-4">
+              {news.description}
+            </p>
+
+            {/* Images */}
+            <ImageGrid
+              images={news.images}
+              onImageClick={(idx) => onImageClick(news.id, idx)}
+            />
+
+            {/* Specs */}
+            <SpecTable specs={news.specs} />
+
+            {/* Reddit Stats */}
+            <div className="mt-4 pt-4 border-t border-dark-border/50">
+              <RedditStats
+                upvotes={news.upvotes}
+                comments={news.comments}
+                subreddit={news.subreddit}
+                permalink={news.permalink}
+              />
+            </div>
+
+            {/* Comments */}
+            <CommentsSection comments={news.redditComments} />
+          </div>
+        </article>
+      );
+    }
+
+    // ========================================
+    // Hero Section
+    // ========================================
+    function HeroSection() {
+      const totalUpvotes = newsData.reduce((s, n) => s + n.upvotes, 0);
+      const totalComments = newsData.reduce((s, n) => s + n.comments, 0);
+
+      return (
+        <section className="relative hero-gradient overflow-hidden">
+          {/* Decorative glow orbs */}
+          <div className="hero-glow w-96 h-96 bg-accent/20 top-[-100px] left-[-100px]" style={{ position: 'absolute' }} />
+          <div className="hero-glow w-80 h-80 bg-secondary/15 bottom-[-60px] right-[-60px]" style={{ position: 'absolute', animationDelay: '2s' }} />
+
+          <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+            {/* Top label */}
+            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6 animate-fade-in-up" style={{ animationDelay: '0s' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4500">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M16 12.5c0 1.38-1.79 2.5-4 2.5s-4-1.12-4-2.5" fill="white"/>
+                <circle cx="9" cy="10" r="1.5" fill="white"/>
+                <circle cx="15" cy="10" r="1.5" fill="white"/>
+              </svg>
+              <span className="text-xs font-medium text-gray-300">Reddit Camera Community</span>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+              <span className="text-gradient">Weekly Camera News</span>
+              <br />
+              <span className="text-white/90">from Reddit</span>
+            </h1>
+
+            {/* Date range */}
+            <p className="text-lg sm:text-xl text-gray-400 font-light mb-8 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+              2026.4.8 ~ 4.14
+            </p>
+
+            {/* Summary stats */}
+            <div className="flex flex-wrap justify-center gap-6 sm:gap-10 mb-8 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+              <div className="text-center">
+                <div className="text-2xl sm:text-3xl font-black text-white">{newsData.length}</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">News</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl sm:text-3xl font-black text-accent">{totalUpvotes}</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">Upvotes</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl sm:text-3xl font-black text-secondary">{totalComments}</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">Comments</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl sm:text-3xl font-black text-white">4</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">Subreddits</div>
+              </div>
+            </div>
+
+            {/* Brief summary */}
+            <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-400 leading-relaxed animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+              GoPro MISSION 1 시네마 카메라 공식 발표와 Hero 14 유출이 이번 주 최대 화제.
+              DJI 신규 드론 라인업도 같은 날 공개되며 경쟁 심화.
+              Sony A7V 셔터 이슈와 Fujifilm 사용자 문제 보고도 이어졌습니다.
+            </p>
+          </div>
+
+          {/* Bottom fade */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-dark-bg to-transparent" />
+        </section>
+      );
+    }
+
+    // ========================================
+    // Summary Table
+    // ========================================
+    function SummaryTable() {
+      const sorted = [...newsData].sort((a, b) => b.upvotes - a.upvotes);
+      return (
+        <section id="summary" className="max-w-5xl mx-auto px-4 sm:px-6 py-16">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 text-center">
+            Overview
+          </h2>
+          <div className="card-glass rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-dark-bg/60 text-left">
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">#</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Title</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Badge</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Subreddit</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Upvotes</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Comments</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((news, i) => (
+                    <tr key={news.id} className="border-t border-dark-border/50 hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3 text-gray-500 font-medium">{i + 1}</td>
+                      <td className="px-4 py-3 text-white font-medium max-w-xs truncate">
+                        <a href={news.permalink} target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
+                          {news.title}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3"><Badge text={news.badge} color={news.badgeColor} /></td>
+                      <td className="px-4 py-3 text-gray-400">{news.subreddit}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-orange-400">{news.upvotes}</td>
+                      <td className="px-4 py-3 text-right text-gray-400">{news.comments}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(news.date)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // Back to Top Button
+    // ========================================
+    function BackToTop() {
+      const [show, setShow] = useState(false);
+
+      useEffect(() => {
+        function handleScroll() {
+          setShow(window.scrollY > 400);
+        }
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+      }, []);
+
+      if (!show) return null;
+
+      return (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 z-40 w-11 h-11 rounded-full bg-accent/90 hover:bg-accent text-white shadow-lg shadow-accent/25 flex items-center justify-center transition-all duration-300 animate-fade-in hover:scale-110"
+          aria-label="Back to top"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 19V5M5 12l7-7 7 7"/>
+          </svg>
+        </button>
+      );
+    }
+
+    // ========================================
+    // Footer
+    // ========================================
+    function Footer() {
+      return (
+        <footer className="border-t border-dark-border/50 py-8 text-center">
+          <p className="text-xs text-gray-600">
+            Data collected from Reddit public posts. All content belongs to their respective authors.
+          </p>
+          <p className="text-xs text-gray-700 mt-1">
+            Built with React 18 + Tailwind CSS
+          </p>
+        </footer>
+      );
+    }
+
+    // ========================================
+    // App Component
+    // ========================================
+    function App() {
+      const [lightbox, setLightbox] = useState(null);
+
+      const handleImageClick = useCallback((newsId, imageIndex) => {
+        const news = newsData.find(n => n.id === newsId);
+        if (news && news.images.length > 0) {
+          setLightbox({ images: news.images, currentIndex: imageIndex, title: news.title });
+        }
+      }, []);
+
+      const handleLightboxClose = useCallback(() => setLightbox(null), []);
+
+      const handleLightboxPrev = useCallback(() => {
+        setLightbox(prev => {
+          if (!prev) return null;
+          const newIdx = prev.currentIndex === 0 ? prev.images.length - 1 : prev.currentIndex - 1;
+          return { ...prev, currentIndex: newIdx };
+        });
+      }, []);
+
+      const handleLightboxNext = useCallback(() => {
+        setLightbox(prev => {
+          if (!prev) return null;
+          const newIdx = (prev.currentIndex + 1) % prev.images.length;
+          return { ...prev, currentIndex: newIdx };
+        });
+      }, []);
+
+      return (
+        <div className="min-h-screen">
+          <HeroSection />
+
+          {/* News Grid */}
+          <main className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
+            <div className="grid grid-cols-1 gap-6">
+              {newsData.map((news, i) => (
+                <NewsCard
+                  key={news.id}
+                  news={news}
+                  index={i}
+                  onImageClick={handleImageClick}
+                />
+              ))}
+            </div>
+          </main>
+
+          <SummaryTable />
+          <Footer />
+          <BackToTop />
+
+          {/* Lightbox */}
+          {lightbox && (
+            <Lightbox
+              images={lightbox.images}
+              currentIndex={lightbox.currentIndex}
+              newsTitle={lightbox.title}
+              onClose={handleLightboxClose}
+              onPrev={handleLightboxPrev}
+              onNext={handleLightboxNext}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

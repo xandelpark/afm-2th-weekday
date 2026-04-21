@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reddit Collector</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f23;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #ff4500, #ff6b35);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header h1 { font-size: 28px; color: #fff; }
+    .header .logo { font-size: 36px; }
+
+    /* Layout */
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+    }
+    .tab {
+      padding: 12px 24px;
+      background: #1a1a3e;
+      border: none;
+      color: #aaa;
+      font-size: 15px;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: #252550;
+      color: #ff6b35;
+      font-weight: 600;
+    }
+
+    /* Controls */
+    .controls {
+      background: #1a1a3e;
+      padding: 20px;
+      border-radius: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 24px;
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 12px; color: #888; text-transform: uppercase; }
+    .field input, .field select {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #0f0f23;
+      color: #eee;
+      font-size: 14px;
+      min-width: 160px;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: #ff6b35;
+    }
+    .btn {
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #ff4500; color: #fff; }
+    .btn-primary:hover { background: #ff6b35; }
+    .btn-secondary { background: #252550; color: #ccc; border: 1px solid #444; }
+    .btn-secondary:hover { background: #333; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Results */
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .results-header h2 { font-size: 18px; color: #ff6b35; }
+    .export-btns { display: flex; gap: 8px; }
+
+    .post-list { display: flex; flex-direction: column; gap: 8px; }
+    .post-card {
+      background: #1a1a3e;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+    .post-card:hover { background: #252550; }
+    .post-score {
+      text-align: center;
+      min-width: 56px;
+      padding: 8px;
+      border-radius: 8px;
+      background: #0f0f23;
+    }
+    .post-score .num { font-size: 20px; font-weight: 700; color: #ff6b35; }
+    .post-score .label { font-size: 10px; color: #666; }
+    .post-body { flex: 1; min-width: 0; }
+    .post-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .post-title a { color: #e0e0e0; text-decoration: none; }
+    .post-title a:hover { color: #4fc3f7; }
+    .post-meta { font-size: 12px; color: #777; display: flex; gap: 12px; flex-wrap: wrap; }
+    .post-meta span { white-space: nowrap; }
+    .post-selftext {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #999;
+      line-height: 1.5;
+      max-height: 60px;
+      overflow: hidden;
+    }
+
+    /* Comments Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: #1a1a3e;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 700px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    .modal h3 { color: #ff6b35; margin-bottom: 16px; }
+    .modal .close-btn {
+      float: right;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .comment {
+      padding: 12px;
+      border-left: 3px solid #333;
+      margin-bottom: 12px;
+      background: #0f0f23;
+      border-radius: 0 8px 8px 0;
+    }
+    .comment .c-author { font-weight: 600; color: #4fc3f7; font-size: 13px; }
+    .comment .c-score { color: #ff6b35; font-size: 12px; margin-left: 8px; }
+    .comment .c-body { margin-top: 6px; font-size: 14px; line-height: 1.6; color: #ccc; white-space: pre-wrap; }
+
+    /* Status */
+    .status { padding: 12px 20px; border-radius: 8px; margin-bottom: 16px; display: none; }
+    .status.loading { display: block; background: #1a1a3e; color: #4fc3f7; }
+    .status.error { display: block; background: #3e1a1a; color: #f77; }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #4fc3f7;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">&#129302;</span>
+  <h1>Reddit Collector</h1>
+</div>
+
+<div class="container">
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="browse" onclick="switchTab('browse')">Subreddit 탐색</button>
+    <button class="tab" data-tab="search" onclick="switchTab('search')">키워드 검색</button>
+  </div>
+
+  <!-- Browse Controls -->
+  <div id="browse-controls" class="controls">
+    <div class="field">
+      <label>Subreddit</label>
+      <input type="text" id="subreddit" value="popular" placeholder="예: programming" />
+    </div>
+    <div class="field">
+      <label>정렬</label>
+      <select id="sort">
+        <option value="hot">Hot</option>
+        <option value="new">New</option>
+        <option value="top">Top</option>
+        <option value="rising">Rising</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>개수</label>
+      <select id="limit">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="fetchPosts()">수집하기</button>
+  </div>
+
+  <!-- Search Controls -->
+  <div id="search-controls" class="controls" style="display:none">
+    <div class="field">
+      <label>검색어</label>
+      <input type="text" id="searchQuery" placeholder="예: AI tools" />
+    </div>
+    <div class="field">
+      <label>Subreddit (선택)</label>
+      <input type="text" id="searchSub" value="all" placeholder="all" />
+    </div>
+    <div class="field">
+      <label>정렬</label>
+      <select id="searchSort">
+        <option value="relevance">관련도</option>
+        <option value="hot">Hot</option>
+        <option value="new">New</option>
+        <option value="top">Top</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>개수</label>
+      <select id="searchLimit">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="searchPosts()">검색하기</button>
+  </div>
+
+  <!-- Status -->
+  <div id="status" class="status"></div>
+
+  <!-- Results -->
+  <div id="results-section" style="display:none">
+    <div class="results-header">
+      <h2 id="results-title">결과</h2>
+      <div class="export-btns">
+        <button class="btn btn-secondary" onclick="exportCSV()">CSV 다운로드</button>
+        <button class="btn btn-secondary" onclick="exportHTML()">HTML 리포트</button>
+      </div>
+    </div>
+    <div id="post-list" class="post-list"></div>
+  </div>
+</div>
+
+<!-- Comments Modal -->
+<div id="modal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal()">&times;</button>
+    <h3 id="modal-title">댓글</h3>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+  let currentPosts = [];
+  let currentTitle = "";
+
+  function switchTab(tab) {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add("active");
+    document.getElementById("browse-controls").style.display = tab === "browse" ? "flex" : "none";
+    document.getElementById("search-controls").style.display = tab === "search" ? "flex" : "none";
+  }
+
+  function showStatus(msg, type = "loading") {
+    const el = document.getElementById("status");
+    el.className = `status ${type}`;
+    el.innerHTML = type === "loading" ? `<span class="spinner"></span>${msg}` : msg;
+  }
+
+  function hideStatus() {
+    document.getElementById("status").className = "status";
+  }
+
+  function renderPosts(posts) {
+    currentPosts = posts;
+    const container = document.getElementById("post-list");
+    container.innerHTML = posts.map((p, i) => `
+      <div class="post-card" onclick="loadComments(${i})">
+        <div class="post-score">
+          <div class="num">${p.score >= 1000 ? (p.score/1000).toFixed(1)+'k' : p.score}</div>
+          <div class="label">points</div>
+        </div>
+        <div class="post-body">
+          <div class="post-title"><a href="${esc(p.permalink)}" target="_blank" onclick="event.stopPropagation()">${esc(p.title)}</a></div>
+          <div class="post-meta">
+            <span>u/${esc(p.author)}</span>
+            <span>r/${esc(p.subreddit)}</span>
+            <span>${p.numComments} comments</span>
+            <span>${p.created?.slice(0,10)}</span>
+          </div>
+          ${p.selftext ? `<div class="post-selftext">${esc(p.selftext)}</div>` : ""}
+        </div>
+      </div>
+    `).join("");
+    document.getElementById("results-section").style.display = "block";
+  }
+
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+
+  // --- Fetch Posts ---
+  async function fetchPosts() {
+    const subreddit = document.getElementById("subreddit").value.trim() || "popular";
+    const sort = document.getElementById("sort").value;
+    const limit = document.getElementById("limit").value;
+    showStatus(`r/${subreddit} 에서 ${sort} 게시글 수집 중...`);
+    try {
+      const res = await fetch(`/api/posts?subreddit=${encodeURIComponent(subreddit)}&sort=${sort}&limit=${limit}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      hideStatus();
+      currentTitle = `r/${subreddit} - ${sort} (${data.posts.length}건)`;
+      document.getElementById("results-title").textContent = currentTitle;
+      renderPosts(data.posts);
+    } catch (err) {
+      showStatus(`오류: ${err.message}`, "error");
+    }
+  }
+
+  // --- Search ---
+  async function searchPosts() {
+    const q = document.getElementById("searchQuery").value.trim();
+    if (!q) return showStatus("검색어를 입력하세요", "error");
+    const sub = document.getElementById("searchSub").value.trim() || "all";
+    const sort = document.getElementById("searchSort").value;
+    const limit = document.getElementById("searchLimit").value;
+    showStatus(`"${q}" 검색 중...`);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&subreddit=${encodeURIComponent(sub)}&sort=${sort}&limit=${limit}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      hideStatus();
+      currentTitle = `검색: "${q}" in r/${sub} (${data.posts.length}건)`;
+      document.getElementById("results-title").textContent = currentTitle;
+      renderPosts(data.posts);
+    } catch (err) {
+      showStatus(`오류: ${err.message}`, "error");
+    }
+  }
+
+  // --- Comments ---
+  async function loadComments(index) {
+    const post = currentPosts[index];
+    const modal = document.getElementById("modal");
+    document.getElementById("modal-title").textContent = post.title;
+    document.getElementById("modal-body").innerHTML = '<span class="spinner"></span> 댓글 로딩 중...';
+    modal.classList.add("show");
+    try {
+      const res = await fetch(`/api/comments?permalink=${encodeURIComponent(post.permalink)}&limit=20`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      if (data.comments.length === 0) {
+        document.getElementById("modal-body").innerHTML = "<p style='color:#888'>댓글이 없습니다.</p>";
+        return;
+      }
+      document.getElementById("modal-body").innerHTML = data.comments.map(c => `
+        <div class="comment">
+          <span class="c-author">u/${esc(c.author)}</span>
+          <span class="c-score">${c.score} points</span>
+          <div class="c-body">${esc(c.body)}</div>
+        </div>
+      `).join("");
+    } catch (err) {
+      document.getElementById("modal-body").innerHTML = `<p style="color:#f77">오류: ${err.message}</p>`;
+    }
+  }
+
+  function closeModal() {
+    document.getElementById("modal").classList.remove("show");
+  }
+
+  // --- Exports ---
+  async function exportCSV() {
+    if (!currentPosts.length) return;
+    const res = await fetch("/api/export/csv", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ posts: currentPosts, filename: `reddit-${Date.now()}` }),
+    });
+    const blob = await res.blob();
+    downloadBlob(blob, `reddit-${Date.now()}.csv`);
+  }
+
+  async function exportHTML() {
+    if (!currentPosts.length) return;
+    const res = await fetch("/api/export/html", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ posts: currentPosts, title: currentTitle, filename: `reddit-${Date.now()}` }),
+    });
+    const blob = await res.blob();
+    downloadBlob(blob, `reddit-report-${Date.now()}.html`);
+  }
+
+  function downloadBlob(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Enter key support
+  document.getElementById("subreddit").addEventListener("keydown", e => { if(e.key==="Enter") fetchPosts(); });
+  document.getElementById("searchQuery").addEventListener("keydown", e => { if(e.key==="Enter") searchPosts(); });
+</script>
+</body>
+</html>

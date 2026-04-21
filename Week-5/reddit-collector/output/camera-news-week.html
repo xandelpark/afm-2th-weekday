@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly Camera News from Reddit (4/8 ~ 4/14)</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a1a;
+      color: #e0e0e0;
+      line-height: 1.7;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #ff4500 0%, #ff6b35 50%, #ff8c42 100%);
+      padding: 48px 32px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 36px; color: #fff; margin-bottom: 8px; }
+    .hero .sub { font-size: 16px; color: rgba(255,255,255,0.85); }
+    .hero .date-badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 8px 20px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 20px;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+    /* Summary Card */
+    .summary {
+      background: linear-gradient(135deg, #1a1a3e, #252560);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 32px;
+      border-left: 4px solid #ff4500;
+    }
+    .summary h2 { color: #ff6b35; font-size: 20px; margin-bottom: 12px; }
+    .summary p { font-size: 15px; color: #ccc; }
+    .summary strong { color: #fff; }
+
+    /* Section */
+    .section { margin-bottom: 40px; }
+    .section-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #666;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #222;
+    }
+
+    /* News Card */
+    .news-card {
+      background: #12122a;
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 16px;
+      border: 1px solid #1e1e40;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+    .news-card:hover {
+      border-color: #ff4500;
+      transform: translateY(-2px);
+    }
+    .news-card.hot {
+      border-left: 4px solid #ff4500;
+    }
+    .news-card.new-release {
+      border-left: 4px solid #4fc3f7;
+    }
+    .news-card.leak {
+      border-left: 4px solid #ffd740;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+    .card-header h3 { font-size: 18px; color: #fff; flex: 1; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-hot { background: #ff4500; color: #fff; }
+    .badge-new { background: #4fc3f7; color: #000; }
+    .badge-leak { background: #ffd740; color: #000; }
+    .badge-issue { background: #888; color: #fff; }
+
+    /* Specs Table */
+    .specs {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 14px;
+    }
+    .specs td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #1e1e40;
+    }
+    .specs td:first-child {
+      color: #888;
+      width: 140px;
+      font-weight: 600;
+    }
+    .specs td:last-child { color: #ddd; }
+    .specs tr:last-child td { border-bottom: none; }
+    .highlight { color: #ff6b35; font-weight: 700; }
+
+    /* Reddit Stats */
+    .reddit-stats {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #888;
+    }
+    .stat .num { color: #ff6b35; font-weight: 700; font-size: 15px; }
+
+    /* Comments */
+    .comments-section { margin-top: 16px; }
+    .comments-toggle {
+      background: none;
+      border: 1px solid #333;
+      color: #aaa;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .comments-toggle:hover { border-color: #ff4500; color: #ff6b35; }
+    .comments-list {
+      display: none;
+      margin-top: 12px;
+    }
+    .comments-list.open { display: block; }
+    .comment {
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      background: #0a0a1a;
+      border-left: 3px solid #333;
+      border-radius: 0 8px 8px 0;
+      font-size: 13px;
+    }
+    .comment .author { color: #4fc3f7; font-weight: 600; }
+    .comment .pts { color: #ff6b35; font-size: 12px; margin-left: 6px; }
+    .comment .body { color: #bbb; margin-top: 4px; }
+
+    /* Links */
+    a { color: #4fc3f7; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Other Models Table */
+    .models-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .models-table th {
+      padding: 10px 14px;
+      background: #1a1a3e;
+      color: #ff6b35;
+      text-align: left;
+      font-size: 13px;
+    }
+    .models-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #1e1e40;
+    }
+    .models-table tr:hover { background: #16163a; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 32px;
+      color: #444;
+      font-size: 13px;
+      border-top: 1px solid #1e1e40;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Weekly Camera News</h1>
+  <div class="sub">Reddit 커뮤니티에서 수집한 이번 주 카메라 신제품 소식</div>
+  <div class="date-badge">2026. 4. 8 (Mon) ~ 4. 14 (Mon)</div>
+</div>
+
+<div class="container">
+
+  <!-- Summary -->
+  <div class="summary">
+    <h2>이번 주 핵심 요약</h2>
+    <p>
+      <strong>GoPro가 이번 주의 주인공.</strong> MISSION 1 (프로급 8K 시네마 카메라), Hero 14 유출, 무선 마이크까지 3건의 신제품 소식이 쏟아졌습니다.
+      <strong>DJI</strong>도 새 드론 라인을 발표하며 맞불을 놓았습니다.
+      Sony A7V 셔터 이슈, Fujifilm X-E5/X-M5 관련 사용기도 활발합니다.
+    </p>
+  </div>
+
+  <!-- #1 GoPro MISSION 1 -->
+  <div class="section">
+    <div class="section-title">New Product Announcements</div>
+
+    <div class="news-card hot">
+      <div class="card-header">
+        <h3>GoPro MISSION 1 - 프로급 시네마 카메라 공식 발표</h3>
+        <span class="badge badge-hot">Official</span>
+      </div>
+      <table class="specs">
+        <tr><td>제품명</td><td><span class="highlight">GoPro MISSION 1</span></td></tr>
+        <tr><td>센서</td><td>1인치, 50MP</td></tr>
+        <tr><td>영상</td><td><span class="highlight">8K 60fps</span> / 1080p 960fps (슬로모)</td></tr>
+        <tr><td>다이나믹 레인지</td><td>14 stops</td></tr>
+        <tr><td>렌즈</td><td><span class="highlight">교환식 (MFT 마운트 호환)</span></td></tr>
+        <tr><td>부가기능</td><td>무선 마이크 동봉</td></tr>
+        <tr><td>타겟</td><td>영화감독, 크리에이터, 영상 입문자</td></tr>
+      </table>
+      <div class="reddit-stats">
+        <div class="stat"><span class="num">34</span> upvotes</div>
+        <div class="stat"><span class="num">21</span> comments</div>
+        <div class="stat">r/gopro</div>
+        <div class="stat">2026-04-14</div>
+      </div>
+      <div class="comments-section">
+        <button class="comments-toggle" onclick="toggleComments(this)">Reddit 반응 보기</button>
+        <div class="comments-list">
+          <div class="comment">
+            <span class="author">u/shokwaav</span><span class="pts">8pts</span>
+            <div class="body">Interchangeable lens is crazy, wonder how focus will work.</div>
+          </div>
+          <div class="comment">
+            <span class="author">u/homer027</span><span class="pts">12pts</span>
+            <div class="body">50MP 1" sensors 8K60fps</div>
+          </div>
+          <div class="comment">
+            <span class="author">u/ninjasauruscam</span><span class="pts">1pts</span>
+            <div class="body">MFT Lens compatibility is huge, bet it will be expensive as hell but looking forward to seeing what folks put out with these</div>
+          </div>
+          <div class="comment">
+            <span class="author">u/notthobal</span><span class="pts">1pts</span>
+            <div class="body">Not a fan of the high megapixel count, usually not beneficial for video, but 14 stops of dynamic range sounds interesting.</div>
+          </div>
+          <div class="comment">
+            <span class="author">u/Mr_Floppy_SP</span><span class="pts">1pts</span>
+            <div class="body">I think they nailed it this time (let's see price though).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- #2 Hero 14 Leak -->
+    <div class="news-card leak">
+      <div class="card-header">
+        <h3>GoPro Hero 14 - YouTube 유출</h3>
+        <span class="badge badge-leak">Leak</span>
+      </div>
+      <p style="font-size:14px; color:#ccc; margin-bottom:8px;">
+        GoPro Hero 14의 영상이 YouTube에서 사전 유출되어 Reddit에서 가장 뜨거운 화제가 되었습니다.
+        이번 주 카메라 관련 게시글 중 <span class="highlight">최다 upvote (137)</span>를 기록.
+      </p>
+      <div class="reddit-stats">
+        <div class="stat"><span class="num">137</span> upvotes</div>
+        <div class="stat"><span class="num">77</span> comments</div>
+        <div class="stat">r/gopro</div>
+        <div class="stat">2026-04-13</div>
+      </div>
+    </div>
+
+    <!-- #3 GoPro Wireless Mic -->
+    <div class="news-card new-release">
+      <div class="card-header">
+        <h3>GoPro 무선 마이크 출시 예정</h3>
+        <span class="badge badge-new">New</span>
+      </div>
+      <p style="font-size:14px; color:#ccc; margin-bottom:8px;">
+        GoPro가 DJI Mic, Rode Wireless Go와 경쟁하는 자체 무선 마이크를 출시할 예정.
+        MISSION 1 프레스 릴리즈에서 함께 언급되었습니다.
+      </p>
+      <div class="reddit-stats">
+        <div class="stat"><span class="num">63</span> upvotes</div>
+        <div class="stat"><span class="num">15</span> comments</div>
+        <div class="stat">r/gopro</div>
+        <div class="stat">2026-04-13</div>
+      </div>
+    </div>
+
+    <!-- #4 DJI -->
+    <div class="news-card new-release">
+      <div class="card-header">
+        <h3>DJI 신규 드론 라인업 발표</h3>
+        <span class="badge badge-new">New</span>
+      </div>
+      <p style="font-size:14px; color:#ccc; margin-bottom:8px;">
+        DJI가 새로운 드론 라인업을 발표. GoPro의 MISSION 1 발표와 같은 날 공개되어 경쟁 구도 심화.
+      </p>
+      <div class="reddit-stats">
+        <div class="stat"><span class="num">22</span> upvotes</div>
+        <div class="stat"><span class="num">2</span> comments</div>
+        <div class="stat">r/dji</div>
+        <div class="stat">2026-04-14</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Existing Models -->
+  <div class="section">
+    <div class="section-title">Trending Topics - Existing Models</div>
+
+    <div class="news-card">
+      <div class="card-header">
+        <h3>Sony A7V - 전자 셔터 노출 불일치 이슈</h3>
+        <span class="badge badge-issue">Issue</span>
+      </div>
+      <p style="font-size:14px; color:#ccc; margin-bottom:8px;">
+        동일 설정에서 다른 노출값이 나오는 문제 보고. 커뮤니티에서는 <span class="highlight">전자 전막 셔터(EFCS)</span> 사용 시
+        고속 렌즈(f/1.4 등)에서 발생하는 알려진 현상으로,
+        <strong>풀 기계식 셔터</strong> 또는 <strong>풀 전자 셔터</strong>로 전환하면 해결된다고 답변.
+      </p>
+      <div class="reddit-stats">
+        <div class="stat"><span class="num">56</span> upvotes</div>
+        <div class="stat"><span class="num">58</span> comments</div>
+        <div class="stat">r/SonyAlpha</div>
+        <div class="stat">2026-04-12</div>
+      </div>
+      <div class="comments-section">
+        <button class="comments-toggle" onclick="toggleComments(this)">주요 답변 보기</button>
+        <div class="comments-list">
+          <div class="comment">
+            <span class="author">u/ZET_unown_</span><span class="pts">77pts</span>
+            <div class="body">Some lenses have problems with this when using electronic front curtain shutter, which is the default setting on modern Sony cameras. Try to turn on full mechanical shutter and retest.</div>
+          </div>
+          <div class="comment">
+            <span class="author">u/inorman</span><span class="pts">7pts</span>
+            <div class="body">Either use fully mechanical shutter or fully electronic shutter. First curtain has issues with certain very fast (e.g f/1.4) lenses.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="news-card">
+      <div class="card-header">
+        <h3>Fujifilm X-E5 - 신품 렌즈 파손 보고</h3>
+        <span class="badge badge-issue">Issue</span>
+      </div>
+      <p style="font-size:14px; color:#ccc;">
+        X-E5 신품 구매 하루 만에 가방에 넣고 다니던 중 렌즈가 고장났다는 보고. Fuji 서비스센터 문의 권장.
+      </p>
+      <div class="reddit-stats">
+        <div class="stat"><span class="num">1</span> upvotes</div>
+        <div class="stat"><span class="num">5</span> comments</div>
+        <div class="stat">r/fujifilm</div>
+        <div class="stat">2026-04-13</div>
+      </div>
+    </div>
+
+    <div class="news-card">
+      <div class="card-header">
+        <h3>Fujifilm X-M5 - 전자 수평계 사라짐 버그</h3>
+        <span class="badge badge-issue">Issue</span>
+      </div>
+      <p style="font-size:14px; color:#ccc;">
+        X-M5에서 전자 수평계가 사라지는 현상. 해결법: <strong>DISP/BACK</strong> 버튼을 눌러 디스플레이 모드 전환.
+        많은 사용자가 같은 실수를 겪은 것으로 확인됨.
+      </p>
+      <div class="reddit-stats">
+        <div class="stat"><span class="num">1</span> upvotes</div>
+        <div class="stat"><span class="num">9</span> comments</div>
+        <div class="stat">r/fujifilm</div>
+        <div class="stat">2026-04-13</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overview Table -->
+  <div class="section">
+    <div class="section-title">This Week at a Glance</div>
+    <table class="models-table">
+      <thead>
+        <tr>
+          <th>날짜</th>
+          <th>제품/주제</th>
+          <th>유형</th>
+          <th>Upvotes</th>
+          <th>Comments</th>
+          <th>출처</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>4/14</td>
+          <td><strong>GoPro MISSION 1</strong> - 8K 시네마 카메라</td>
+          <td><span class="badge badge-hot" style="font-size:10px">공식발표</span></td>
+          <td>34</td>
+          <td>21</td>
+          <td>r/gopro</td>
+        </tr>
+        <tr>
+          <td>4/14</td>
+          <td><strong>DJI</strong> - 신규 드론 라인업</td>
+          <td><span class="badge badge-new" style="font-size:10px">공식발표</span></td>
+          <td>22</td>
+          <td>2</td>
+          <td>r/dji</td>
+        </tr>
+        <tr>
+          <td>4/13</td>
+          <td><strong>GoPro Hero 14</strong> - YouTube 유출</td>
+          <td><span class="badge badge-leak" style="font-size:10px">유출</span></td>
+          <td>137</td>
+          <td>77</td>
+          <td>r/gopro</td>
+        </tr>
+        <tr>
+          <td>4/13</td>
+          <td><strong>GoPro 무선 마이크</strong> 출시 예정</td>
+          <td><span class="badge badge-new" style="font-size:10px">신제품</span></td>
+          <td>63</td>
+          <td>15</td>
+          <td>r/gopro</td>
+        </tr>
+        <tr>
+          <td>4/12</td>
+          <td><strong>Sony A7V</strong> - 전자 셔터 노출 이슈</td>
+          <td><span class="badge badge-issue" style="font-size:10px">이슈</span></td>
+          <td>56</td>
+          <td>58</td>
+          <td>r/SonyAlpha</td>
+        </tr>
+        <tr>
+          <td>4/13</td>
+          <td><strong>Fujifilm X-E5</strong> - 신품 렌즈 파손</td>
+          <td><span class="badge badge-issue" style="font-size:10px">이슈</span></td>
+          <td>1</td>
+          <td>5</td>
+          <td>r/fujifilm</td>
+        </tr>
+        <tr>
+          <td>4/13</td>
+          <td><strong>Fujifilm X-M5</strong> - 수평계 버그</td>
+          <td><span class="badge badge-issue" style="font-size:10px">이슈</span></td>
+          <td>1</td>
+          <td>9</td>
+          <td>r/fujifilm</td>
+        </tr>
+        <tr>
+          <td>4/13</td>
+          <td><strong>Sony A7C II</strong> - 업그레이드 가치 논의</td>
+          <td><span class="badge badge-issue" style="font-size:10px">토론</span></td>
+          <td>0</td>
+          <td>13</td>
+          <td>r/SonyAlpha</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  Reddit Collector | 수집 서브레딧: r/gopro, r/dji, r/SonyAlpha, r/fujifilm, r/canon, r/Nikon, r/cameras, r/photography, r/videography<br>
+  Generated on 2026-04-14 | Data from Reddit public JSON API
+</div>
+
+<script>
+  function toggleComments(btn) {
+    const list = btn.nextElementSibling;
+    list.classList.toggle('open');
+    btn.textContent = list.classList.contains('open') ? '접기' : 'Reddit 반응 보기';
+  }
+</script>
+</body>
+</html>

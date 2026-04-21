@@ -1,0 +1,15 @@
+{
+  "name": "household-ledger",
+  "version": "1.0.0",
+  "description": "가계부 앱 (React CDN + Express + Supabase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^1.50.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}
