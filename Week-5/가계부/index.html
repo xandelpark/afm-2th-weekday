@@ -7,9 +7,23 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+    .coach-prose { font-size: 0.875rem; color: #334155; line-height: 1.6; }
+    .coach-prose h2 { display: none; }
+    .coach-prose h3 { font-weight: 600; font-size: 0.95rem; margin: 0.75rem 0 0.4rem; color: #1e293b; }
+    .coach-prose p { margin: 0.4rem 0; }
+    .coach-prose ul { list-style: disc; padding-left: 1.1rem; margin: 0.3rem 0; }
+    .coach-prose ol { list-style: decimal; padding-left: 1.3rem; margin: 0.3rem 0; }
+    .coach-prose li { margin: 0.2rem 0; }
+    .coach-prose strong { color: #0f172a; font-weight: 600; }
+    .coach-prose table { width: 100%; font-size: 0.8rem; border-collapse: collapse; margin: 0.5rem 0; }
+    .coach-prose th, .coach-prose td { border: 1px solid #e2e8f0; padding: 0.35rem 0.5rem; text-align: left; }
+    .coach-prose th { background: #f8fafc; font-weight: 600; }
+    .coach-prose code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+    .coach-prose hr { margin: 0.75rem 0; border-color: #e2e8f0; }
   </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
@@ -34,6 +48,41 @@
       return body;
     });
 
+    // 소비습관 분석 응답의 마크다운을 4섹션으로 분리
+    // 각 섹션 본문은 "## 헤더"를 제외한 나머지 텍스트
+    const SECTION_KEYS = [
+      { key: "status",     test: (h) => h.includes("현황") },
+      { key: "insights",   test: (h) => h.includes("인사이트") },
+      { key: "tips",       test: (h) => h.includes("절약") },
+      { key: "simulation", test: (h) => h.includes("시뮬레이션") || h.includes("시뮬") },
+    ];
+    function parseCoachSections(markdown) {
+      const out = { status: "", insights: "", tips: "", simulation: "" };
+      if (!markdown) return out;
+      const lines = markdown.split("\n");
+      let current = null;
+      for (const line of lines) {
+        const h2 = line.match(/^##\s+(.+?)\s*$/);
+        if (h2) {
+          const header = h2[1];
+          const match = SECTION_KEYS.find((s) => s.test(header));
+          current = match ? match.key : null;
+          continue;
+        }
+        if (current) out[current] += line + "\n";
+      }
+      return out;
+    }
+
+    function mdToHtml(md) {
+      if (!md || !window.marked) return { __html: (md || "").replace(/\n/g, "<br/>") };
+      try {
+        return { __html: window.marked.parse(md.trim()) };
+      } catch {
+        return { __html: md.trim() };
+      }
+    }
+
     function App() {
       const [entries, setEntries] = useState([]);
       const [stats, setStats] = useState({ totals: { income: 0, expense: 0, balance: 0 }, categoryStats: { income: [], expense: [] } });
@@ -51,6 +100,11 @@
       const [chat, setChat] = useState([]); // [{role:'user'|'assistant', text, queries?}]
       const [question, setQuestion] = useState("");
       const [asking, setAsking] = useState(false);
+
+      // 소비습관 분석 상태
+      const [analysis, setAnalysis] = useState(null); // { answer, month, range, queries }
+      const [analyzing, setAnalyzing] = useState(false);
+      const [analyzeMonth, setAnalyzeMonth] = useState(""); // YYYY-MM (빈값이면 서버가 최근월 선택)
 
       const refresh = useCallback(async () => {
         try {
@@ -109,6 +163,24 @@
           await refresh();
         } catch (err) {
           alert("삭제 실패: " + err.message);
+        }
+      };
+
+      const handleAnalyze = async () => {
+        if (analyzing) return;
+        setAnalyzing(true);
+        try {
+          const body = analyzeMonth ? { month: analyzeMonth } : {};
+          const result = await api("/api/analyze", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          setAnalysis(result);
+          if (result.month && !analyzeMonth) setAnalyzeMonth(result.month);
+        } catch (err) {
+          alert("분석 실패: " + err.message);
+        } finally {
+          setAnalyzing(false);
         }
       };
 
@@ -175,6 +247,90 @@
                 {formatKRW(balance)}
               </div>
             </div>
+          </section>
+
+          {/* 소비습관 분석 (spending-coach) */}
+          <section className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-8">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h2 className="text-lg font-semibold text-slate-800">
+                📊 소비습관 분석
+                <span className="text-xs text-slate-500 font-normal ml-2">월별 코치 피드백 — 잘한 점 + 개선 제안</span>
+              </h2>
+              <div className="flex items-center gap-2">
+                <input
+                  type="month"
+                  value={analyzeMonth}
+                  onChange={(e) => setAnalyzeMonth(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
+                />
+                <button
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                  className="bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                >{analyzing ? "분석 중…" : analysis ? "다시 분석" : "분석하기"}</button>
+              </div>
+            </div>
+
+            {!analysis && !analyzing && (
+              <div className="text-center py-8 text-slate-400 text-sm">
+                <p>월을 선택하고 <span className="font-medium text-emerald-600">"분석하기"</span> 버튼을 눌러주세요.</p>
+                <p className="text-xs mt-1 text-slate-300">월을 비워두면 가장 최근 데이터가 있는 달을 자동 분석합니다.</p>
+              </div>
+            )}
+
+            {analyzing && !analysis && (
+              <div className="text-center py-10 text-slate-500 text-sm">
+                <div className="animate-pulse">🔍 가계부를 읽고 분석 중이에요… (보통 10~20초)</div>
+              </div>
+            )}
+
+            {analysis && (() => {
+              const sections = parseCoachSections(analysis.answer);
+              const hasAnySection = sections.status || sections.insights || sections.tips || sections.simulation;
+              const cards = [
+                { key: "status",     title: "📊 현황",     body: sections.status,     bg: "bg-blue-50",    border: "border-blue-200",    accent: "text-blue-700" },
+                { key: "insights",   title: "💡 인사이트", body: sections.insights,   bg: "bg-amber-50",   border: "border-amber-200",   accent: "text-amber-700" },
+                { key: "tips",       title: "✂️ 절약 포인트", body: sections.tips,     bg: "bg-emerald-50", border: "border-emerald-200", accent: "text-emerald-700" },
+                { key: "simulation", title: "📈 시뮬레이션", body: sections.simulation, bg: "bg-purple-50", border: "border-purple-200", accent: "text-purple-700" },
+              ];
+
+              return (
+                <div>
+                  <div className="text-xs text-slate-500 mb-3">
+                    분석 대상: <span className="font-medium text-slate-700">{analysis.month}</span>
+                    {analysis.range && (
+                      <span className="text-slate-400"> ({analysis.range.start} ~ {analysis.range.end})</span>
+                    )}
+                  </div>
+
+                  {hasAnySection ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {cards.map((c) => c.body.trim() && (
+                        <div key={c.key} className={`${c.bg} border ${c.border} rounded-xl p-4`}>
+                          <h3 className={`font-semibold text-sm mb-2 ${c.accent}`}>{c.title}</h3>
+                          <div className="coach-prose" dangerouslySetInnerHTML={mdToHtml(c.body)} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="coach-prose bg-slate-50 rounded-lg p-4" dangerouslySetInnerHTML={mdToHtml(analysis.answer)} />
+                  )}
+
+                  {analysis.queries && analysis.queries.length > 0 && (
+                    <details className="mt-4 text-xs text-slate-400">
+                      <summary className="cursor-pointer hover:text-slate-600">실행된 SQL {analysis.queries.length}개 보기</summary>
+                      <ul className="mt-2 space-y-1">
+                        {analysis.queries.map((q, j) => (
+                          <li key={j} className="font-mono text-[11px] bg-slate-50 p-2 rounded border border-slate-200 text-slate-600">
+                            {q.sql} <span className="text-slate-400">— {q.rowCount}행</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              );
+            })()}
           </section>
 
           {/* AI 자연어 분석 */}

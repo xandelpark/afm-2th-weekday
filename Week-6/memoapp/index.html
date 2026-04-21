@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>메모장</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.15s ease-out; }
+    textarea { resize: none; }
+  </style>
+</head>
+<body class="bg-neutral-50 h-screen overflow-hidden">
+  <div id="root" class="h-full"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+    const API_BASE_URL = '/api';
+
+    // ========================================
+    // 🎨 Design System
+    // ========================================
+
+    function Button({ variant = 'primary', size = 'md', children, className = '', ...rest }) {
+      const variants = {
+        primary: 'bg-neutral-800 text-white hover:bg-neutral-700 disabled:bg-neutral-300',
+        secondary: 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50',
+        danger: 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100',
+        ghost: 'text-neutral-500 hover:bg-neutral-100',
+      };
+      const sizes = {
+        sm: 'px-2.5 py-1 text-xs',
+        md: 'px-3 py-1.5 text-sm',
+        lg: 'px-4 py-2 text-sm',
+      };
+      return (
+        <button
+          className={`rounded-md font-medium transition-colors ${variants[variant]} ${sizes[size]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    // ========================================
+    // 🛠 Helpers
+    // ========================================
+
+    function formatDate(s) {
+      if (!s) return '';
+      const d = new Date(s);
+      const today = new Date();
+      const sameDay =
+        d.getFullYear() === today.getFullYear() &&
+        d.getMonth() === today.getMonth() &&
+        d.getDate() === today.getDate();
+      if (sameDay) {
+        return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      }
+      return d.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+
+    function previewText(s) {
+      const t = (s || '').trim().replace(/\s+/g, ' ');
+      return t.length > 60 ? t.slice(0, 60) + '…' : (t || '내용 없음');
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(`${API_BASE_URL}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || '요청 실패');
+      }
+      return data.data;
+    }
+
+    // ========================================
+    // 📄 Sidebar
+    // ========================================
+
+    function Sidebar({ notes, selectedId, onSelect, onNew, query, setQuery, loading }) {
+      const filtered = notes.filter(n => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        return (n.title || '').toLowerCase().includes(q) ||
+               (n.content || '').toLowerCase().includes(q);
+      });
+
+      return (
+        <aside className="w-72 shrink-0 border-r border-neutral-200 bg-white flex flex-col h-full">
+          <div className="p-3 border-b border-neutral-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <h1 className="text-base font-bold text-neutral-800">📝 메모장</h1>
+              <Button size="sm" onClick={onNew}>+ 새 메모</Button>
+            </div>
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="검색…"
+              className="w-full px-2.5 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-neutral-400"
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="p-4 text-xs text-neutral-400 text-center">불러오는 중…</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-6 text-xs text-neutral-400 text-center">
+                {query ? '검색 결과가 없습니다' : '메모가 없습니다'}
+              </div>
+            ) : (
+              filtered.map(note => {
+                const active = note.id === selectedId;
+                return (
+                  <button
+                    key={note.id}
+                    onClick={() => onSelect(note.id)}
+                    className={`w-full text-left px-3 py-2.5 border-b border-neutral-100 transition-colors ${
+                      active ? 'bg-neutral-100' : 'hover:bg-neutral-50'
+                    }`}
+                  >
+                    <div className="text-sm font-medium text-neutral-800 truncate">
+                      {note.title?.trim() || '제목 없음'}
+                    </div>
+                    <div className="text-xs text-neutral-500 truncate mt-0.5">
+                      {previewText(note.content)}
+                    </div>
+                    <div className="text-[10px] text-neutral-400 mt-1">
+                      {formatDate(note.updated_at)}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <div className="px-3 py-2 border-t border-neutral-100 text-[10px] text-neutral-400">
+            총 {notes.length}개
+          </div>
+        </aside>
+      );
+    }
+
+    // ========================================
+    // ✏️ Editor
+    // ========================================
+
+    function Editor({ note, onChange, onDelete, savedAt, saving }) {
+      const titleRef = useRef(null);
+
+      useEffect(() => {
+        if (note && note.title === '' && note.content === '') {
+          titleRef.current?.focus();
+        }
+      }, [note?.id]);
+
+      if (!note) {
+        return (
+          <main className="flex-1 flex items-center justify-center text-neutral-400">
+            <div className="text-center">
+              <div className="text-5xl mb-3">📝</div>
+              <p className="text-sm">메모를 선택하거나 새로 만들어주세요</p>
+            </div>
+          </main>
+        );
+      }
+
+      return (
+        <main className="flex-1 flex flex-col h-full fade-in" key={note.id}>
+          <header className="px-6 py-3 border-b border-neutral-200 bg-white flex items-center justify-between">
+            <div className="text-xs text-neutral-400">
+              {saving ? '저장 중…' : savedAt ? `저장됨 · ${formatDate(savedAt)}` : '수정하면 자동 저장됩니다'}
+            </div>
+            <Button variant="danger" size="sm" onClick={onDelete}>삭제</Button>
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <input
+              ref={titleRef}
+              type="text"
+              value={note.title}
+              onChange={e => onChange({ ...note, title: e.target.value })}
+              placeholder="제목을 입력하세요"
+              maxLength={255}
+              className="w-full text-2xl font-bold text-neutral-800 placeholder-neutral-300 border-0 focus:outline-none bg-transparent"
+            />
+            <div className="text-xs text-neutral-400 mt-2">
+              생성: {formatDate(note.created_at)}
+            </div>
+            <textarea
+              value={note.content}
+              onChange={e => onChange({ ...note, content: e.target.value })}
+              placeholder="여기에 내용을 작성하세요…"
+              className="w-full mt-4 text-sm text-neutral-700 placeholder-neutral-300 border-0 focus:outline-none bg-transparent leading-relaxed"
+              style={{ minHeight: 'calc(100vh - 220px)' }}
+            />
+          </div>
+        </main>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+
+    function App() {
+      const [notes, setNotes] = useState([]);
+      const [selectedId, setSelectedId] = useState(null);
+      const [query, setQuery] = useState('');
+      const [loading, setLoading] = useState(true);
+      const [saving, setSaving] = useState(false);
+      const [savedAt, setSavedAt] = useState(null);
+      const [error, setError] = useState('');
+
+      const saveTimer = useRef(null);
+      const lastSaved = useRef({});
+
+      const loadNotes = useCallback(async () => {
+        try {
+          setLoading(true);
+          const data = await api('/notes');
+          setNotes(data);
+          return data;
+        } catch (e) {
+          setError(e.message);
+          return [];
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      useEffect(() => {
+        loadNotes();
+      }, [loadNotes]);
+
+      const selected = notes.find(n => n.id === selectedId) || null;
+
+      const handleNew = async () => {
+        try {
+          const created = await api('/notes', {
+            method: 'POST',
+            body: JSON.stringify({ title: '', content: '' }),
+          });
+          setNotes(prev => [created, ...prev]);
+          setSelectedId(created.id);
+          lastSaved.current[created.id] = { title: '', content: '' };
+        } catch (e) {
+          setError(e.message);
+        }
+      };
+
+      const handleChange = (updated) => {
+        setNotes(prev => prev.map(n => n.id === updated.id ? updated : n));
+
+        clearTimeout(saveTimer.current);
+        const prevSnapshot = lastSaved.current[updated.id];
+        if (prevSnapshot &&
+            prevSnapshot.title === updated.title &&
+            prevSnapshot.content === updated.content) {
+          return;
+        }
+
+        saveTimer.current = setTimeout(async () => {
+          try {
+            setSaving(true);
+            const saved = await api(`/notes/${updated.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({ title: updated.title, content: updated.content }),
+            });
+            lastSaved.current[saved.id] = { title: saved.title, content: saved.content };
+            setNotes(prev => {
+              const others = prev.filter(n => n.id !== saved.id);
+              return [saved, ...others];
+            });
+            setSavedAt(saved.updated_at);
+          } catch (e) {
+            setError(e.message);
+          } finally {
+            setSaving(false);
+          }
+        }, 500);
+      };
+
+      const handleDelete = async () => {
+        if (!selected) return;
+        if (!confirm('이 메모를 삭제할까요?')) return;
+        try {
+          await api(`/notes/${selected.id}`, { method: 'DELETE' });
+          setNotes(prev => prev.filter(n => n.id !== selected.id));
+          setSelectedId(null);
+          delete lastSaved.current[selected.id];
+        } catch (e) {
+          setError(e.message);
+        }
+      };
+
+      return (
+        <div className="h-full flex">
+          <Sidebar
+            notes={notes}
+            selectedId={selectedId}
+            onSelect={(id) => {
+              const n = notes.find(x => x.id === id);
+              if (n) lastSaved.current[id] = { title: n.title, content: n.content };
+              setSelectedId(id);
+              setSavedAt(null);
+            }}
+            onNew={handleNew}
+            query={query}
+            setQuery={setQuery}
+            loading={loading}
+          />
+          <Editor
+            note={selected}
+            onChange={handleChange}
+            onDelete={handleDelete}
+            savedAt={savedAt}
+            saving={saving}
+          />
+          {error && (
+            <div
+              onClick={() => setError('')}
+              className="fixed bottom-4 right-4 bg-red-50 text-red-700 text-xs px-3 py-2 rounded-md border border-red-100 cursor-pointer"
+            >
+              {error} (클릭해서 닫기)
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

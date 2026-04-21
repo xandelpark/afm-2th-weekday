@@ -1,0 +1,15 @@
+{
+  "name": "memoapp",
+  "version": "1.0.0",
+  "description": "간단한 메모장 앱 (Express + React CDN + Supabase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.0.0",
+    "pg": "^8.20.0"
+  }
+}

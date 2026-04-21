@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이미지 업로드 테스트</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    /* 토스트 등장 애니메이션 */
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOutRight {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
+    }
+    .toast-enter { animation: slideInRight 0.25s ease-out forwards; }
+    .toast-exit { animation: slideOutRight 0.25s ease-in forwards; }
+
+    /* 커스텀 스크롤바 (미리보기 영역) */
+    .custom-scroll::-webkit-scrollbar { width: 8px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // ========================================
+    // 🛠️ 유틸리티 함수
+    // ========================================
+
+    // 파일 크기를 사람이 읽기 쉬운 형태(KB/MB)로 변환
+    const formatSize = (bytes) => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    };
+
+    // ImageKit 업로드 — 서버에서 인증 파라미터 받고 ImageKit Upload API 직접 호출
+    // 참고: https://docs.imagekit.io/api-reference/upload-file-api/client-side-file-upload
+    const IMAGEKIT_UPLOAD_URL = 'https://upload.imagekit.io/api/v1/files/upload';
+    async function uploadToImageKit(file) {
+      // 1) 서버로부터 인증 파라미터(token/expire/signature + publicKey) 수신
+      const authRes = await fetch('/api/imagekit-auth');
+      if (!authRes.ok) {
+        const err = await authRes.json().catch(() => ({}));
+        throw new Error(err.error || `인증 실패 (HTTP ${authRes.status})`);
+      }
+      const auth = await authRes.json();
+
+      // 2) FormData 조립 후 ImageKit Upload API 에 직접 POST
+      const form = new FormData();
+      form.append('file', file);
+      form.append('fileName', file.name || `image-${Date.now()}`);
+      form.append('publicKey', auth.publicKey);
+      form.append('signature', auth.signature);
+      form.append('expire', String(auth.expire));
+      form.append('token', auth.token);
+      form.append('useUniqueFileName', 'true');
+      form.append('folder', '/imagetest');
+
+      const uploadRes = await fetch(IMAGEKIT_UPLOAD_URL, { method: 'POST', body: form });
+      const body = await uploadRes.json().catch(() => ({}));
+      if (!uploadRes.ok) {
+        throw new Error(body.message || `업로드 실패 (HTTP ${uploadRes.status})`);
+      }
+      return body; // { fileId, name, url, thumbnailUrl, size, width, height, ... }
+    }
+
+    // 고유 ID 생성 (파일 식별용)
+    const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // File을 data URL로 변환
+    const readAsDataURL = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    // 이미지의 가로/세로 픽셀 추출
+    const getImageDimensions = (dataUrl) => new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => resolve({ width: 0, height: 0 });
+      img.src = dataUrl;
+    });
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+
+    // 버튼 컴포넌트 (variant / size 지원)
+    const Button = ({ variant = 'primary', size = 'md', disabled, onClick, children, className = '', type = 'button' }) => {
+      const base = 'inline-flex items-center justify-center font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm',
+        secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-400',
+        danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm',
+        ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-300',
+      };
+      const sizes = {
+        sm: 'px-3 py-1.5 text-sm gap-1',
+        md: 'px-4 py-2 text-sm gap-2',
+        lg: 'px-5 py-2.5 text-base gap-2',
+      };
+      return (
+        <button
+          type={type}
+          onClick={onClick}
+          disabled={disabled}
+          className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+        >
+          {children}
+        </button>
+      );
+    };
+
+    // 카드 컨테이너
+    const Card = ({ children, className = '' }) => (
+      <div className={`bg-white border border-gray-200 rounded-xl shadow-sm ${className}`}>
+        {children}
+      </div>
+    );
+
+    // 뱃지 (메타 정보 표시용)
+    const Badge = ({ children, color = 'gray' }) => {
+      const colors = {
+        gray: 'bg-gray-100 text-gray-700',
+        blue: 'bg-blue-100 text-blue-700',
+        green: 'bg-green-100 text-green-700',
+      };
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[color]}`}>
+          {children}
+        </span>
+      );
+    };
+
+    // 토스트 알림 (에러 등)
+    const Toast = ({ toast, onDismiss }) => {
+      const [exiting, setExiting] = useState(false);
+
+      useEffect(() => {
+        // 3초 후 자동 제거 (애니메이션 포함)
+        const timer = setTimeout(() => {
+          setExiting(true);
+          setTimeout(() => onDismiss(toast.id), 250);
+        }, 3000);
+        return () => clearTimeout(timer);
+      }, [toast.id, onDismiss]);
+
+      const colorMap = {
+        error: 'bg-red-50 border-red-200 text-red-800',
+        success: 'bg-green-50 border-green-200 text-green-800',
+        info: 'bg-blue-50 border-blue-200 text-blue-800',
+      };
+      const iconMap = {
+        error: '⚠️',
+        success: '✅',
+        info: 'ℹ️',
+      };
+
+      return (
+        <div
+          className={`${colorMap[toast.type]} ${exiting ? 'toast-exit' : 'toast-enter'} border rounded-lg shadow-md px-4 py-3 flex items-start gap-2 min-w-[260px] max-w-sm`}
+          role="alert"
+        >
+          <span className="text-lg leading-none">{iconMap[toast.type]}</span>
+          <span className="flex-1 text-sm">{toast.message}</span>
+          <button
+            onClick={() => {
+              setExiting(true);
+              setTimeout(() => onDismiss(toast.id), 250);
+            }}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+            aria-label="닫기"
+          >
+            ×
+          </button>
+        </div>
+      );
+    };
+
+    // ========================================
+    // 🧩 페이지 내부 컴포넌트
+    // ========================================
+
+    // 드롭존 + 파일 선택 + 붙여넣기 안내
+    const DropZone = ({ onFilesAdded, isDragOver, bindDragHandlers }) => {
+      const fileInputRef = useRef(null);
+
+      // 파일 선택 다이얼로그 열기
+      const handleSelectClick = () => {
+        fileInputRef.current?.click();
+      };
+
+      // <input type="file"> 선택 이벤트
+      const handleInputChange = (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+          onFilesAdded(files);
+        }
+        // 동일 파일 재선택 가능하도록 초기화
+        e.target.value = '';
+      };
+
+      return (
+        <div
+          {...bindDragHandlers}
+          className={`
+            relative border-2 border-dashed rounded-xl p-8 md:p-12 text-center transition-all
+            ${isDragOver
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+            }
+          `}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleInputChange}
+            className="hidden"
+          />
+
+          <div className="flex flex-col items-center gap-3">
+            {/* 아이콘 */}
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isDragOver ? 'bg-blue-100' : 'bg-gray-100'}`}>
+              <svg className={`w-7 h-7 ${isDragOver ? 'text-blue-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+
+            {/* 안내 문구 */}
+            <div>
+              <p className="text-base font-medium text-gray-900">
+                {isDragOver ? '여기에 놓아주세요' : '이미지 파일을 끌어다 놓거나'}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                JPG, PNG, GIF, WebP 등 이미지 형식 지원
+              </p>
+            </div>
+
+            {/* 파일 선택 버튼 */}
+            <Button variant="primary" size="md" onClick={handleSelectClick}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              파일 선택
+            </Button>
+
+            {/* 클립보드 붙여넣기 안내 */}
+            <p className="text-xs text-gray-400 mt-1">
+              또는 <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">Ctrl/Cmd + V</kbd> 로 클립보드에서 붙여넣기
+            </p>
+          </div>
+        </div>
+      );
+    };
+
+    // 업로드 상태 뱃지
+    const UploadStatusBadge = ({ status, error }) => {
+      if (status === 'uploading') {
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            업로드 중
+          </span>
+        );
+      }
+      if (status === 'success') {
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title="ImageKit 업로드 완료">
+            ✓ 업로드 완료
+          </span>
+        );
+      }
+      if (status === 'error') {
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full" title={error || '업로드 실패'}>
+            ✗ 실패
+          </span>
+        );
+      }
+      return null;
+    };
+
+    // 단일 이미지 프리뷰 카드
+    const ImagePreviewCard = ({ image, onRemove, onCopyUrl, onRetry }) => {
+      return (
+        <Card className="overflow-hidden group hover:shadow-md transition-shadow">
+          {/* 썸네일 */}
+          <div className="relative aspect-square bg-gray-100 overflow-hidden">
+            <img
+              src={image.dataUrl}
+              alt={image.name}
+              className="w-full h-full object-cover"
+            />
+            {/* 삭제 버튼 (호버 시 표시) */}
+            <button
+              onClick={() => onRemove(image.id)}
+              className="absolute top-2 right-2 w-8 h-8 bg-white/90 hover:bg-red-500 hover:text-white text-gray-700 rounded-full shadow flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+              aria-label={`${image.name} 삭제`}
+              title="삭제"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 메타 정보 */}
+          <div className="p-3 space-y-2">
+            <p className="text-sm font-medium text-gray-900 truncate" title={image.name}>
+              {image.name}
+            </p>
+            <div className="flex flex-wrap gap-1">
+              <Badge color="blue">{image.type.replace('image/', '').toUpperCase()}</Badge>
+              <Badge color="gray">{formatSize(image.size)}</Badge>
+              {image.width > 0 && (
+                <Badge color="green">{image.width}×{image.height}</Badge>
+              )}
+            </div>
+
+            {/* 업로드 상태 & 액션 */}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <UploadStatusBadge status={image.uploadStatus} error={image.uploadError} />
+              {image.uploadStatus === 'success' && image.uploadedUrl && (
+                <button
+                  onClick={() => onCopyUrl(image.uploadedUrl)}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline whitespace-nowrap"
+                  title={image.uploadedUrl}
+                >URL 복사</button>
+              )}
+              {image.uploadStatus === 'error' && (
+                <button
+                  onClick={() => onRetry(image.id)}
+                  className="text-xs text-rose-600 hover:text-rose-800 underline whitespace-nowrap"
+                >재시도</button>
+              )}
+            </div>
+
+            {/* 업로드된 URL 짧게 */}
+            {image.uploadStatus === 'success' && image.uploadedUrl && (
+              <a
+                href={image.uploadedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[11px] text-gray-500 hover:text-blue-600 truncate"
+                title={image.uploadedUrl}
+              >
+                {image.uploadedUrl}
+              </a>
+            )}
+          </div>
+        </Card>
+      );
+    };
+
+    // 상단 요약 바 (개수/총용량)
+    const SummaryBar = ({ images, onClear }) => {
+      const totalBytes = images.reduce((sum, img) => sum + img.size, 0);
+
+      return (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+          <div className="flex items-center gap-2 text-sm">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H6a2 2 0 00-2 2z" />
+            </svg>
+            <span className="text-gray-700">
+              <strong className="text-blue-700 font-semibold">{images.length}장</strong>
+              <span className="mx-1.5 text-gray-400">·</span>
+              <span>총 </span>
+              <strong className="text-blue-700 font-semibold">{formatSize(totalBytes)}</strong>
+            </span>
+          </div>
+
+          <Button variant="danger" size="sm" onClick={onClear}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+            </svg>
+            초기화
+          </Button>
+        </div>
+      );
+    };
+
+    // 빈 상태
+    const EmptyState = () => (
+      <div className="text-center py-12 text-gray-400">
+        <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <p className="text-sm">아직 업로드된 이미지가 없습니다</p>
+      </div>
+    );
+
+    // ========================================
+    // 📄 메인 App 컴포넌트
+    // ========================================
+
+    const App = () => {
+      // 업로드된 이미지 목록
+      const [images, setImages] = useState([]);
+      // 드래그오버 상태
+      const [isDragOver, setIsDragOver] = useState(false);
+      // 토스트 알림 목록
+      const [toasts, setToasts] = useState([]);
+      // 드래그 depth 카운터 (자식 요소 진입 시 dragleave 오작동 방지)
+      const dragCounterRef = useRef(0);
+
+      // 토스트 추가
+      const pushToast = useCallback((message, type = 'info') => {
+        const id = genId();
+        setToasts((prev) => [...prev, { id, message, type }]);
+      }, []);
+
+      // 토스트 제거
+      const dismissToast = useCallback((id) => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, []);
+
+      // 이미지 상태 부분 업데이트
+      const updateImage = useCallback((id, patch) => {
+        setImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...patch } : img)));
+      }, []);
+
+      // 한 장을 ImageKit 에 업로드하고 상태 갱신
+      const uploadOne = useCallback(async (id, file) => {
+        updateImage(id, { uploadStatus: 'uploading', uploadError: null });
+        try {
+          const result = await uploadToImageKit(file);
+          updateImage(id, {
+            uploadStatus: 'success',
+            uploadedUrl: result.url,
+            remoteId: result.fileId,
+            uploadError: null,
+          });
+          console.log('[imagetest] ImageKit 업로드 완료:', result.name, '→', result.url);
+        } catch (err) {
+          console.error('[imagetest] ImageKit 업로드 실패:', err);
+          updateImage(id, { uploadStatus: 'error', uploadError: err.message || String(err) });
+        }
+      }, [updateImage]);
+
+      // 파일 목록 처리 (공통) — 이미지만 필터링 후 메타 추출 + 자동 업로드
+      const handleFiles = useCallback(async (files) => {
+        if (!files || files.length === 0) return;
+
+        // 이미지 / 비이미지 분리
+        const imageFiles = [];
+        const rejectedFiles = [];
+        for (const file of files) {
+          if (file.type.startsWith('image/')) {
+            imageFiles.push(file);
+          } else {
+            rejectedFiles.push(file);
+          }
+        }
+
+        // 비이미지 파일에 대해 에러 토스트
+        if (rejectedFiles.length > 0) {
+          const names = rejectedFiles.map((f) => f.name).join(', ');
+          pushToast(`이미지 파일이 아닙니다: ${names}`, 'error');
+        }
+
+        if (imageFiles.length === 0) return;
+
+        // data URL 및 가로/세로 픽셀 로드
+        try {
+          const newImages = await Promise.all(
+            imageFiles.map(async (file) => {
+              const dataUrl = await readAsDataURL(file);
+              const { width, height } = await getImageDimensions(dataUrl);
+              return {
+                id: genId(),
+                _file: file, // 업로드 재시도용 (state 에는 들어가지만 직렬화/서버 전송 없음)
+                name: file.name || '(이름 없음)',
+                type: file.type,
+                size: file.size,
+                dataUrl,
+                width,
+                height,
+                uploadStatus: 'uploading',
+                uploadedUrl: null,
+                uploadError: null,
+                remoteId: null,
+              };
+            })
+          );
+
+          setImages((prev) => [...prev, ...newImages]);
+          pushToast(`${newImages.length}장 추가 · ImageKit 업로드 시작`, 'success');
+          console.log('[imagetest] 이미지 추가됨:', newImages.map((i) => i.name));
+
+          // 각 이미지를 ImageKit 에 병렬 업로드
+          for (const img of newImages) {
+            uploadOne(img.id, img._file);
+          }
+        } catch (err) {
+          console.error('[imagetest] 파일 읽기 오류:', err);
+          pushToast('이미지를 읽는 중 오류가 발생했습니다', 'error');
+        }
+      }, [pushToast, uploadOne]);
+
+      // 드래그앤드롭 이벤트 바인딩 (DropZone에 전달)
+      const bindDragHandlers = useMemo(() => ({
+        onDragEnter: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dragCounterRef.current += 1;
+          if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+            setIsDragOver(true);
+          }
+        },
+        onDragLeave: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dragCounterRef.current -= 1;
+          if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0;
+            setIsDragOver(false);
+          }
+        },
+        onDragOver: (e) => {
+          // drop을 허용하려면 반드시 preventDefault 필요
+          e.preventDefault();
+          e.stopPropagation();
+        },
+        onDrop: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dragCounterRef.current = 0;
+          setIsDragOver(false);
+          const files = Array.from(e.dataTransfer?.files || []);
+          handleFiles(files);
+        },
+      }), [handleFiles]);
+
+      // 클립보드 붙여넣기 (Ctrl/Cmd + V)
+      useEffect(() => {
+        const handlePaste = (e) => {
+          const items = e.clipboardData?.items;
+          if (!items) return;
+
+          const pastedFiles = [];
+          for (const item of items) {
+            if (item.kind === 'file') {
+              const file = item.getAsFile();
+              if (file) pastedFiles.push(file);
+            }
+          }
+
+          if (pastedFiles.length > 0) {
+            e.preventDefault();
+            handleFiles(pastedFiles);
+          }
+        };
+
+        window.addEventListener('paste', handlePaste);
+        return () => window.removeEventListener('paste', handlePaste);
+      }, [handleFiles]);
+
+      // 개별 이미지 삭제
+      const handleRemove = useCallback((id) => {
+        setImages((prev) => prev.filter((img) => img.id !== id));
+      }, []);
+
+      // 전체 초기화
+      const handleClear = useCallback(() => {
+        if (images.length === 0) return;
+        if (window.confirm(`업로드된 이미지 ${images.length}장을 모두 삭제하시겠습니까?`)) {
+          setImages([]);
+          pushToast('모든 이미지를 삭제했습니다', 'info');
+          console.log('[imagetest] 이미지 목록 초기화');
+        }
+      }, [images.length, pushToast]);
+
+      // 업로드 재시도 (실패한 이미지만)
+      const handleRetry = useCallback((id) => {
+        setImages((prev) => {
+          const target = prev.find((img) => img.id === id);
+          if (target && target._file) {
+            // state 업데이트는 uploadOne 내부에서. 여기선 트리거만
+            setTimeout(() => uploadOne(id, target._file), 0);
+          }
+          return prev;
+        });
+      }, [uploadOne]);
+
+      // 업로드된 URL 복사
+      const handleCopyUrl = useCallback(async (url) => {
+        try {
+          await navigator.clipboard.writeText(url);
+          pushToast('URL 복사됨', 'success');
+        } catch {
+          pushToast('클립보드 접근이 거부되었어요', 'error');
+        }
+      }, [pushToast]);
+
+      return (
+        <div className="min-h-screen">
+          {/* 헤더 */}
+          <header className="bg-white border-b border-gray-200">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900">이미지 업로드 테스트</h1>
+                  <p className="text-xs text-gray-500">파일 선택 · 드래그앤드롭 · 클립보드 붙여넣기 지원</p>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* 본문 */}
+          <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+            {/* 드롭존 */}
+            <DropZone
+              onFilesAdded={handleFiles}
+              isDragOver={isDragOver}
+              bindDragHandlers={bindDragHandlers}
+            />
+
+            {/* 요약 바 (이미지가 있을 때만) */}
+            {images.length > 0 && (
+              <SummaryBar images={images} onClear={handleClear} />
+            )}
+
+            {/* 미리보기 섹션 */}
+            <section>
+              <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                미리보기
+              </h2>
+
+              {images.length === 0 ? (
+                <Card>
+                  <EmptyState />
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {images.map((image) => (
+                    <ImagePreviewCard
+                      key={image.id}
+                      image={image}
+                      onRemove={handleRemove}
+                      onCopyUrl={handleCopyUrl}
+                      onRetry={handleRetry}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* 푸터 안내 */}
+            <footer className="pt-4 pb-8 text-center text-xs text-gray-400">
+              <p>📤 ImageKit.io 연동 · 이미지 추가 시 자동으로 클라우드에 업로드됩니다</p>
+            </footer>
+          </main>
+
+          {/* 토스트 컨테이너 (오른쪽 상단 고정) */}
+          <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+            <div className="flex flex-col gap-2 pointer-events-auto">
+              {toasts.map((toast) => (
+                <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ========================================
+    // 🚀 Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
