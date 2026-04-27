@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>거품없는결혼 — 플래너가 있는 결혼준비, 거품이없을까요?</title>
+  <meta name="description" content="광고비로 왜곡되지 않은 웨딩 가격 정보를 신부들이 서로 나누는 공개 족보 플랫폼." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .green-mark { background: linear-gradient(135deg, #16a34a, #15803d); }
+    .hero-bg { background: linear-gradient(135deg, #fef3c7 0%, #fce7f3 50%, #e0e7ff 100%); }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    // ─── API 호출 헬퍼 ────────────────────────────────────────
+    const api = {
+      token: () => localStorage.getItem("wd_token"),
+      setToken: (t) => localStorage.setItem("wd_token", t),
+      clearToken: () => localStorage.removeItem("wd_token"),
+      async call(method, url, body) {
+        const headers = { "Content-Type": "application/json" };
+        const token = api.token();
+        if (token) headers.Authorization = "Bearer " + token;
+        const res = await fetch(url, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "요청 실패");
+        return data;
+      },
+    };
+
+    // ─── 레벨 뱃지 ────────────────────────────────────────────
+    const LEVEL_META = {
+      bronze: { label: "브론즈", icon: "🥉", color: "bg-orange-100 text-orange-700" },
+      silver: { label: "실버", icon: "🥈", color: "bg-slate-200 text-slate-700" },
+      gold: { label: "골드", icon: "🥇", color: "bg-yellow-100 text-yellow-800" },
+      admin: { label: "관리자", icon: "👑", color: "bg-purple-100 text-purple-700" },
+    };
+    function LevelBadge({ level }) {
+      const meta = LEVEL_META[level] || LEVEL_META.bronze;
+      return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${meta.color}`}>
+          {meta.icon} {meta.label}
+        </span>
+      );
+    }
+
+    function GreenMark() {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-white rounded green-mark shadow-sm">
+          🌿 초록 마크
+        </span>
+      );
+    }
+
+    // ─── 네비게이션 ──────────────────────────────────────────
+    function Nav({ user, route, onLogout }) {
+      return (
+        <nav className="bg-white border-b sticky top-0 z-40 shadow-sm">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="#/" className="text-xl font-black text-emerald-700">
+              🌿 거품없는결혼
+            </a>
+            <div className="flex items-center gap-2 text-sm">
+              <a href="#/halls" className={`px-3 py-1 rounded hover:bg-gray-100 ${route === "halls" ? "text-emerald-700 font-bold" : ""}`}>웨딩홀</a>
+              <a href="#/partners" className={`px-3 py-1 rounded hover:bg-gray-100 ${route === "partners" ? "text-emerald-700 font-bold" : ""}`}>초록마크</a>
+              <a href="#/estimates" className={`px-3 py-1 rounded hover:bg-gray-100 ${route === "estimates" ? "text-emerald-700 font-bold" : ""}`}>견적족보</a>
+              <a href="#/community" className={`px-3 py-1 rounded hover:bg-gray-100 ${route === "community" ? "text-emerald-700 font-bold" : ""}`}>커뮤니티</a>
+              {user ? (
+                <>
+                  <a href="#/checklist" className={`px-3 py-1 rounded hover:bg-gray-100 ${route === "checklist" ? "text-emerald-700 font-bold" : ""}`}>체크리스트</a>
+                  <a href="#/dashboard" className="px-3 py-1 bg-emerald-50 rounded text-emerald-700 font-bold flex items-center gap-1">
+                    {user.name} · {user.credits}p <LevelBadge level={user.level} />
+                  </a>
+                  {user.role === "admin" && (
+                    <a href="#/admin" className="px-3 py-1 bg-purple-100 rounded text-purple-700 font-bold">👑 관리자</a>
+                  )}
+                  <button onClick={onLogout} className="px-3 py-1 text-gray-500 hover:text-red-500">로그아웃</button>
+                </>
+              ) : (
+                <>
+                  <a href="#/login" className="px-3 py-1 border rounded hover:bg-gray-100">로그인</a>
+                  <a href="#/signup" className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700">가입</a>
+                </>
+              )}
+            </div>
+          </div>
+        </nav>
+      );
+    }
+
+    // ─── 랜딩 페이지 ─────────────────────────────────────────
+    function Landing() {
+      return (
+        <div>
+          <div className="hero-bg py-20 px-4">
+            <div className="max-w-4xl mx-auto text-center">
+              <div className="text-sm text-emerald-700 font-bold mb-3">🌿 가격 공개 동맹 웨딩 커뮤니티</div>
+              <h1 className="text-5xl md:text-6xl font-black mb-6 text-gray-900 leading-tight">
+                플래너가 있는 결혼준비,<br />
+                <span className="text-emerald-700">거품이 없을까요?</span>
+              </h1>
+              <p className="text-lg text-gray-700 mb-8 leading-relaxed">
+                신부들의 실제 견적서가 모이는 공개 족보.<br />
+                광고비 0원, 초록 마크 업체들만의 정직한 결혼 준비.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <a href="#/signup" className="px-8 py-3 bg-emerald-600 text-white rounded-lg font-bold shadow-lg hover:bg-emerald-700 transition">
+                  무료로 시작하기 →
+                </a>
+                <a href="#/halls" className="px-8 py-3 bg-white text-emerald-700 border-2 border-emerald-600 rounded-lg font-bold hover:bg-emerald-50 transition">
+                  웨딩홀 둘러보기
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-6xl mx-auto px-4 py-16">
+            <div className="grid md:grid-cols-3 gap-8">
+              <FeatureCard
+                icon="📋"
+                title="견적서 족보"
+                desc="다른 신부들이 실제로 받은 견적서를 크레딧으로 열람. 업체별 실가격과 편차를 데이터로 확인."
+              />
+              <FeatureCard
+                icon="🌿"
+                title="초록 마크 업체"
+                desc="가격 공개에 동의한 검증 업체만 등록. 미슐랭처럼 운영자가 큐레이션, 광고비 0원."
+              />
+              <FeatureCard
+                icon="📗"
+                title="미슐랭 신부 제도"
+                desc="결혼 후 리포트를 남기면 평생 열람권 + 후배 멘토 배지. 경험이 자산이 되는 커뮤니티."
+              />
+            </div>
+          </div>
+
+          <div className="bg-gray-900 text-white py-16 px-4">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-3xl font-bold mb-6">왜 "거품"일까?</h2>
+              <div className="space-y-4 text-gray-300 leading-relaxed">
+                <p>기존 최대 웨딩 카페는 업체에게 광고비를 받고, 그 돈의 일부를 신부에게 "적립금"으로 환원합니다.</p>
+                <p>업체는 그 광고비를 견적에 얹어 청구하고, 신부는 <span className="text-red-400 font-bold">더 비싸게 내고 일부를 돌려받는 착시</span>를 합리적 소비라 인식합니다.</p>
+                <p className="text-white text-xl font-bold pt-2">우리는 이 구조의 정반대입니다.</p>
+                <ul className="space-y-2 pt-3">
+                  <li>✅ 업체 광고비 <strong className="text-emerald-400">0원</strong></li>
+                  <li>✅ 크레딧은 현금 환전 <strong className="text-emerald-400">불가</strong> (정보 접근권 전용)</li>
+                  <li>✅ 운영자는 웨딩 업계 <strong className="text-emerald-400">내부자</strong>로 관행·꼼수를 폭로</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function FeatureCard({ icon, title, desc }) {
+      return (
+        <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition">
+          <div className="text-5xl mb-4">{icon}</div>
+          <h3 className="text-xl font-bold mb-2 text-gray-900">{title}</h3>
+          <p className="text-gray-600 leading-relaxed">{desc}</p>
+        </div>
+      );
+    }
+
+    // ─── 로그인 ──────────────────────────────────────────────
+    function Login({ onAuth }) {
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [err, setErr] = useState("");
+      const [loading, setLoading] = useState(false);
+      async function submit(e) {
+        e.preventDefault();
+        setErr(""); setLoading(true);
+        try {
+          const data = await api.call("POST", "/api/login", { email, password });
+          api.setToken(data.token);
+          onAuth(data.user);
+          window.location.hash = "#/dashboard";
+        } catch (e) { setErr(e.message); } finally { setLoading(false); }
+      }
+      return (
+        <div className="max-w-md mx-auto p-8 mt-12 bg-white rounded-xl shadow">
+          <h2 className="text-2xl font-bold mb-6">로그인</h2>
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">이메일</label>
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">비밀번호</label>
+              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
+            </div>
+            {err && <div className="text-red-600 text-sm">{err}</div>}
+            <button disabled={loading} className="w-full py-2 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700 disabled:opacity-50">
+              {loading ? "로그인 중..." : "로그인"}
+            </button>
+          </form>
+          <div className="mt-6 text-sm text-center">
+            계정이 없으신가요? <a href="#/signup" className="text-emerald-700 font-bold">가입하기</a>
+          </div>
+          <div className="mt-4 p-3 bg-purple-50 rounded text-xs text-purple-900">
+            <div className="font-bold mb-1">👑 슈퍼 관리자 (데모)</div>
+            <div>📧 admin@wedding-demo.kr</div>
+            <div>🔑 Wedding!Admin2026</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 회원가입 ────────────────────────────────────────────
+    function Signup({ onAuth }) {
+      const [form, setForm] = useState({ email: "", password: "", name: "" });
+      const [err, setErr] = useState("");
+      const [loading, setLoading] = useState(false);
+      async function submit(e) {
+        e.preventDefault();
+        setErr(""); setLoading(true);
+        try {
+          const data = await api.call("POST", "/api/signup", form);
+          api.setToken(data.token);
+          onAuth(data.user);
+          window.location.hash = "#/dashboard";
+        } catch (e) { setErr(e.message); } finally { setLoading(false); }
+      }
+      return (
+        <div className="max-w-md mx-auto p-8 mt-12 bg-white rounded-xl shadow">
+          <h2 className="text-2xl font-bold mb-2">가입하기</h2>
+          <p className="text-sm text-gray-600 mb-6">가입 즉시 <strong className="text-emerald-700">100 크레딧</strong>을 드립니다 (견적서 3장 열람 가능)</p>
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">이름 또는 닉네임</label>
+              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none"
+                placeholder="예비신부A" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">이메일</label>
+              <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">비밀번호 (6자 이상)</label>
+              <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
+            </div>
+            {err && <div className="text-red-600 text-sm">{err}</div>}
+            <button disabled={loading} className="w-full py-2 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700 disabled:opacity-50">
+              {loading ? "가입 중..." : "가입하기"}
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    // ─── 대시보드 ────────────────────────────────────────────
+    function Dashboard({ user, refreshUser }) {
+      const nextThreshold = user.credits >= 2000 ? null : user.credits >= 500 ? 2000 : 500;
+      const progress = nextThreshold ? Math.min(100, (user.credits / nextThreshold) * 100) : 100;
+      return (
+        <div className="max-w-4xl mx-auto p-6 space-y-6">
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-6 rounded-xl shadow">
+            <div className="text-sm opacity-80 mb-1">환영합니다,</div>
+            <h2 className="text-3xl font-bold mb-4">{user.name}님</h2>
+            <div className="flex items-center gap-3 mb-3">
+              <LevelBadge level={user.level} />
+              <span className="text-2xl font-black">{user.credits.toLocaleString()}p</span>
+            </div>
+            {nextThreshold && (
+              <div>
+                <div className="text-sm mb-1">다음 레벨까지 {nextThreshold - user.credits}p 남음</div>
+                <div className="bg-white/20 rounded-full h-2 overflow-hidden">
+                  <div className="bg-white h-full" style={{ width: progress + "%" }}></div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <ActionCard href="#/upload" icon="📤" title="견적서 업로드" desc="+100p (카테고리 첫 업로드 +300p)" />
+            <ActionCard href="#/community" icon="✍️" title="커뮤니티 글쓰기" desc="+30p" />
+            <ActionCard href="#/checklist" icon="✅" title="준비 단계 체크" desc="항목 체크 시 +10p" />
+            <ActionCard href="#/estimates" icon="📊" title="견적 족보 열람" desc={`현재 열람 가능: ${user.level === "gold" || user.level === "admin" ? "전체" : user.level === "silver" ? "10건" : "3건"}`} />
+          </div>
+
+          <div className="bg-white p-5 rounded-xl shadow-sm border">
+            <h3 className="text-lg font-bold mb-2">🎯 레벨 시스템</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span>🥉 브론즈 — 평균 통계 + 견적 3건</span><span className="text-gray-500">0p~</span></div>
+              <div className="flex justify-between"><span>🥈 실버 — 업체 실명 + 견적 10건</span><span className="text-gray-500">500p~</span></div>
+              <div className="flex justify-between"><span>🥇 골드 — 전체 DB 열람</span><span className="text-gray-500">2000p~</span></div>
+              <div className="flex justify-between"><span>📗 미슐랭 신부 — 평생 열람권 + 멘토 배지</span><span className="text-gray-500">결혼 후 종합 리포트 작성</span></div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ActionCard({ href, icon, title, desc }) {
+      return (
+        <a href={href} className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md hover:border-emerald-400 transition block">
+          <div className="text-3xl mb-2">{icon}</div>
+          <div className="font-bold text-gray-900">{title}</div>
+          <div className="text-sm text-gray-600 mt-1">{desc}</div>
+        </a>
+      );
+    }
+
+    // ─── 웨딩홀 리스트 ───────────────────────────────────────
+    function Halls() {
+      const [halls, setHalls] = useState([]);
+      const [filter, setFilter] = useState({ region: "", tier: "" });
+      const [loading, setLoading] = useState(true);
+      useEffect(() => {
+        const qs = new URLSearchParams(Object.entries(filter).filter(([_, v]) => v)).toString();
+        api.call("GET", "/api/halls?" + qs).then((d) => { setHalls(d.halls); setLoading(false); });
+      }, [filter]);
+
+      return (
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold mb-2">🏛 웨딩홀 정보</h2>
+            <p className="text-gray-600">서울·경기 전역 등재. 제휴비 없이 신부들의 실 견적 데이터로 구축.</p>
+          </div>
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <select className="px-3 py-2 border rounded text-sm" value={filter.region} onChange={(e) => setFilter({ ...filter, region: e.target.value })}>
+              <option value="">전체 지역</option>
+              <option value="서울">서울</option>
+              <option value="경기">경기</option>
+              <option value="강남">강남구</option>
+            </select>
+            <select className="px-3 py-2 border rounded text-sm" value={filter.tier} onChange={(e) => setFilter({ ...filter, tier: e.target.value })}>
+              <option value="">전체 등급</option>
+              <option value="프리미엄">프리미엄</option>
+              <option value="일반">일반</option>
+              <option value="스몰웨딩">스몰웨딩</option>
+            </select>
+          </div>
+          {loading ? <div>불러오는 중...</div> : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {halls.map((h) => (
+                <div key={h.id} className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-bold text-lg">{h.name}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${h.tier === "프리미엄" ? "bg-yellow-100 text-yellow-800" : h.tier === "스몰웨딩" ? "bg-pink-100 text-pink-800" : "bg-gray-100 text-gray-700"}`}>
+                      {h.tier}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500 mb-3">{h.region}</div>
+                  <div className="space-y-1.5 text-sm border-t pt-3">
+                    <div className="flex justify-between"><span className="text-gray-500">대관료</span><span className="font-bold">{h.hallFee}만원</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">식대</span><span className="font-bold">{h.mealFee.toLocaleString()}원/인</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">보증인원</span><span className="font-bold">{h.minGuests}명</span></div>
+                  </div>
+                  <div className="mt-3 text-[10px] text-gray-400 leading-tight">* 세부 금액은 계약 시기·옵션에 따라 차이 있음</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ─── 동맹 업체 (초록 마크) ──────────────────────────────
+    function Partners() {
+      const [tab, setTab] = useState("snap");
+      const [partners, setPartners] = useState([]);
+      useEffect(() => {
+        api.call("GET", `/api/partners?category=${tab}`).then((d) => setPartners(d.partners));
+      }, [tab]);
+      return (
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold mb-2">🌿 초록 마크 동맹 업체</h2>
+            <p className="text-gray-600">가격 공개에 동의한 검증 업체. 광고비 0원, 오직 투명성 약속으로만 등재.</p>
+          </div>
+          <div className="flex gap-2 mb-6 border-b">
+            <button className={`px-4 py-2 font-bold ${tab === "snap" ? "border-b-2 border-emerald-600 text-emerald-700" : "text-gray-500"}`} onClick={() => setTab("snap")}>📷 본식스냅 (5)</button>
+            <button className={`px-4 py-2 font-bold ${tab === "makeup" ? "border-b-2 border-emerald-600 text-emerald-700" : "text-gray-500"}`} onClick={() => setTab("makeup")}>💄 헤어메이크업 (5)</button>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {partners.map((p) => (
+              <div key={p.id} className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-bold text-lg">{p.name}</h3>
+                  <GreenMark />
+                </div>
+                <div className="text-sm text-gray-500 mb-2">{p.region}</div>
+                {p.isOwner && (
+                  <div className="text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded inline-block mb-2">
+                    ⚖️ 운영자 업체 (과잉 투명 원칙)
+                  </div>
+                )}
+                <p className="text-sm text-gray-700 mb-3">{p.description}</p>
+                <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">{p.pkgDetails}</div>
+                <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                  <span className="text-xs text-gray-500">평균 단가</span>
+                  <span className="font-bold text-emerald-700 text-lg">{p.basePrice}만원</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 견적서 업로드 ──────────────────────────────────────
+    function Upload({ user, refreshUser }) {
+      const [form, setForm] = useState({ vendorName: "", category: "snap", amount: "", note: "" });
+      const [result, setResult] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [err, setErr] = useState("");
+
+      async function submit(e) {
+        e.preventDefault();
+        setErr(""); setLoading(true);
+        try {
+          const data = await api.call("POST", "/api/estimates", form);
+          setResult(data);
+          refreshUser();
+          setForm({ vendorName: "", category: "snap", amount: "", note: "" });
+        } catch (e) { setErr(e.message); } finally { setLoading(false); }
+      }
+
+      if (!user) {
+        return <div className="max-w-md mx-auto p-8 mt-12 text-center">로그인이 필요합니다. <a href="#/login" className="text-emerald-700 font-bold">로그인</a></div>;
+      }
+
+      return (
+        <div className="max-w-2xl mx-auto p-6">
+          <h2 className="text-3xl font-bold mb-2">📤 견적서 업로드</h2>
+          <p className="text-gray-600 mb-6">받으신 견적서 정보를 공유하고 <strong className="text-emerald-700">크레딧</strong>을 받으세요.</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-900">
+            💡 <strong>데모 안내</strong>: 실제 서비스는 이미지 업로드 → AI 파싱 → 원본 즉시 폐기 구조. 지금은 수동 입력 프로토타입입니다.
+          </div>
+          {result && (
+            <div className="mb-4 p-4 bg-emerald-50 border-2 border-emerald-500 rounded-lg">
+              <div className="font-bold text-emerald-800">✅ {result.message}</div>
+              <div className="text-sm mt-1">현재 크레딧: <strong>{result.newBalance}p</strong> · 레벨: <LevelBadge level={result.newLevel} /></div>
+            </div>
+          )}
+          <form onSubmit={submit} className="space-y-4 bg-white p-6 rounded-xl shadow">
+            <div>
+              <label className="block text-sm font-semibold mb-1">업체명</label>
+              <input required value={form.vendorName} onChange={(e) => setForm({ ...form, vendorName: e.target.value })}
+                className="w-full px-3 py-2 border rounded" placeholder="예: 그랜드하얏트 서울" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">카테고리</label>
+              <select required value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className="w-full px-3 py-2 border rounded">
+                <option value="hall">예식장</option>
+                <option value="snap">본식스냅</option>
+                <option value="studio">스튜디오</option>
+                <option value="dress">드레스</option>
+                <option value="makeup">헤어메이크업</option>
+                <option value="ring">예물</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">총 금액 (만원)</label>
+              <input type="number" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                className="w-full px-3 py-2 border rounded" placeholder="450" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">메모 (선택)</label>
+              <textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })}
+                className="w-full px-3 py-2 border rounded" rows="2" placeholder="패키지 구성이나 특이사항" />
+            </div>
+            {err && <div className="text-red-600 text-sm">{err}</div>}
+            <button disabled={loading} className="w-full py-2 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700 disabled:opacity-50">
+              {loading ? "업로드 중..." : "업로드 & 크레딧 받기"}
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    // ─── 견적 족보 열람 ─────────────────────────────────────
+    function Estimates({ user }) {
+      const [data, setData] = useState({ estimates: [], stats: [] });
+      const [category, setCategory] = useState("");
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        if (!user) return;
+        const qs = category ? `?category=${category}` : "";
+        api.call("GET", "/api/estimates" + qs).then((d) => { setData(d); setLoading(false); });
+      }, [category, user]);
+
+      if (!user) {
+        return <div className="max-w-md mx-auto p-8 mt-12 text-center">로그인이 필요합니다. <a href="#/login" className="text-emerald-700 font-bold">로그인</a></div>;
+      }
+
+      return (
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold mb-2">📊 견적 족보</h2>
+            <p className="text-gray-600">신부들이 업로드한 실제 견적서. 현재 레벨: <LevelBadge level={user.level} /> · 최대 <strong>{data.maxView === 9999 ? "무제한" : data.maxView + "건"}</strong> 열람 가능</p>
+            {user.level === "bronze" && <p className="text-sm text-amber-700 mt-2">🔒 브론즈 레벨은 업체명이 일부 가려집니다. 크레딧 500p로 실버 승급 시 실명 열람 가능.</p>}
+          </div>
+          <select className="px-3 py-2 border rounded mb-4" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">전체 카테고리</option>
+            <option value="hall">예식장</option>
+            <option value="snap">본식스냅</option>
+            <option value="studio">스튜디오</option>
+            <option value="dress">드레스</option>
+            <option value="makeup">헤어메이크업</option>
+            <option value="ring">예물</option>
+          </select>
+
+          <div className="mb-6">
+            <h3 className="font-bold mb-2">업체별 평균 단가 (집계)</h3>
+            {data.stats.length === 0 ? (
+              <div className="text-gray-500 p-4 bg-gray-50 rounded">아직 업로드된 견적이 없습니다. 첫 번째로 <a href="#/upload" className="text-emerald-700 font-bold">업로드</a>해보세요!</div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-3">
+                {data.stats.map((s, i) => (
+                  <div key={i} className="bg-white p-4 rounded shadow-sm border">
+                    <div className="font-bold">{s.vendorName}</div>
+                    <div className="text-sm text-gray-600">{s.count}건 업로드됨</div>
+                    <div className="mt-2 flex justify-between">
+                      <span className="text-sm">평균</span>
+                      <span className="font-bold text-emerald-700">{s.avg}만원</span>
+                    </div>
+                    <div className="text-xs text-gray-500">{s.min}~{s.max}만원 범위</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <h3 className="font-bold mb-2">개별 견적서 ({data.estimates.length}건)</h3>
+          <div className="space-y-2">
+            {data.estimates.map((e) => (
+              <div key={e.id} className="bg-white p-4 rounded shadow-sm border flex justify-between items-center">
+                <div>
+                  <div className="font-bold">{e.vendorName} <span className="text-xs bg-gray-100 px-2 py-0.5 rounded ml-2">{e.category}</span></div>
+                  <div className="text-xs text-gray-500">{e.userName} · {new Date(e.createdAt).toLocaleDateString()}</div>
+                  {e.note && <div className="text-sm text-gray-700 mt-1">{e.note}</div>}
+                </div>
+                <div className="font-bold text-xl text-emerald-700">{e.amount}만원</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 커뮤니티 ───────────────────────────────────────────
+    function Community({ user, refreshUser }) {
+      const [posts, setPosts] = useState([]);
+      const [showForm, setShowForm] = useState(false);
+      const [form, setForm] = useState({ title: "", content: "", category: "자유" });
+
+      function load() { api.call("GET", "/api/posts").then((d) => setPosts(d.posts)); }
+      useEffect(load, []);
+
+      async function submit(e) {
+        e.preventDefault();
+        await api.call("POST", "/api/posts", form);
+        setForm({ title: "", content: "", category: "자유" });
+        setShowForm(false);
+        refreshUser();
+        load();
+      }
+
+      return (
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-3xl font-bold">💬 커뮤니티</h2>
+              <p className="text-gray-600">신부들이 직접 공유하는 정보·후기·질문</p>
+            </div>
+            {user && (
+              <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700">
+                {showForm ? "취소" : "✍️ 글쓰기 (+30p)"}
+              </button>
+            )}
+          </div>
+          {showForm && user && (
+            <form onSubmit={submit} className="bg-white p-5 rounded-xl shadow mb-6 space-y-3">
+              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="px-3 py-2 border rounded">
+                <option>자유</option><option>후기</option><option>질문</option><option>정보</option>
+              </select>
+              <input required placeholder="제목" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border rounded" />
+              <textarea required rows="4" placeholder="내용" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} className="w-full px-3 py-2 border rounded" />
+              <button className="px-4 py-2 bg-emerald-600 text-white rounded font-bold">게시 (+30p 적립)</button>
+            </form>
+          )}
+          <div className="space-y-3">
+            {posts.map((p) => (
+              <div key={p.id} className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">{p.category}</span>
+                  <span className="text-xs text-gray-500">{p.author} · {p.createdAt}</span>
+                </div>
+                <h3 className="font-bold text-lg mb-1">{p.title}</h3>
+                <p className="text-gray-700 whitespace-pre-line">{p.content}</p>
+                <div className="mt-3 text-sm text-gray-500">♥ {p.likes}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 체크리스트 ──────────────────────────────────────────
+    function Checklist({ user, refreshUser }) {
+      const [items, setItems] = useState([]);
+      function load() { api.call("GET", "/api/checklist").then((d) => setItems(d.items)); }
+      useEffect(() => { if (user) load(); }, [user]);
+      async function toggle(id) {
+        await api.call("POST", `/api/checklist/${id}`);
+        refreshUser();
+        load();
+      }
+
+      if (!user) return <div className="max-w-md mx-auto p-8 mt-12 text-center">로그인이 필요합니다. <a href="#/login" className="text-emerald-700 font-bold">로그인</a></div>;
+
+      const doneCount = items.filter((i) => i.completed).length;
+      const byCategory = items.reduce((acc, i) => {
+        (acc[i.category] = acc[i.category] || []).push(i);
+        return acc;
+      }, {});
+
+      return (
+        <div className="max-w-3xl mx-auto p-6">
+          <h2 className="text-3xl font-bold mb-2">✅ 결혼 준비 체크리스트</h2>
+          <p className="text-gray-600 mb-6">{doneCount}/{items.length} 완료 · 항목당 +10p</p>
+          <div className="mb-6 bg-emerald-50 border-l-4 border-emerald-500 p-3 text-sm">
+            💡 플래너 없이도 <strong>앱이 주간 브리핑</strong>을 드립니다. 체크박스 완료 시 크레딧 적립.
+          </div>
+          {Object.keys(byCategory).map((cat) => (
+            <div key={cat} className="mb-5">
+              <h3 className="font-bold text-gray-800 mb-2">{cat}</h3>
+              <div className="space-y-2">
+                {byCategory[cat].map((it) => (
+                  <label key={it.id} className="flex items-center gap-3 p-3 bg-white rounded border cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={it.completed} onChange={() => toggle(it.id)} className="w-5 h-5 accent-emerald-600" />
+                    <span className={`flex-1 ${it.completed ? "line-through text-gray-400" : "text-gray-900"}`}>{it.title}</span>
+                    <span className="text-xs text-gray-500">D-{it.dDay}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ─── 관리자 대시보드 ────────────────────────────────────
+    function Admin({ user }) {
+      const [stats, setStats] = useState(null);
+      const [users, setUsers] = useState([]);
+      const [estimates, setEstimates] = useState([]);
+      const [tab, setTab] = useState("stats");
+
+      function load() {
+        api.call("GET", "/api/admin/stats").then(setStats);
+        api.call("GET", "/api/admin/users").then((d) => setUsers(d.users));
+        api.call("GET", "/api/admin/estimates").then((d) => setEstimates(d.estimates));
+      }
+      useEffect(() => { if (user?.role === "admin") load(); }, [user]);
+
+      async function adjustCredit(id, delta) {
+        await api.call("POST", `/api/admin/users/${id}/credits`, { delta });
+        load();
+      }
+
+      if (!user || user.role !== "admin") return <div className="p-8 text-center">관리자만 접근 가능합니다.</div>;
+
+      return (
+        <div className="max-w-6xl mx-auto p-6">
+          <h2 className="text-3xl font-bold mb-2">👑 슈퍼 관리자</h2>
+          <p className="text-gray-600 mb-6">사용자·견적서·크레딧 관리</p>
+
+          <div className="flex gap-2 border-b mb-4">
+            <TabBtn active={tab === "stats"} onClick={() => setTab("stats")}>📊 통계</TabBtn>
+            <TabBtn active={tab === "users"} onClick={() => setTab("users")}>👥 사용자</TabBtn>
+            <TabBtn active={tab === "estimates"} onClick={() => setTab("estimates")}>📋 견적서</TabBtn>
+          </div>
+
+          {tab === "stats" && stats && (
+            <>
+              <div className="grid md:grid-cols-3 gap-4 mb-6">
+                <StatCard label="총 사용자 (실 + 유령)" value={stats.userCount} />
+                <StatCard label="업로드된 견적서" value={stats.estimateCount} />
+                <StatCard label="커뮤니티 게시글" value={stats.postCount} />
+                <StatCard label="웨딩홀 등재" value={stats.hallCount} />
+                <StatCard label="🌿 초록 마크 업체" value={stats.greenMarkCount + "/" + stats.partnerCount} />
+                <StatCard label="레벨별 분포" value={`🥉${stats.byLevel.bronze} · 🥈${stats.byLevel.silver} · 🥇${stats.byLevel.gold}`} small />
+              </div>
+              <div className="bg-amber-50 border-2 border-amber-300 p-5 rounded-xl">
+                <h3 className="font-bold text-amber-900 mb-3">👻 커뮤니티 활성화 시뮬레이션 (내부 지표)</h3>
+                <div className="grid md:grid-cols-3 gap-4 text-sm">
+                  <div className="bg-white p-3 rounded">
+                    <div className="text-gray-500 text-xs">실 사용자</div>
+                    <div className="font-black text-2xl text-emerald-700">{stats.realUserCount}</div>
+                  </div>
+                  <div className="bg-white p-3 rounded">
+                    <div className="text-gray-500 text-xs">유령 계정</div>
+                    <div className="font-black text-2xl text-amber-600">{stats.ghostUserCount}</div>
+                  </div>
+                  <div className="bg-white p-3 rounded">
+                    <div className="text-gray-500 text-xs">실 vs 유령 게시글</div>
+                    <div className="font-black text-2xl">
+                      <span className="text-emerald-700">{stats.realPostCount}</span>
+                      <span className="text-gray-400 mx-1">/</span>
+                      <span className="text-amber-600">{stats.ghostPostCount}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-amber-800 mt-3">
+                  * 유령 게시글은 24시간 내 랜덤 시분초로 100~150건 자동 생성됩니다. 관리자만 볼 수 있는 내부 지표입니다.
+                </div>
+              </div>
+            </>
+          )}
+
+          {tab === "users" && (
+            <div className="bg-white rounded-xl shadow overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="p-3 text-left">이메일</th>
+                    <th className="p-3 text-left">이름</th>
+                    <th className="p-3 text-left">레벨</th>
+                    <th className="p-3 text-right">크레딧</th>
+                    <th className="p-3 text-center">관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3">{u.email}</td>
+                      <td className="p-3">{u.name}</td>
+                      <td className="p-3"><LevelBadge level={u.level} /></td>
+                      <td className="p-3 text-right font-bold">{u.credits.toLocaleString()}p</td>
+                      <td className="p-3 text-center">
+                        {u.role !== "admin" && (
+                          <div className="flex gap-1 justify-center">
+                            <button onClick={() => adjustCredit(u.id, +100)} className="px-2 py-1 text-xs bg-emerald-100 text-emerald-700 rounded">+100p</button>
+                            <button onClick={() => adjustCredit(u.id, -100)} className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">-100p</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {tab === "estimates" && (
+            <div className="bg-white rounded-xl shadow overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b"><tr>
+                  <th className="p-3 text-left">업로더</th>
+                  <th className="p-3 text-left">업체</th>
+                  <th className="p-3 text-left">카테고리</th>
+                  <th className="p-3 text-right">금액</th>
+                  <th className="p-3 text-left">업로드</th>
+                </tr></thead>
+                <tbody>
+                  {estimates.map((e) => (
+                    <tr key={e.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3">{e.userName}</td>
+                      <td className="p-3 font-bold">{e.vendorName}</td>
+                      <td className="p-3">{e.category}</td>
+                      <td className="p-3 text-right font-bold text-emerald-700">{e.amount}만원</td>
+                      <td className="p-3 text-xs text-gray-500">{new Date(e.createdAt).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {estimates.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-gray-500">아직 업로드된 견적서가 없습니다.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    }
+    function TabBtn({ active, onClick, children }) {
+      return <button onClick={onClick} className={`px-4 py-2 font-bold ${active ? "border-b-2 border-purple-600 text-purple-700" : "text-gray-500"}`}>{children}</button>;
+    }
+    function StatCard({ label, value, small }) {
+      return (
+        <div className="bg-white p-5 rounded-xl shadow-sm border">
+          <div className="text-sm text-gray-500 mb-1">{label}</div>
+          <div className={`font-black text-emerald-700 ${small ? "text-lg" : "text-3xl"}`}>{value}</div>
+        </div>
+      );
+    }
+
+    // ─── 최상위 App ─────────────────────────────────────────
+    function App() {
+      const [user, setUser] = useState(null);
+      const [route, setRoute] = useState(window.location.hash.replace("#/", "") || "");
+      const [booting, setBooting] = useState(true);
+
+      const refreshUser = useCallback(() => {
+        if (!api.token()) { setUser(null); return; }
+        api.call("GET", "/api/me").then((d) => setUser(d.user)).catch(() => {
+          api.clearToken(); setUser(null);
+        });
+      }, []);
+
+      useEffect(() => {
+        refreshUser();
+        setBooting(false);
+        const onHash = () => setRoute(window.location.hash.replace("#/", "") || "");
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, [refreshUser]);
+
+      function onLogout() { api.clearToken(); setUser(null); window.location.hash = "#/"; }
+
+      if (booting) return null;
+
+      let page;
+      switch (route) {
+        case "login": page = <Login onAuth={setUser} />; break;
+        case "signup": page = <Signup onAuth={setUser} />; break;
+        case "dashboard": page = user ? <Dashboard user={user} refreshUser={refreshUser} /> : <Login onAuth={setUser} />; break;
+        case "halls": page = <Halls />; break;
+        case "partners": page = <Partners />; break;
+        case "upload": page = <Upload user={user} refreshUser={refreshUser} />; break;
+        case "estimates": page = <Estimates user={user} />; break;
+        case "community": page = <Community user={user} refreshUser={refreshUser} />; break;
+        case "checklist": page = <Checklist user={user} refreshUser={refreshUser} />; break;
+        case "admin": page = <Admin user={user} />; break;
+        default: page = <Landing />;
+      }
+
+      return (
+        <div className="min-h-screen">
+          <Nav user={user} route={route} onLogout={onLogout} />
+          <main>{page}</main>
+          <footer className="border-t bg-white mt-16 py-8 text-center text-sm text-gray-500">
+            <div>🌿 거품없는결혼 · MVP 데모</div>
+            <div className="mt-1 text-xs">광고비 0원 · 크레딧 현금전환 불가 · 초록 마크 동맹 업체만</div>
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "marian-pay",
+  "version": "0.1.0",
+  "description": "마리안 웨딩 결제 데모 (TossPayments 테스트)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "resend": "^4.8.0"
+  }
+}

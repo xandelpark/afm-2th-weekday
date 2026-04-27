@@ -1,0 +1,14 @@
+{
+  "name": "wedding-demo",
+  "version": "0.1.0",
+  "description": "웨딩 커뮤니티 플랫폼 데모 — 플래너가 있는 결혼준비, 거품이 없을까요?",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

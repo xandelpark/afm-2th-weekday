@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "{index.html,images/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index.js" }
+  ]
+}

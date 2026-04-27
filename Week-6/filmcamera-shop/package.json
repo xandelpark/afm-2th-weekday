@@ -1,0 +1,17 @@
+{
+  "name": "filmcamera-shop",
+  "version": "1.0.0",
+  "description": "필름카메라 셀렉트샵 (React CDN + Express + JWT + Supabase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0"
+  }
+}

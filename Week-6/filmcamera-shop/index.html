@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FILM LAB · 필름카메라 셀렉트샵</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #faf7f1;
+      --cream-2: #f3ede0;
+      --ink: #1a1611;
+      --ink-2: #3d352a;
+      --accent: #8b2e1f;
+      --gold: #b8935a;
+    }
+    body {
+      font-family: 'Inter', 'Noto Serif KR', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+    }
+    .font-serif-en { font-family: 'Cormorant Garamond', serif; }
+    .font-serif-kr { font-family: 'Noto Serif KR', serif; }
+
+    /* 필름 그레인 오버레이 */
+    .grain {
+      position: relative;
+    }
+    .grain::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      mix-blend-mode: multiply;
+      opacity: 0.35;
+    }
+    .hero-vignette::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.55) 100%);
+      pointer-events: none;
+    }
+
+    /* 상품 카드 호버 */
+    .product-card:hover .product-img { transform: scale(1.04); }
+    .product-card:hover .quick-view { opacity: 1; transform: translateY(0); }
+    .product-img { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+    .quick-view { transition: opacity 0.25s, transform 0.25s; }
+
+    /* 스크롤바 */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #c9bfae; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a89a84; }
+
+    /* 모달 진입 */
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+    .modal-in { animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+
+    /* 토스트 */
+    @keyframes toastIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .toast-in { animation: toastIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+    // ========== API 헬퍼 ==========
+    const TOKEN_KEY = 'filmlab_token';
+    const getToken = () => localStorage.getItem(TOKEN_KEY);
+    const setToken = (t) => t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+
+    async function api(path, { method = 'GET', body, auth = false } = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (auth) {
+        const t = getToken();
+        if (t) headers['Authorization'] = `Bearer ${t}`;
+      }
+      const res = await fetch(path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    // ========== 유틸 ==========
+    const formatKRW = (n) => Number(n).toLocaleString('ko-KR') + '원';
+    // 서버 응답은 description, 로컬 변수명 호환성을 위해 desc 로도 노출
+    const normalizeProduct = (p) => ({
+      ...p,
+      desc: p.description ?? p.desc ?? '',
+      price: Number(p.price),
+      stock: Number(p.stock),
+    });
+
+    // ========== 컴포넌트 ==========
+    const Logo = () => (
+      <a href="#" className="flex items-center gap-2 select-none">
+        <div className="w-9 h-9 border-2 border-stone-900 rounded-sm flex items-center justify-center relative">
+          <div className="w-3 h-3 rounded-full border-2 border-stone-900" />
+          <div className="absolute -top-1 right-0 w-2 h-2 bg-red-700" />
+        </div>
+        <div>
+          <div className="font-serif-en text-xl font-semibold tracking-wider leading-none">FILM LAB</div>
+          <div className="text-[10px] tracking-widest text-stone-500 leading-none mt-0.5">SINCE 2018 · SEOUL</div>
+        </div>
+      </a>
+    );
+
+    const Header = ({ cartCount, onOpenCart, onSearch, searchQuery, user, onOpenAuth, onLogout, onOpenAdmin }) => {
+      const isAdmin = user && (user.role === 'admin' || user.role === 'superadmin');
+      return (
+      <header className="sticky top-0 z-30 bg-[var(--cream)]/90 backdrop-blur border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+          <Logo />
+          <nav className="hidden md:flex items-center gap-7 text-sm text-stone-700">
+            <a href="#products" className="hover:text-stone-950">카메라</a>
+            <a href="#" className="hover:text-stone-950">렌즈</a>
+            <a href="#" className="hover:text-stone-950">필름</a>
+            <a href="#" className="hover:text-stone-950">악세사리</a>
+            {isAdmin && (
+              <button onClick={onOpenAdmin} className="text-[var(--accent)] font-medium hover:underline">관리자</button>
+            )}
+          </nav>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 bg-stone-100 rounded-full px-3 py-1.5 text-sm w-48 lg:w-64">
+              <svg className="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input
+                type="text"
+                placeholder="카메라/브랜드 검색"
+                value={searchQuery}
+                onChange={(e) => onSearch(e.target.value)}
+                className="bg-transparent outline-none w-full placeholder:text-stone-400"
+              />
+            </div>
+            <button onClick={onOpenCart} className="relative p-2 hover:bg-stone-100 rounded-full" aria-label="장바구니">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-[var(--accent)] text-white text-[10px] rounded-full flex items-center justify-center font-medium">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            {user ? (
+              <div className="flex items-center gap-2 pl-1">
+                <div className="hidden md:flex items-center gap-2 text-sm">
+                  {user.role === 'superadmin' && <span className="text-[10px] bg-[var(--gold)] text-stone-900 px-1.5 py-0.5 font-semibold tracking-wider">SUPER</span>}
+                  {user.role === 'admin' && <span className="text-[10px] bg-stone-800 text-[var(--cream)] px-1.5 py-0.5 font-semibold tracking-wider">ADMIN</span>}
+                  <span className="text-stone-700">{user.name}님</span>
+                </div>
+                <button onClick={onLogout} className="text-sm text-stone-600 hover:text-stone-900 px-3 py-1.5 border border-stone-300 hover:border-stone-500">
+                  로그아웃
+                </button>
+              </div>
+            ) : (
+              <button onClick={onOpenAuth} className="text-sm bg-stone-900 text-[var(--cream)] px-4 py-1.5 hover:bg-black">
+                로그인
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+      );
+    };
+
+    const Hero = () => (
+      <section className="relative h-[520px] md:h-[620px] overflow-hidden bg-stone-900 grain hero-vignette">
+        <img src="images/hero.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-85"/>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center text-white">
+          <span className="text-xs tracking-[0.4em] mb-5 text-stone-200">SELECTED FILM CAMERAS · SEOUL</span>
+          <h1 className="font-serif-en text-5xl md:text-7xl lg:text-8xl font-medium leading-[0.95] tracking-tight max-w-3xl">
+            Capture<br/>
+            the <em className="italic text-[var(--gold)]">unrepeatable</em><br/>
+            moment.
+          </h1>
+          <p className="font-serif-kr mt-6 max-w-xl text-stone-200 text-lg leading-relaxed">
+            지나간 시간의 결을 담아내는 필름카메라,<br/>
+            엄선된 컨디션과 투명한 감정서로 전해드립니다.
+          </p>
+          <div className="flex flex-wrap gap-3 mt-8">
+            <a href="#products" className="bg-[var(--cream)] text-stone-900 px-7 py-3 text-sm font-medium hover:bg-white transition-colors">
+              제품 둘러보기
+            </a>
+            <a href="#" className="border border-stone-300/70 text-stone-100 px-7 py-3 text-sm hover:bg-white/10 transition-colors">
+              감정 서비스 안내
+            </a>
+          </div>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[var(--cream)] to-transparent z-10"/>
+      </section>
+    );
+
+    const Stats = () => {
+      const items = [
+        { n: '320+', l: '검증 완료 카메라' },
+        { n: '48h', l: '국내 배송' },
+        { n: '1yr', l: '품질 보증' },
+        { n: '98%', l: '재구매 의사' },
+      ];
+      return (
+        <section className="border-y border-stone-200 bg-[var(--cream-2)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            {items.map((x) => (
+              <div key={x.l} className="text-center">
+                <div className="font-serif-en text-3xl md:text-4xl font-medium text-stone-900">{x.n}</div>
+                <div className="text-xs tracking-widest text-stone-500 mt-1">{x.l.toUpperCase()}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    };
+
+    const FilterBar = ({ brands, activeBrand, onBrand, sort, onSort, count }) => (
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-1 flex-wrap">
+          {brands.map((b) => (
+            <button
+              key={b}
+              onClick={() => onBrand(b)}
+              className={`px-4 py-1.5 text-sm border transition-colors ${
+                activeBrand === b
+                  ? 'bg-stone-900 text-[var(--cream)] border-stone-900'
+                  : 'bg-transparent text-stone-700 border-stone-300 hover:border-stone-500'
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-stone-500">{count}개 상품</span>
+          <select
+            value={sort}
+            onChange={(e) => onSort(e.target.value)}
+            className="border border-stone-300 bg-transparent py-1.5 px-3 text-sm focus:outline-none focus:border-stone-700"
+          >
+            <option value="recommend">추천순</option>
+            <option value="price-asc">낮은 가격순</option>
+            <option value="price-desc">높은 가격순</option>
+            <option value="year-desc">최신 연식순</option>
+          </select>
+        </div>
+      </div>
+    );
+
+    const BadgeTag = ({ badge }) => {
+      const color = {
+        BEST: 'bg-stone-900 text-[var(--cream)]',
+        NEW: 'bg-[var(--accent)] text-white',
+        RARE: 'bg-[var(--gold)] text-stone-900',
+      }[badge] || 'bg-stone-700 text-white';
+      return (
+        <span className={`absolute top-3 left-3 text-[10px] font-semibold tracking-wider px-2 py-1 ${color}`}>
+          {badge}
+        </span>
+      );
+    };
+
+    const ProductCard = ({ product, onOpen, onAdd }) => (
+      <div
+        onClick={() => onOpen(product)}
+        className="product-card group cursor-pointer bg-[var(--cream)]"
+      >
+        <div className="relative aspect-square bg-[var(--cream-2)] overflow-hidden">
+          <img src={product.image} alt={product.name} loading="lazy"
+            className="product-img w-full h-full object-cover"/>
+          {product.badge && <BadgeTag badge={product.badge}/>}
+          <button
+            onClick={(e) => { e.stopPropagation(); onAdd(product); }}
+            className="quick-view opacity-0 translate-y-2 absolute bottom-3 left-3 right-3 bg-stone-900 text-[var(--cream)] py-2.5 text-xs tracking-widest hover:bg-black"
+          >
+            바로 담기
+          </button>
+        </div>
+        <div className="pt-4 pb-2">
+          <div className="text-[11px] uppercase tracking-widest text-stone-500">{product.brand} · {product.year}</div>
+          <h3 className="font-serif-en text-xl mt-1 text-stone-900">{product.name}</h3>
+          <div className="text-xs text-stone-500 mt-1">{product.format} · {product.condition}</div>
+          <div className="flex items-baseline justify-between mt-3">
+            <div className="font-semibold text-stone-900">{formatKRW(product.price)}</div>
+            <div className="text-[11px] text-stone-500">재고 {product.stock}</div>
+          </div>
+        </div>
+      </div>
+    );
+
+    const ProductGrid = ({ products, onOpen, onAdd }) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-12">
+        {products.map((p) => (
+          <ProductCard key={p.id} product={p} onOpen={onOpen} onAdd={onAdd}/>
+        ))}
+      </div>
+    );
+
+    const ProductModal = ({ product, onClose, onAdd }) => {
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        document.body.style.overflow = 'hidden';
+        return () => {
+          window.removeEventListener('keydown', onKey);
+          document.body.style.overflow = '';
+        };
+      }, [onClose]);
+
+      if (!product) return null;
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+          <div onClick={(e) => e.stopPropagation()}
+            className="modal-in bg-[var(--cream)] w-full max-w-5xl max-h-[90vh] overflow-y-auto grid md:grid-cols-2">
+            <div className="relative bg-[var(--cream-2)]">
+              <img src={product.image} alt={product.name} className="w-full h-full object-cover min-h-[300px] max-h-[80vh]"/>
+              {product.badge && <BadgeTag badge={product.badge}/>}
+            </div>
+            <div className="p-6 md:p-10 flex flex-col">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="text-[11px] uppercase tracking-widest text-stone-500">{product.brand} · {product.year}</div>
+                  <h2 className="font-serif-en text-3xl md:text-4xl mt-1">{product.name}</h2>
+                </div>
+                <button onClick={onClose} className="p-1.5 hover:bg-stone-100 rounded-full" aria-label="닫기">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div className="flex gap-2 mb-6 flex-wrap">
+                <span className="text-xs px-2 py-1 bg-stone-100 text-stone-700">{product.format}</span>
+                <span className="text-xs px-2 py-1 bg-stone-100 text-stone-700">컨디션 {product.condition}</span>
+                <span className="text-xs px-2 py-1 bg-stone-100 text-stone-700">재고 {product.stock}대</span>
+              </div>
+              <p className="font-serif-kr text-stone-700 leading-relaxed mb-6">{product.desc}</p>
+
+              <div className="border-t border-stone-200 pt-5 mb-5">
+                <div className="text-sm font-medium text-stone-900 mb-3">제품 사양</div>
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-2">
+                  {Object.entries(product.specs).map(([k, v]) => (
+                    <div key={k} className="flex text-sm border-b border-stone-100 pb-2">
+                      <dt className="w-28 text-stone-500">{k}</dt>
+                      <dd className="flex-1 text-stone-800">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              <div className="border-t border-stone-200 pt-5 mt-auto">
+                <div className="flex items-baseline justify-between mb-4">
+                  <div className="font-serif-en text-3xl font-semibold">{formatKRW(product.price)}</div>
+                  <div className="text-xs text-stone-500">VAT 포함 · 무료배송</div>
+                </div>
+                <div className="flex gap-2">
+                  <button className="flex-1 border border-stone-800 text-stone-800 py-3 text-sm hover:bg-stone-900 hover:text-[var(--cream)] transition-colors">
+                    관심상품
+                  </button>
+                  <button
+                    onClick={() => { onAdd(product); onClose(); }}
+                    className="flex-[2] bg-stone-900 text-[var(--cream)] py-3 text-sm hover:bg-black transition-colors"
+                  >
+                    장바구니 담기
+                  </button>
+                </div>
+                <p className="text-[11px] text-stone-500 mt-3 leading-relaxed">
+                  · 모든 상품은 자체 기술진의 오버홀·기능 테스트 후 등급 부여<br/>
+                  · 수령 후 7일 내 무조건 반품 가능 · 1년 무상 A/S
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const CartDrawer = ({ open, items, onClose, onRemove, onCheckout }) => {
+      useEffect(() => {
+        document.body.style.overflow = open ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
+      }, [open]);
+
+      const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+
+      return (
+        <>
+          <div onClick={onClose} className={`fixed inset-0 z-40 bg-stone-900/50 transition-opacity ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}/>
+          <aside className={`fixed top-0 right-0 bottom-0 w-full sm:w-96 z-50 bg-[var(--cream)] shadow-2xl flex flex-col transform transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className="flex items-center justify-between p-5 border-b border-stone-200">
+              <h3 className="font-serif-en text-xl">My Cart · {items.length}</h3>
+              <button onClick={onClose} className="p-1.5 hover:bg-stone-100 rounded-full">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            {items.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-stone-500">
+                <svg className="w-14 h-14 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.3} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                <p className="text-sm">장바구니가 비어있습니다</p>
+              </div>
+            ) : (
+              <>
+                <ul className="flex-1 overflow-y-auto divide-y divide-stone-200">
+                  {items.map((i) => (
+                    <li key={i.id} className="flex gap-3 p-4">
+                      <img src={i.image} alt="" className="w-20 h-20 object-cover bg-[var(--cream-2)]"/>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] uppercase tracking-widest text-stone-500">{i.brand}</div>
+                        <div className="font-serif-en text-lg leading-tight">{i.name}</div>
+                        <div className="text-xs text-stone-500 mt-0.5">수량 {i.qty}</div>
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="font-medium">{formatKRW(i.price * i.qty)}</div>
+                          <button onClick={() => onRemove(i.id)} className="text-xs text-stone-500 hover:text-[var(--accent)] underline">삭제</button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="border-t border-stone-200 p-5 space-y-3">
+                  <div className="flex justify-between text-sm text-stone-600">
+                    <span>상품합계</span>
+                    <span>{formatKRW(total)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-stone-600">
+                    <span>배송비</span>
+                    <span>무료</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-lg pt-2 border-t border-stone-200">
+                    <span>최종 결제</span>
+                    <span>{formatKRW(total)}</span>
+                  </div>
+                  <button onClick={onCheckout} className="w-full bg-stone-900 text-[var(--cream)] py-3 text-sm hover:bg-black">
+                    주문하기
+                  </button>
+                </div>
+              </>
+            )}
+          </aside>
+        </>
+      );
+    };
+
+    const Toast = ({ message, show }) => (
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] pointer-events-none transition-all duration-300 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <div className="bg-stone-900 text-[var(--cream)] px-5 py-3 text-sm shadow-xl rounded-sm flex items-center gap-2">
+          <svg className="w-4 h-4 text-[var(--gold)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+          {message}
+        </div>
+      </div>
+    );
+
+    // ╭──────────────────────────────────────────────────────╮
+    // │ shadcn-style 프리미티브 (관리자 콘솔 전용)            │
+    // │ Button / Input / Label / Textarea / Select / Dialog  │
+    // ╰──────────────────────────────────────────────────────╯
+    const cn = (...cls) => cls.filter(Boolean).join(' ');
+
+    const UIButton = ({ variant = 'default', size = 'default', className = '', ...props }) => {
+      const variants = {
+        default: 'bg-zinc-900 text-zinc-50 hover:bg-zinc-900/90',
+        outline: 'border border-zinc-200 bg-white hover:bg-zinc-100 hover:text-zinc-900',
+        secondary: 'bg-zinc-100 text-zinc-900 hover:bg-zinc-100/80',
+        ghost: 'hover:bg-zinc-100 hover:text-zinc-900',
+        destructive: 'bg-red-500 text-zinc-50 hover:bg-red-500/90',
+        link: 'text-zinc-900 underline-offset-4 hover:underline',
+      };
+      const sizes = {
+        default: 'h-9 px-4 py-2 text-sm',
+        sm: 'h-8 rounded-md px-3 text-xs',
+        lg: 'h-10 rounded-md px-8',
+        icon: 'h-9 w-9',
+      };
+      return (
+        <button
+          className={cn(
+            'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2',
+            'disabled:pointer-events-none disabled:opacity-50',
+            variants[variant], sizes[size], className
+          )}
+          {...props}
+        />
+      );
+    };
+
+    const UIInput = ({ className = '', ...props }) => (
+      <input
+        className={cn(
+          'flex h-9 w-full rounded-md border border-zinc-200 bg-transparent px-3 py-1 text-sm shadow-sm',
+          'placeholder:text-zinc-500',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          className
+        )}
+        {...props}
+      />
+    );
+
+    const UITextarea = ({ className = '', ...props }) => (
+      <textarea
+        className={cn(
+          'flex min-h-[80px] w-full rounded-md border border-zinc-200 bg-transparent px-3 py-2 text-sm shadow-sm',
+          'placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400',
+          className
+        )}
+        {...props}
+      />
+    );
+
+    const UISelect = ({ className = '', children, ...props }) => (
+      <select
+        className={cn(
+          'flex h-9 w-full items-center rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-sm',
+          'focus:outline-none focus:ring-1 focus:ring-zinc-400',
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+    );
+
+    const UILabel = ({ className = '', ...props }) => (
+      <label className={cn('text-sm font-medium leading-none text-zinc-900', className)} {...props}/>
+    );
+
+    const UIBadge = ({ variant = 'default', className = '', ...props }) => {
+      const variants = {
+        default: 'border-transparent bg-zinc-900 text-zinc-50',
+        secondary: 'border-transparent bg-zinc-100 text-zinc-900',
+        outline: 'text-zinc-900 border-zinc-200',
+        destructive: 'border-transparent bg-red-500 text-zinc-50',
+      };
+      return (
+        <span className={cn('inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium', variants[variant], className)} {...props}/>
+      );
+    };
+
+    const UIDialog = ({ open, onClose, title, description, children, footer, size = 'md' }) => {
+      useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+      }, [open, onClose]);
+      if (!open) return null;
+      const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
+      return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              'relative w-full bg-white rounded-lg shadow-lg border border-zinc-200',
+              'grid gap-4 p-6 sm:rounded-lg max-h-[90vh] overflow-y-auto',
+              'modal-in', sizes[size]
+            )}
+          >
+            {(title || description) && (
+              <div className="flex flex-col space-y-1.5">
+                {title && <h2 className="text-lg font-semibold leading-none tracking-tight">{title}</h2>}
+                {description && <p className="text-sm text-zinc-500">{description}</p>}
+              </div>
+            )}
+            {children}
+            {footer && <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-2">{footer}</div>}
+            <button onClick={onClose}
+              className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              aria-label="닫기">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // ╭──────────────────────────────────────────────────────╮
+    // │ ImageKit 업로드 (관리자 전용)                        │
+    // ╰──────────────────────────────────────────────────────╯
+    async function uploadProductImage(file, { folder = '/filmcamera-shop' } = {}) {
+      const auth = await api('/api/imagekit-auth', { auth: true });
+      const form = new FormData();
+      form.append('file', file);
+      form.append('fileName', file.name || `product-${Date.now()}.jpg`);
+      form.append('publicKey', auth.publicKey);
+      form.append('signature', auth.signature);
+      form.append('expire', String(auth.expire));
+      form.append('token', auth.token);
+      form.append('useUniqueFileName', 'true');
+      form.append('folder', folder);
+      const res = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || `업로드 실패 (HTTP ${res.status})`);
+      return body; // { url, thumbnailUrl, name, fileId, size, width, height }
+    }
+
+    // ╭──────────────────────────────────────────────────────╮
+    // │ ImageKit 드롭존 (shadcn 스타일)                      │
+    // ╰──────────────────────────────────────────────────────╯
+    const ImageDropzone = ({ value, onChange, disabled }) => {
+      const [uploading, setUploading] = useState(false);
+      const [progress, setProgress] = useState('');
+      const [error, setError] = useState('');
+      const [dragOver, setDragOver] = useState(false);
+      const fileInputRef = useRef(null);
+
+      const handleFile = useCallback(async (file) => {
+        if (!file || disabled) return;
+        if (!file.type.startsWith('image/')) {
+          setError('이미지 파일만 업로드할 수 있어요');
+          return;
+        }
+        setError(''); setUploading(true); setProgress('업로드 중…');
+        try {
+          const result = await uploadProductImage(file);
+          onChange(result.url);
+          setProgress('업로드 완료 ✓');
+          setTimeout(() => setProgress(''), 1500);
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setUploading(false);
+        }
+      }, [onChange, disabled]);
+
+      const bindEvents = {
+        onDragEnter: (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); },
+        onDragLeave: (e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); },
+        onDragOver: (e) => { e.preventDefault(); e.stopPropagation(); },
+        onDrop: (e) => {
+          e.preventDefault(); e.stopPropagation(); setDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleFile(file);
+        },
+      };
+
+      return (
+        <div className="space-y-2">
+          <input
+            ref={fileInputRef} type="file" accept="image/*" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+          />
+          <div
+            {...bindEvents}
+            onClick={() => !disabled && fileInputRef.current?.click()}
+            className={cn(
+              'relative group cursor-pointer rounded-lg border-2 border-dashed transition-colors',
+              dragOver ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-300 hover:border-zinc-400 bg-zinc-50/30',
+              disabled && 'opacity-60 pointer-events-none',
+              'aspect-square flex flex-col items-center justify-center text-center p-4 overflow-hidden'
+            )}
+          >
+            {value ? (
+              <>
+                <img src={value} alt="상품 이미지" className="absolute inset-0 w-full h-full object-cover"/>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                  <span className="opacity-0 group-hover:opacity-100 text-white text-sm font-medium">이미지 교체</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <svg className="w-10 h-10 text-zinc-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p className="text-sm text-zinc-700 font-medium">클릭하거나 이미지를 끌어다 놓으세요</p>
+                <p className="text-xs text-zinc-500 mt-1">PNG · JPG · WebP · 최대 10MB</p>
+              </>
+            )}
+            {uploading && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                <div className="flex items-center gap-2 text-sm text-zinc-700">
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  업로드 중…
+                </div>
+              </div>
+            )}
+          </div>
+          {progress && !error && <p className="text-xs text-emerald-600">{progress}</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          {value && !uploading && (
+            <div className="flex items-center justify-between text-xs">
+              <a href={value} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-900 truncate">
+                {value.replace(/.*\//, '')}
+              </a>
+              <button type="button" onClick={() => onChange('')} className="text-red-600 hover:underline">제거</button>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // ╭──────────────────────────────────────────────────────╮
+    // │ 상품 추가/수정 모달 (shadcn 스타일)                  │
+    // ╰──────────────────────────────────────────────────────╯
+    const emptyProduct = {
+      brand: '', name: '', year: new Date().getFullYear(), format: '',
+      condition: 'A급', stock: 1, price: 0, badge: '', image: '',
+      description: '', specs: {},
+    };
+
+    const ProductFormModal = ({ open, product, onClose, onSaved }) => {
+      const [form, setForm] = useState(emptyProduct);
+      const [specsText, setSpecsText] = useState('');
+      const [saving, setSaving] = useState(false);
+      const [err, setErr] = useState('');
+
+      useEffect(() => {
+        if (!open) return;
+        setErr('');
+        if (product) {
+          setForm({
+            brand: product.brand || '',
+            name: product.name || '',
+            year: product.year || new Date().getFullYear(),
+            format: product.format || '',
+            condition: product.condition || 'A급',
+            stock: Number(product.stock) || 0,
+            price: Number(product.price) || 0,
+            badge: product.badge || '',
+            image: product.image || '',
+            description: product.description || product.desc || '',
+            specs: product.specs || {},
+          });
+          setSpecsText(
+            Object.entries(product.specs || {})
+              .map(([k, v]) => `${k}: ${v}`).join('\n')
+          );
+        } else {
+          setForm(emptyProduct);
+          setSpecsText('');
+        }
+      }, [open, product]);
+
+      const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setErr('');
+        if (!form.brand || !form.name || !form.image || !form.price) {
+          setErr('브랜드 · 모델명 · 이미지 · 가격은 필수입니다');
+          return;
+        }
+        const specs = {};
+        specsText.split('\n').forEach((line) => {
+          const m = line.match(/^\s*(.+?)\s*[:：]\s*(.+)\s*$/);
+          if (m) specs[m[1].trim()] = m[2].trim();
+        });
+        const body = {
+          ...form,
+          year: Number(form.year),
+          stock: Number(form.stock),
+          price: Number(form.price),
+          badge: form.badge || null,
+          specs,
+        };
+        setSaving(true);
+        try {
+          if (product?.id) {
+            await api(`/api/products/${product.id}`, { method: 'PUT', auth: true, body });
+          } else {
+            await api('/api/products', { method: 'POST', auth: true, body });
+          }
+          await onSaved();
+          onClose();
+        } catch (e) {
+          setErr(e.message);
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      return (
+        <UIDialog
+          open={open} onClose={onClose} size="lg"
+          title={product ? '상품 수정' : '새 상품 추가'}
+          description="이미지는 ImageKit 으로 자동 업로드됩니다."
+        >
+          <form onSubmit={handleSubmit} className="grid gap-5 md:grid-cols-[1fr_1.2fr]">
+            {/* 왼쪽: 이미지 */}
+            <div>
+              <UILabel className="mb-2 block">상품 이미지 *</UILabel>
+              <ImageDropzone
+                value={form.image}
+                onChange={(url) => setField('image', url)}
+                disabled={saving}
+              />
+            </div>
+
+            {/* 오른쪽: 필드들 */}
+            <div className="grid gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <UILabel>브랜드 *</UILabel>
+                  <UIInput value={form.brand} onChange={(e) => setField('brand', e.target.value)} placeholder="Leica" />
+                </div>
+                <div className="grid gap-1.5">
+                  <UILabel>모델명 *</UILabel>
+                  <UIInput value={form.name} onChange={(e) => setField('name', e.target.value)} placeholder="M6 TTL" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="grid gap-1.5">
+                  <UILabel>연식</UILabel>
+                  <UIInput type="number" value={form.year} onChange={(e) => setField('year', e.target.value)} />
+                </div>
+                <div className="grid gap-1.5">
+                  <UILabel>포맷</UILabel>
+                  <UIInput value={form.format} onChange={(e) => setField('format', e.target.value)} placeholder="35mm SLR" />
+                </div>
+                <div className="grid gap-1.5">
+                  <UILabel>등급</UILabel>
+                  <UISelect value={form.condition} onChange={(e) => setField('condition', e.target.value)}>
+                    {['A+급','A급','A-급','B+급','B급','B-급','C급'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </UISelect>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="grid gap-1.5">
+                  <UILabel>가격 (원) *</UILabel>
+                  <UIInput type="number" value={form.price} onChange={(e) => setField('price', e.target.value)} />
+                </div>
+                <div className="grid gap-1.5">
+                  <UILabel>재고</UILabel>
+                  <UIInput type="number" min="0" value={form.stock} onChange={(e) => setField('stock', e.target.value)} />
+                </div>
+                <div className="grid gap-1.5">
+                  <UILabel>배지</UILabel>
+                  <UISelect value={form.badge} onChange={(e) => setField('badge', e.target.value)}>
+                    <option value="">없음</option>
+                    <option value="BEST">BEST</option>
+                    <option value="NEW">NEW</option>
+                    <option value="RARE">RARE</option>
+                  </UISelect>
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <UILabel>설명</UILabel>
+                <UITextarea value={form.description} onChange={(e) => setField('description', e.target.value)}
+                  placeholder="이 카메라의 매력 포인트를 2~3문장으로…" rows={3} />
+              </div>
+              <div className="grid gap-1.5">
+                <UILabel>사양 (한 줄에 하나씩, "키: 값" 형식)</UILabel>
+                <UITextarea value={specsText} onChange={(e) => setSpecsText(e.target.value)}
+                  placeholder={"포맷: 35mm\n셔터: 1s ~ 1/1000s\n무게: 560g"} rows={4}
+                  className="font-mono text-xs" />
+              </div>
+
+              {err && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{err}</div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+                <UIButton type="button" variant="outline" onClick={onClose} disabled={saving}>취소</UIButton>
+                <UIButton type="submit" disabled={saving}>
+                  {saving ? '저장 중…' : (product ? '수정 저장' : '상품 등록')}
+                </UIButton>
+              </div>
+            </div>
+          </form>
+        </UIDialog>
+      );
+    };
+
+    // ========== 인증 모달 (로그인 / 회원가입 토글) ==========
+    const AuthModal = ({ open, onClose, onSuccess }) => {
+      const [mode, setMode] = useState('login'); // 'login' | 'register'
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [name, setName] = useState('');
+      const [submitting, setSubmitting] = useState(false);
+      const [error, setError] = useState('');
+
+      useEffect(() => {
+        if (open) {
+          setError('');
+        }
+        document.body.style.overflow = open ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
+      }, [open]);
+
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape' && open) onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [open, onClose]);
+
+      if (!open) return null;
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (!email || !password || (mode === 'register' && !name)) {
+          setError('모든 필드를 입력해주세요');
+          return;
+        }
+        setSubmitting(true);
+        try {
+          const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+          const body = mode === 'login' ? { email, password } : { email, password, name };
+          const { token, user } = await api(endpoint, { method: 'POST', body });
+          setToken(token);
+          onSuccess(user);
+          setEmail(''); setPassword(''); setName('');
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      const fillDemo = (type) => {
+        if (type === 'admin') { setEmail('admin@filmlab.co.kr'); setPassword('admin1234'); }
+        else { setEmail('customer@test.co.kr'); setPassword('test1234'); }
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+          <div onClick={(e) => e.stopPropagation()} className="modal-in bg-[var(--cream)] w-full max-w-md p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="text-xs tracking-[0.3em] text-stone-500 mb-1">{mode === 'login' ? 'SIGN IN' : 'JOIN'}</div>
+                <h2 className="font-serif-en text-3xl">{mode === 'login' ? 'Welcome back.' : 'Create account.'}</h2>
+              </div>
+              <button onClick={onClose} className="p-1.5 hover:bg-stone-100 rounded-full" aria-label="닫기">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === 'register' && (
+                <div>
+                  <label className="text-xs text-stone-500 tracking-wider">이름</label>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                    className="w-full mt-1 border-b border-stone-300 py-2 bg-transparent focus:outline-none focus:border-stone-800"
+                    placeholder="홍길동" autoFocus />
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-stone-500 tracking-wider">이메일</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="w-full mt-1 border-b border-stone-300 py-2 bg-transparent focus:outline-none focus:border-stone-800"
+                  placeholder="you@example.com" autoFocus={mode === 'login'} autoComplete="email" />
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 tracking-wider">비밀번호</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  className="w-full mt-1 border-b border-stone-300 py-2 bg-transparent focus:outline-none focus:border-stone-800"
+                  placeholder="••••••••" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+              </div>
+
+              {error && (
+                <div className="text-sm text-[var(--accent)] bg-red-50 border border-red-100 p-2">{error}</div>
+              )}
+
+              <button type="submit" disabled={submitting}
+                className="w-full bg-stone-900 text-[var(--cream)] py-3 text-sm hover:bg-black disabled:opacity-50 mt-2">
+                {submitting ? '처리 중...' : (mode === 'login' ? '로그인' : '회원가입')}
+              </button>
+            </form>
+
+            <div className="text-center mt-5 text-sm text-stone-600">
+              {mode === 'login' ? '계정이 없으신가요?' : '이미 가입하셨나요?'}{' '}
+              <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+                className="text-stone-900 underline underline-offset-4 hover:text-[var(--accent)]">
+                {mode === 'login' ? '회원가입' : '로그인'}
+              </button>
+            </div>
+
+            {mode === 'login' && (
+              <div className="mt-6 pt-5 border-t border-stone-200">
+                <p className="text-xs text-stone-500 mb-2 tracking-wider">데모 계정 빠른 입력</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => fillDemo('admin')}
+                    className="flex-1 text-xs border border-stone-300 py-1.5 hover:border-stone-800">
+                    🔑 슈퍼관리자
+                  </button>
+                  <button type="button" onClick={() => fillDemo('customer')}
+                    className="flex-1 text-xs border border-stone-300 py-1.5 hover:border-stone-800">
+                    👤 테스트 고객
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // ========== 결제 모달 (TossPayments 위젯) ==========
+    const CheckoutModal = ({ open, order, user, onClose, onCancel, toast }) => {
+      const widgetsRef = useRef(null);
+      const isRenderedRef = useRef(false);
+      const currentOrderIdRef = useRef(null);
+      const [ready, setReady] = useState(false);
+      const [submitting, setSubmitting] = useState(false);
+      const [error, setError] = useState('');
+
+      // open 될 때만 body scroll lock
+      useEffect(() => {
+        if (!open) return;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+      }, [open]);
+
+      // 안정적인 primitive 키: 이 값들이 바뀔 때만 위젯 초기화/렌더 수행
+      const orderId = order?.id ?? null;
+      const totalPrice = order?.total_price != null ? Number(order.total_price) : null;
+      const userId = user?.id ?? null;
+
+      // 위젯 초기화 + 렌더: orderId 기준으로 단 1회, 금액만 바뀌면 setAmount만 호출
+      useEffect(() => {
+        if (!open) return;
+        if (!orderId || !userId || totalPrice == null) return;
+
+        let cancelled = false;
+
+        (async () => {
+          try {
+            // 같은 주문이면 setAmount 만 업데이트 (위젯은 "한 번만 렌더" 규칙)
+            if (
+              isRenderedRef.current &&
+              widgetsRef.current &&
+              currentOrderIdRef.current === orderId
+            ) {
+              console.log('[Toss] 동일 주문 — setAmount만 호출', totalPrice);
+              await widgetsRef.current.setAmount({ currency: 'KRW', value: totalPrice });
+              if (!cancelled) setReady(true);
+              return;
+            }
+
+            // 새로운 주문 (또는 최초 진입): fresh init
+            setError('');
+            setReady(false);
+            isRenderedRef.current = false;
+            widgetsRef.current = null;
+            currentOrderIdRef.current = orderId;
+
+            console.log('[Toss] init — orderId:', orderId, 'amount:', totalPrice);
+
+            if (typeof TossPayments !== 'function') {
+              throw new Error('TossPayments SDK 가 로드되지 않았습니다');
+            }
+            const { clientKey } = await api('/api/payment/config');
+            if (!clientKey) throw new Error('결제 키가 설정되지 않았습니다');
+            if (cancelled) return;
+            console.log('[Toss] clientKey 수신');
+
+            const tossPayments = TossPayments(clientKey);
+            const customerKey = `filmlab-user-${userId}`;
+            const widgets = tossPayments.widgets({ customerKey });
+            widgetsRef.current = widgets;
+            console.log('[Toss] widgets 생성됨, customerKey:', customerKey);
+
+            await widgets.setAmount({ currency: 'KRW', value: totalPrice });
+            if (cancelled) return;
+            console.log('[Toss] setAmount 완료');
+
+            // mount point 존재 확인 (JSX가 렌더된 이후여야 함)
+            const pmEl = document.getElementById('payment-method');
+            const agEl = document.getElementById('agreement');
+            if (!pmEl || !agEl) {
+              throw new Error('결제 위젯 마운트 포인트를 찾을 수 없습니다');
+            }
+
+            // v2 standard: variantKey 없이 렌더 (docs 상점은 custom variant 미정의)
+            await widgets.renderPaymentMethods({
+              selector: '#payment-method',
+              variantKey: 'DEFAULT',
+            });
+            if (cancelled) return;
+            console.log('[Toss] renderPaymentMethods 완료');
+
+            await widgets.renderAgreement({
+              selector: '#agreement',
+              variantKey: 'AGREEMENT',
+            });
+            if (cancelled) return;
+            console.log('[Toss] renderAgreement 완료');
+
+            isRenderedRef.current = true;
+            if (!cancelled) {
+              setReady(true);
+              console.log('[Toss] ready=true');
+            }
+          } catch (e) {
+            console.error('[Toss] 위젯 로드 실패:', e);
+            if (!cancelled) setError(e?.message || '결제 위젯 로드 실패');
+          }
+        })();
+
+        return () => {
+          cancelled = true;
+        };
+        // 의도적으로 primitive key만 deps로 사용 → 부모 리렌더로 인한 불필요한 재실행 방지
+      }, [open, orderId, totalPrice, userId]);
+
+      // 모달이 완전히 닫히면 (주문 자체가 바뀌어 다음에 새로 열릴 수 있도록) 렌더 플래그만 리셋
+      useEffect(() => {
+        if (!open) {
+          isRenderedRef.current = false;
+          widgetsRef.current = null;
+          currentOrderIdRef.current = null;
+          setReady(false);
+          setError('');
+        }
+      }, [open]);
+
+      if (!open || !order) return null;
+
+      const orderName = (() => {
+        const items = Array.isArray(order.items) ? order.items : [];
+        if (items.length === 0) return 'FILM LAB 주문';
+        const first = items[0]?.name || '상품';
+        return items.length === 1 ? first : `${first} 외 ${items.length - 1}건`;
+      })();
+
+      const handlePay = async () => {
+        setError('');
+        setSubmitting(true);
+        try {
+          if (!widgetsRef.current) throw new Error('결제 위젯이 아직 준비되지 않았습니다');
+          const origin = window.location.origin;
+          console.log('[Toss] requestPayment 호출', {
+            orderId: order.toss_order_id,
+            orderName,
+            amount: Number(order.total_price),
+          });
+          await widgetsRef.current.requestPayment({
+            orderId: order.toss_order_id,
+            orderName,
+            successUrl: `${origin}/?payment=success`,
+            failUrl: `${origin}/?payment=fail`,
+            customerEmail: user.email,
+            customerName: user.name,
+          });
+          // 정상적으로 호출되면 토스가 successUrl 로 리디렉션하므로 이 아래는 거의 실행되지 않음
+        } catch (err) {
+          console.error('[Toss] requestPayment 에러:', err);
+          setSubmitting(false);
+          if (err?.code === 'USER_CANCEL') {
+            // 사용자가 토스 창에서 취소한 경우 — 모달은 유지, 재시도 가능
+            return;
+          }
+          setError(err?.message || '결제 요청에 실패했습니다');
+        }
+      };
+
+      const handleCancel = async () => {
+        if (submitting) return;
+        if (!confirm('결제를 취소하시겠습니까? 주문이 취소되고 재고가 복구됩니다.')) return;
+        try {
+          await api(`/api/payment/cancel-pending/${order.id}`, {
+            method: 'POST', auth: true,
+          });
+          toast && toast('주문을 취소했어요');
+        } catch (e) {
+          toast && toast('주문 취소 실패: ' + e.message);
+        }
+        onCancel && onCancel();
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="modal-in bg-[var(--cream)] w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+            <div className="p-5 border-b border-stone-200 flex items-center justify-between sticky top-0 bg-[var(--cream)] z-10">
+              <div>
+                <div className="text-xs tracking-[0.3em] text-stone-500">CHECKOUT</div>
+                <h2 className="font-serif-en text-2xl mt-0.5">결제</h2>
+              </div>
+              <button onClick={handleCancel} className="p-1.5 hover:bg-stone-100 rounded-full" aria-label="닫기" disabled={submitting}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* 주문 요약 */}
+              <div className="border border-stone-200 p-4">
+                <div className="text-xs tracking-widest text-stone-500 mb-3">ORDER · #{order.id}</div>
+                <ul className="space-y-2 text-sm">
+                  {(order.items || []).map((it, idx) => (
+                    <li key={idx} className="flex justify-between">
+                      <span className="text-stone-700">{it.name || `상품 #${it.product_id}`} × {it.qty}</span>
+                      <span className="text-stone-800">{formatKRW(it.price * it.qty)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="border-t border-stone-200 mt-3 pt-3 flex justify-between font-semibold">
+                  <span>최종 결제 금액</span>
+                  <span>{formatKRW(order.total_price)}</span>
+                </div>
+              </div>
+
+              {/* 토스 위젯 마운트 포인트 */}
+              <div id="payment-method" />
+              <div id="agreement" />
+
+              {!ready && !error && (
+                <div className="text-center text-stone-500 py-6 text-sm">결제 위젯 불러오는 중…</div>
+              )}
+              {error && (
+                <div className="text-sm text-[var(--accent)] bg-red-50 border border-red-100 p-3">{error}</div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleCancel}
+                  disabled={submitting}
+                  className="flex-1 border border-stone-300 text-stone-700 py-3 text-sm hover:border-stone-800 disabled:opacity-50"
+                >
+                  주문 취소
+                </button>
+                <button
+                  onClick={handlePay}
+                  disabled={!ready || submitting}
+                  className="flex-[2] bg-stone-900 text-[var(--cream)] py-3 text-sm hover:bg-black disabled:opacity-50"
+                >
+                  {submitting ? '결제창 여는 중…' : `${formatKRW(order.total_price)} 결제하기`}
+                </button>
+              </div>
+
+              <p className="text-[11px] text-stone-500 leading-relaxed">
+                · 테스트 결제 환경입니다. 실제 결제는 이루어지지 않습니다.<br/>
+                · 결제 완료 후 자동으로 주문 상태가 업데이트됩니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ========== 관리자 패널 (superadmin/admin 전용) ==========
+    const AdminPanel = ({ open, onClose, user, onRefresh }) => {
+      const [tab, setTab] = useState('products'); // 'products' | 'users' | 'orders'
+      const [products, setProducts] = useState([]);
+      const [users, setUsers] = useState([]);
+      const [orders, setOrders] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [err, setErr] = useState('');
+      // 상품 추가/수정 모달
+      const [formOpen, setFormOpen] = useState(false);
+      const [editing, setEditing] = useState(null); // null = 신규, product = 수정
+
+      const isSuper = user?.role === 'superadmin';
+
+      const loadAll = useCallback(async () => {
+        setLoading(true); setErr('');
+        try {
+          const [p, o] = await Promise.all([
+            api('/api/products'),
+            api('/api/orders', { auth: true }),
+          ]);
+          setProducts(p.map(normalizeProduct));
+          setOrders(o);
+          if (isSuper) {
+            const u = await api('/api/users', { auth: true });
+            setUsers(u);
+          }
+        } catch (e) { setErr(e.message); }
+        finally { setLoading(false); }
+      }, [isSuper]);
+
+      useEffect(() => {
+        if (open) loadAll();
+        document.body.style.overflow = open ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
+      }, [open, loadAll]);
+
+      if (!open) return null;
+
+      const handleDeleteProduct = async (id, name) => {
+        if (!confirm(`"${name}"을(를) 삭제하시겠습니까?`)) return;
+        try {
+          await api(`/api/products/${id}`, { method: 'DELETE', auth: true });
+          await loadAll();
+          onRefresh && onRefresh();
+        } catch (e) { alert('삭제 실패: ' + e.message); }
+      };
+
+      const handleStockChange = async (p, delta) => {
+        const newStock = Math.max(0, Number(p.stock) + delta);
+        try {
+          await api(`/api/products/${p.id}`, {
+            method: 'PUT', auth: true,
+            body: { ...p, stock: newStock },
+          });
+          await loadAll();
+          onRefresh && onRefresh();
+        } catch (e) { alert('수정 실패: ' + e.message); }
+      };
+
+      const handleRoleChange = async (userId, newRole) => {
+        try {
+          await api(`/api/users/${userId}/role`, {
+            method: 'PATCH', auth: true, body: { role: newRole },
+          });
+          await loadAll();
+        } catch (e) { alert('역할 변경 실패: ' + e.message); }
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+          <div onClick={(e) => e.stopPropagation()} className="modal-in bg-[var(--cream)] w-full max-w-5xl h-[85vh] flex flex-col">
+            <div className="p-5 border-b border-stone-200 flex items-center justify-between">
+              <div>
+                <div className="text-xs tracking-[0.3em] text-stone-500">ADMIN CONSOLE</div>
+                <h2 className="font-serif-en text-2xl mt-0.5">{user?.name} · {user?.role.toUpperCase()}</h2>
+              </div>
+              <button onClick={onClose} className="p-1.5 hover:bg-stone-100 rounded-full">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="border-b border-stone-200 px-5 flex gap-1">
+              {[
+                { k: 'products', label: `상품 (${products.length})` },
+                { k: 'orders', label: `주문 (${orders.length})` },
+                isSuper && { k: 'users', label: `사용자 (${users.length})` },
+              ].filter(Boolean).map((t) => (
+                <button key={t.k} onClick={() => setTab(t.k)}
+                  className={`px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors ${tab === t.k ? 'border-stone-900 text-stone-900 font-medium' : 'border-transparent text-stone-500 hover:text-stone-800'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {err && <div className="text-sm text-[var(--accent)] bg-red-50 border border-red-100 p-3 mb-4">{err}</div>}
+              {loading && <div className="text-center text-stone-500 py-10">불러오는 중…</div>}
+
+              {!loading && tab === 'products' && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-zinc-600">등록된 상품 {products.length}개를 관리합니다.</p>
+                    <UIButton size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                      새 상품
+                    </UIButton>
+                  </div>
+                  <div className="rounded-md border border-zinc-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="text-xs text-zinc-500 bg-zinc-50">
+                      <tr className="border-b border-zinc-200">
+                        <th className="text-left py-2.5 px-3 font-medium">이미지</th>
+                        <th className="text-left font-medium">브랜드 · 이름</th>
+                        <th className="text-right font-medium">가격</th>
+                        <th className="text-center font-medium">재고</th>
+                        <th className="text-right font-medium pr-3">동작</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((p) => (
+                        <tr key={p.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50">
+                          <td className="py-2 px-3">
+                            <img src={p.image} alt="" className="w-12 h-12 object-cover rounded-md border border-zinc-200"/>
+                          </td>
+                          <td>
+                            <div className="text-xs text-zinc-500">{p.brand} · {p.year}</div>
+                            <div className="font-medium text-zinc-900">{p.name}</div>
+                          </td>
+                          <td className="text-right font-medium">{formatKRW(p.price)}</td>
+                          <td className="text-center">
+                            <div className="inline-flex items-center gap-1">
+                              <UIButton variant="outline" size="sm" className="w-7 h-7 p-0" onClick={() => handleStockChange(p, -1)}>−</UIButton>
+                              <span className="w-8 text-center font-medium">{p.stock}</span>
+                              <UIButton variant="outline" size="sm" className="w-7 h-7 p-0" onClick={() => handleStockChange(p, +1)}>+</UIButton>
+                            </div>
+                          </td>
+                          <td className="text-right pr-3">
+                            <div className="inline-flex gap-1.5">
+                              <UIButton variant="outline" size="sm" onClick={() => { setEditing(p); setFormOpen(true); }}>수정</UIButton>
+                              <UIButton variant="destructive" size="sm" onClick={() => handleDeleteProduct(p.id, p.name)}>삭제</UIButton>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  </div>
+                </>
+              )}
+
+              {!loading && tab === 'orders' && (
+                orders.length === 0 ? <div className="text-center text-stone-500 py-10">주문 내역이 없습니다</div> :
+                <ul className="space-y-3">
+                  {orders.map((o) => {
+                    const statusColor = {
+                      paid: 'bg-emerald-100 text-emerald-800',
+                      pending: 'bg-amber-100 text-amber-800',
+                      cancelled: 'bg-red-100 text-red-800',
+                    }[o.status] || 'bg-stone-100 text-stone-700';
+                    return (
+                      <li key={o.id} className="border border-stone-200 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className="text-xs text-stone-500">주문 #{o.id} · {new Date(o.created_at).toLocaleString('ko-KR')}</div>
+                            {(o.user_name || o.user_email) && (
+                              <div className="text-sm">{o.user_name} ({o.user_email})</div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold">{formatKRW(o.total_price)}</div>
+                            <span className={`text-xs px-2 py-0.5 ${statusColor}`}>{o.status}</span>
+                          </div>
+                        </div>
+                        {o.items && (
+                          <div className="text-xs text-stone-600 border-t border-stone-100 pt-2">
+                            {o.items.map((it, idx) => (
+                              <div key={idx}>{it.name || `Product #${it.product_id}`} × {it.qty} — {formatKRW(it.price * it.qty)}</div>
+                            ))}
+                          </div>
+                        )}
+                        {(o.toss_order_id || o.payment_key || o.paid_at) && (
+                          <div className="text-[11px] text-stone-400 border-t border-stone-100 pt-2 mt-2 space-y-0.5 font-mono break-all">
+                            {o.toss_order_id && <div>toss_order_id: {o.toss_order_id}</div>}
+                            {o.payment_key && <div>payment_key: {o.payment_key}</div>}
+                            {o.paid_at && <div>paid_at: {new Date(o.paid_at).toLocaleString('ko-KR')}</div>}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {!loading && tab === 'users' && isSuper && (
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-stone-500 tracking-wider">
+                    <tr className="border-b border-stone-200">
+                      <th className="text-left py-2">이름</th>
+                      <th className="text-left">이메일</th>
+                      <th className="text-left">가입일</th>
+                      <th className="text-right">역할</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-b border-stone-100">
+                        <td className="py-2">{u.name}</td>
+                        <td className="text-stone-600">{u.email}</td>
+                        <td className="text-stone-500 text-xs">{new Date(u.created_at).toLocaleDateString('ko-KR')}</td>
+                        <td className="text-right">
+                          {u.id === user.id ? (
+                            <span className="text-xs bg-[var(--gold)] text-stone-900 px-2 py-1 font-medium">본인 · SUPERADMIN</span>
+                          ) : (
+                            <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                              className="text-xs border border-stone-300 px-2 py-1 bg-transparent">
+                              <option value="customer">customer</option>
+                              <option value="admin">admin</option>
+                              <option value="superadmin">superadmin</option>
+                            </select>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* 상품 추가/수정 모달 */}
+          <ProductFormModal
+            open={formOpen}
+            product={editing}
+            onClose={() => { setFormOpen(false); setEditing(null); }}
+            onSaved={async () => { await loadAll(); onRefresh && onRefresh(); }}
+          />
+        </div>
+      );
+    };
+
+    const Footer = () => (
+      <footer className="bg-stone-900 text-stone-300 mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+          <div className="md:col-span-2">
+            <div className="font-serif-en text-3xl text-[var(--cream)] mb-3">FILM LAB</div>
+            <p className="text-sm leading-relaxed text-stone-400 max-w-md">
+              엄선된 빈티지 필름카메라를 투명한 감정서와 함께 소개하는 셀렉트샵.<br/>
+              모든 제품은 자체 기술진의 오버홀을 거쳐 판매됩니다.
+            </p>
+            <div className="flex gap-3 mt-5">
+              {['Instagram', 'YouTube', 'Threads'].map((s) => (
+                <a key={s} href="#" className="text-xs tracking-widest border border-stone-700 px-3 py-1.5 hover:bg-stone-800">{s.toUpperCase()}</a>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs tracking-widest text-stone-500 mb-3">SHOP</div>
+            <ul className="space-y-2 text-sm">
+              <li><a href="#" className="hover:text-[var(--cream)]">카메라</a></li>
+              <li><a href="#" className="hover:text-[var(--cream)]">렌즈</a></li>
+              <li><a href="#" className="hover:text-[var(--cream)]">필름</a></li>
+              <li><a href="#" className="hover:text-[var(--cream)]">악세사리</a></li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-xs tracking-widest text-stone-500 mb-3">CUSTOMER</div>
+            <ul className="space-y-2 text-sm">
+              <li><a href="#" className="hover:text-[var(--cream)]">감정 의뢰</a></li>
+              <li><a href="#" className="hover:text-[var(--cream)]">중고 매입</a></li>
+              <li><a href="#" className="hover:text-[var(--cream)]">A/S 접수</a></li>
+              <li><a href="#" className="hover:text-[var(--cream)]">FAQ</a></li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-stone-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 text-xs text-stone-500 flex flex-col sm:flex-row gap-2 justify-between">
+            <span>© 2026 FILM LAB. 서울특별시 성동구 · 사업자등록번호 000-00-00000</span>
+            <span>CS 02-000-0000 · 평일 10:00–18:00</span>
+          </div>
+        </div>
+      </footer>
+    );
+
+    // ========== 메인 App ==========
+    function App() {
+      const [products, setProducts] = useState([]);
+      const [loadingProducts, setLoadingProducts] = useState(true);
+      const [brand, setBrand] = useState('전체');
+      const [sort, setSort] = useState('recommend');
+      const [query, setQuery] = useState('');
+      const [selected, setSelected] = useState(null);
+      const [cart, setCart] = useState([]); // [{...product, qty}]
+      const [cartOpen, setCartOpen] = useState(false);
+      const [toast, setToast] = useState({ show: false, msg: '' });
+      // 인증 상태
+      const [user, setUser] = useState(null);
+      const [authOpen, setAuthOpen] = useState(false);
+      const [adminOpen, setAdminOpen] = useState(false);
+      // 결제 상태
+      const [pendingOrder, setPendingOrder] = useState(null); // { id, toss_order_id, total_price, items }
+      const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+      // 상품 목록 로드 (API)
+      const loadProducts = useCallback(async () => {
+        try {
+          setLoadingProducts(true);
+          const data = await api('/api/products');
+          setProducts(data.map(normalizeProduct));
+        } catch (err) {
+          console.error('상품 로드 실패:', err);
+        } finally {
+          setLoadingProducts(false);
+        }
+      }, []);
+
+      // 초기 로딩: 상품 목록 + 토큰이 있으면 /auth/me 로 사용자 복원
+      useEffect(() => {
+        loadProducts();
+        if (getToken()) {
+          api('/api/auth/me', { auth: true })
+            .then(({ user }) => setUser(user))
+            .catch(() => setToken(null));
+        }
+      }, [loadProducts]);
+
+      // 결제 리디렉션 처리 (토스 successUrl / failUrl) — 마운트 시 단 1회만 실행
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const payment = params.get('payment');
+        if (!payment) return;
+
+        // 이중 실행을 막기 위해 쿼리 파라미터를 즉시 제거
+        const paymentKey = params.get('paymentKey');
+        const orderId = params.get('orderId');
+        const amount = params.get('amount');
+        const failCode = params.get('code') || 'UNKNOWN';
+        const failMsg = params.get('message') || '결제가 취소되었습니다';
+        try { history.replaceState(null, '', window.location.pathname); } catch (_) {}
+
+        if (payment === 'success') {
+          if (!paymentKey || !orderId || !amount) {
+            setToast({ show: true, msg: '결제 정보가 누락되었습니다' });
+            setTimeout(() => setToast((t) => ({ ...t, show: false })), 2500);
+            return;
+          }
+          console.log('[Toss] successUrl 랜딩, confirm 호출', { paymentKey, orderId, amount });
+          (async () => {
+            try {
+              const { order } = await api('/api/payment/confirm', {
+                method: 'POST', auth: true,
+                body: { paymentKey, orderId, amount: Number(amount) },
+              });
+              console.log('[Toss] confirm 성공, 주문 #', order?.id);
+              setToast({ show: true, msg: `결제 완료! 주문 #${order.id}` });
+              setTimeout(() => setToast((t) => ({ ...t, show: false })), 2500);
+              setCart([]);
+              setPendingOrder(null);
+              setCheckoutOpen(false);
+              loadProducts();
+            } catch (e) {
+              console.error('[Toss] confirm 실패:', e);
+              setToast({ show: true, msg: '결제 승인 실패: ' + e.message });
+              setTimeout(() => setToast((t) => ({ ...t, show: false })), 3000);
+              loadProducts(); // 서버가 재고 복구했을 수 있으므로 새로고침
+            }
+          })();
+        } else if (payment === 'fail') {
+          console.warn('[Toss] failUrl 랜딩:', failCode, failMsg);
+          setToast({ show: true, msg: `결제 실패: ${failMsg} (${failCode})` });
+          setTimeout(() => setToast((t) => ({ ...t, show: false })), 3500);
+          loadProducts();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []); // 마운트 시 1회만 — 의도적으로 deps 비움
+
+      // 브랜드 목록은 상품 기반으로 동적 계산
+      const brands = useMemo(() => ['전체', ...Array.from(new Set(products.map(p => p.brand)))], [products]);
+
+      const filtered = useMemo(() => {
+        let list = products;
+        if (brand !== '전체') list = list.filter(p => p.brand === brand);
+        if (query.trim()) {
+          const q = query.trim().toLowerCase();
+          list = list.filter(p =>
+            p.brand.toLowerCase().includes(q) ||
+            p.name.toLowerCase().includes(q) ||
+            (p.format || '').toLowerCase().includes(q)
+          );
+        }
+        const sorted = [...list];
+        if (sort === 'price-asc') sorted.sort((a,b) => a.price - b.price);
+        else if (sort === 'price-desc') sorted.sort((a,b) => b.price - a.price);
+        else if (sort === 'year-desc') sorted.sort((a,b) => b.year - a.year);
+        return sorted;
+      }, [products, brand, sort, query]);
+
+      const pushToast = useCallback((msg) => {
+        setToast({ show: true, msg });
+        setTimeout(() => setToast((t) => ({ ...t, show: false })), 2000);
+      }, []);
+
+      const addToCart = useCallback((p) => {
+        setCart((prev) => {
+          const ex = prev.find(i => i.id === p.id);
+          if (ex) return prev.map(i => i.id === p.id ? { ...i, qty: i.qty + 1 } : i);
+          return [...prev, { ...p, qty: 1 }];
+        });
+        pushToast(`${p.name} · 장바구니에 담았어요`);
+      }, [pushToast]);
+
+      const removeFromCart = useCallback((id) => {
+        setCart((prev) => prev.filter(i => i.id !== id));
+      }, []);
+
+      // 주문하기 — pending 주문을 생성하고 결제 모달을 연다
+      const checkout = useCallback(async () => {
+        if (cart.length === 0) return;
+        if (!user) {
+          pushToast('주문하려면 로그인이 필요해요');
+          setCartOpen(false);
+          setAuthOpen(true);
+          return;
+        }
+        try {
+          const order = await api('/api/orders', {
+            method: 'POST', auth: true,
+            body: { items: cart.map(i => ({ product_id: i.id, qty: i.qty })) },
+          });
+          setPendingOrder(order);
+          setCartOpen(false);
+          setCheckoutOpen(true);
+          await loadProducts(); // 재고 갱신 (pending 상태에서 이미 차감됨)
+        } catch (err) {
+          pushToast('주문 실패: ' + err.message);
+        }
+      }, [cart, user, pushToast, loadProducts]);
+
+      // 결제 모달에서 "주문 취소" 눌렀을 때 (재고 복구는 서버가 처리)
+      const handleCancelCheckout = useCallback(async () => {
+        setCheckoutOpen(false);
+        setPendingOrder(null);
+        await loadProducts();
+      }, [loadProducts]);
+
+      const handleAuthSuccess = useCallback((u) => {
+        setUser(u);
+        setAuthOpen(false);
+        pushToast(`환영해요, ${u.name}님`);
+      }, [pushToast]);
+
+      const handleLogout = useCallback(() => {
+        setToken(null);
+        setUser(null);
+        setAdminOpen(false);
+        pushToast('로그아웃되었어요');
+      }, [pushToast]);
+
+      const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+
+      return (
+        <>
+          <Header
+            cartCount={cartCount}
+            onOpenCart={() => setCartOpen(true)}
+            onSearch={setQuery}
+            searchQuery={query}
+            user={user}
+            onOpenAuth={() => setAuthOpen(true)}
+            onLogout={handleLogout}
+            onOpenAdmin={() => setAdminOpen(true)}
+          />
+          <main>
+            <Hero/>
+            <Stats/>
+
+            <section id="products" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+              <div className="flex items-end justify-between mb-8">
+                <div>
+                  <span className="text-xs tracking-[0.3em] text-stone-500">THIS WEEK'S SELECTION</span>
+                  <h2 className="font-serif-en text-4xl md:text-5xl mt-2">Curated Film Cameras</h2>
+                </div>
+                <a href="#" className="hidden md:inline-block text-sm text-stone-600 hover:text-stone-900 underline underline-offset-4">전체 보기 →</a>
+              </div>
+
+              <FilterBar
+                brands={brands}
+                activeBrand={brand} onBrand={setBrand}
+                sort={sort} onSort={setSort}
+                count={filtered.length}
+              />
+
+              {loadingProducts ? (
+                <div className="text-center py-20 text-stone-400">상품 불러오는 중…</div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-20 text-stone-400">
+                  <p>검색 조건에 맞는 상품이 없어요</p>
+                  <button onClick={() => { setBrand('전체'); setQuery(''); }}
+                    className="mt-3 text-sm underline text-stone-600 hover:text-stone-900">필터 초기화</button>
+                </div>
+              ) : (
+                <ProductGrid products={filtered} onOpen={setSelected} onAdd={addToCart}/>
+              )}
+            </section>
+
+            {/* CTA 섹션 */}
+            <section className="bg-[var(--cream-2)] border-y border-stone-200">
+              <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+                <span className="text-xs tracking-[0.3em] text-stone-500">APPRAISAL · TRADE-IN</span>
+                <h2 className="font-serif-en text-4xl md:text-5xl mt-3">가지고 계신 카메라,<br/>저희가 감정해드립니다.</h2>
+                <p className="font-serif-kr mt-5 text-stone-600 max-w-xl mx-auto leading-relaxed">
+                  사용하지 않는 필름카메라가 있다면 전문 기술진이 투명하게 감정한 가격으로 매입해드려요.
+                </p>
+                <a href="#" className="inline-block mt-8 bg-stone-900 text-[var(--cream)] px-8 py-3 text-sm hover:bg-black">
+                  감정 문의하기 →
+                </a>
+              </div>
+            </section>
+          </main>
+
+          <Footer/>
+
+          {selected && <ProductModal product={selected} onClose={() => setSelected(null)} onAdd={addToCart}/>}
+          <CartDrawer
+            open={cartOpen} items={cart}
+            onClose={() => setCartOpen(false)}
+            onRemove={removeFromCart}
+            onCheckout={checkout}
+          />
+          <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={handleAuthSuccess}/>
+          <CheckoutModal
+            open={checkoutOpen}
+            order={pendingOrder}
+            user={user}
+            onClose={handleCancelCheckout}
+            onCancel={handleCancelCheckout}
+            toast={pushToast}
+          />
+          <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} user={user} onRefresh={loadProducts}/>
+          <Toast show={toast.show} message={toast.msg}/>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
