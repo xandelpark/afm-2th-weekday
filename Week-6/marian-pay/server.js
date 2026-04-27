@@ -6,7 +6,7 @@ require('dotenv').config({ path: '.env.local', quiet: true });
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3010;
@@ -15,15 +15,24 @@ const PORT = process.env.PORT || 3010;
 const TOSS_CLIENT_KEY = process.env.TOSS_CLIENT_KEY || 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm';
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || 'test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6';
 
-// Resend — 결제 알림 이메일 발송
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL; // 알림 받을 사장님 메일
-const FROM_EMAIL = process.env.FROM_EMAIL || 'MARIAN WEDDING <onboarding@resend.dev>';
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+// Naver SMTP — 결제 알림 이메일 발송 (네이버메일에서 본인에게 발송)
+const NAVER_USER = process.env.NAVER_USER;             // 예: mairanwedding@naver.com
+const NAVER_APP_PASSWORD = process.env.NAVER_APP_PASSWORD; // 네이버 별도/앱 비밀번호
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || NAVER_USER; // 받는 메일 (보통 본인)
+const FROM_EMAIL = process.env.FROM_EMAIL || (NAVER_USER ? `MARIAN WEDDING <${NAVER_USER}>` : null);
+
+const mailer = (NAVER_USER && NAVER_APP_PASSWORD)
+  ? nodemailer.createTransport({
+      host: 'smtp.naver.com',
+      port: 465,
+      secure: true,
+      auth: { user: NAVER_USER, pass: NAVER_APP_PASSWORD },
+    })
+  : null;
 
 async function sendPaymentNotification(order) {
-  if (!resend || !NOTIFY_EMAIL) {
-    console.warn('[이메일 미발송] RESEND_API_KEY 또는 NOTIFY_EMAIL 환경변수가 설정되지 않았습니다');
+  if (!mailer || !NOTIFY_EMAIL) {
+    console.warn('[이메일 미발송] NAVER_USER / NAVER_APP_PASSWORD 환경변수가 설정되지 않았습니다');
     return;
   }
   try {
@@ -61,20 +70,15 @@ async function sendPaymentNotification(order) {
       </div>
     `;
 
-    const result = await resend.emails.send({
+    const info = await mailer.sendMail({
       from: FROM_EMAIL,
       to: NOTIFY_EMAIL,
       subject: `[MARIAN] 신규 결제 — ${order.groomName} & ${order.brideName} · ₩${order.amount.toLocaleString()}`,
       html,
     });
-
-    if (result.error) {
-      console.error('[이메일 발송 실패]', result.error);
-    } else {
-      console.log(`[이메일 발송] ${NOTIFY_EMAIL} — ${order.orderId}`);
-    }
+    console.log(`[이메일 발송] ${NOTIFY_EMAIL} — ${order.orderId} (messageId: ${info.messageId})`);
   } catch (err) {
-    console.error('[이메일 발송 예외]', err);
+    console.error('[이메일 발송 실패]', err.message || err);
   }
 }
 
@@ -210,7 +214,7 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`마리안 웨딩 결제 → http://localhost:${PORT}`);
     console.log(TOSS_CLIENT_KEY.startsWith('test_') ? 'TossPayments 테스트 키 사용 중 (실결제 X)' : 'TossPayments 실키 사용 중');
-    console.log(resend && NOTIFY_EMAIL ? `이메일 알림: ${NOTIFY_EMAIL}` : '이메일 알림: 비활성 (환경변수 필요)');
+    console.log(mailer && NOTIFY_EMAIL ? `이메일 알림: ${NOTIFY_EMAIL} (Naver SMTP)` : '이메일 알림: 비활성 (환경변수 필요)');
   });
 }
 
