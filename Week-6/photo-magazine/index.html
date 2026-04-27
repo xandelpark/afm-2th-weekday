@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>APERTURE — Photography & Marketing Magazine</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Playfair Display"', "serif"],
+            cormorant: ['"Cormorant Garamond"', "serif"],
+            sans: ["Inter", "system-ui", "sans-serif"],
+          },
+          colors: {
+            ink: "#1a1815",
+            cream: "#f6f1e8",
+            paper: "#fbf8f1",
+            accent: "#a23b27",
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body {
+      background: #fbf8f1;
+      color: #1a1815;
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    .display { font-family: "Playfair Display", serif; }
+    .editorial { font-family: "Cormorant Garamond", serif; }
+    .article-body p { font-family: "Cormorant Garamond", serif; font-size: 1.18rem; line-height: 1.85; margin-bottom: 1.1em; }
+    .article-body h2 { font-family: "Playfair Display", serif; font-size: 1.9rem; font-weight: 700; margin-top: 2.2em; margin-bottom: 0.6em; letter-spacing: -0.01em; }
+    .article-body h3 { font-family: "Playfair Display", serif; font-size: 1.35rem; font-weight: 700; margin-top: 1.6em; margin-bottom: 0.45em; }
+    .article-body ul, .article-body ol { font-family: "Cormorant Garamond", serif; font-size: 1.18rem; line-height: 1.85; margin-bottom: 1.1em; padding-left: 1.5em; }
+    .article-body ul { list-style-type: disc; }
+    .article-body ol { list-style-type: decimal; }
+    .article-body li { margin-bottom: 0.3em; }
+    .article-body strong { color: #a23b27; font-weight: 600; }
+    .article-body blockquote { border-left: 3px solid #a23b27; padding-left: 1.2em; margin: 1.5em 0; color: #555; font-style: italic; }
+
+    .grain::after {
+      content: "";
+      position: fixed; inset: 0; pointer-events: none; z-index: 1;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+      mix-blend-mode: multiply; opacity: 0.35;
+    }
+
+    /* 잠금 슬라이더 */
+    .slide-track { position: relative; user-select: none; touch-action: none; }
+    .slide-thumb { transition: transform 0.04s linear; }
+    .slide-thumb.released { transition: transform 0.4s cubic-bezier(.32,.72,0,1); }
+
+    /* 블러 잠금 */
+    .locked-body {
+      position: relative;
+      max-height: 480px;
+      overflow: hidden;
+      filter: blur(7px);
+      user-select: none;
+      pointer-events: none;
+    }
+    .locked-fade {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 60%;
+      background: linear-gradient(180deg, rgba(251,248,241,0) 0%, rgba(251,248,241,1) 80%);
+      pointer-events: none;
+    }
+
+    /* 잡지 헤더 라인 */
+    .rule-thick { border-top: 4px double #1a1815; }
+    .rule-thin { border-top: 1px solid #1a1815; }
+
+    /* 카드 호버 */
+    .card-img { transition: transform 0.6s cubic-bezier(0.2,0.8,0.2,1); }
+    .card:hover .card-img { transform: scale(1.04); }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeInUp 0.5s ease forwards; }
+  </style>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
+</head>
+<body class="grain">
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // ─── 인증 상태 (localStorage) ──────────────────────
+    const TOKEN_KEY = "magazine_token";
+    const USER_KEY = "magazine_user";
+
+    function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getUser() {
+      try { return JSON.parse(localStorage.getItem(USER_KEY) || "null"); } catch { return null; }
+    }
+    function saveAuth(token, user) {
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+    function clearAuth() {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    }
+
+    // ─── API ─────────────────────────────────────────
+    async function api(path, opts = {}) {
+      const token = getToken();
+      const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+      if (token) headers.Authorization = "Bearer " + token;
+      const res = await fetch(path, { ...opts, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "요청 실패");
+      return data;
+    }
+
+    // ─── 라우팅 (해시 기반) ──────────────────────────
+    function parseHash() {
+      const h = location.hash.replace(/^#/, "") || "/";
+      if (h === "/" || h === "") return { name: "home" };
+      if (h === "/login") return { name: "login" };
+      if (h === "/signup") return { name: "signup" };
+      if (h === "/history") return { name: "history" };
+      const m = h.match(/^\/c\/(.+)$/);
+      if (m) return { name: "content", slug: m[1] };
+      const m2 = h.match(/^\/(lecture|marketing)$/);
+      if (m2) return { name: "category", category: m2[1] };
+      return { name: "home" };
+    }
+
+    // ─── 마크다운 렌더 (간단) ─────────────────────────
+    function renderMarkdown(md) {
+      if (!md) return "";
+      const lines = md.split("\n");
+      let html = "";
+      let inList = false; let listType = "";
+      for (let line of lines) {
+        if (/^### /.test(line)) {
+          if (inList) { html += `</${listType}>`; inList = false; }
+          html += `<h3>${escapeHtml(line.slice(4))}</h3>`;
+        } else if (/^## /.test(line)) {
+          if (inList) { html += `</${listType}>`; inList = false; }
+          html += `<h2>${escapeHtml(line.slice(3))}</h2>`;
+        } else if (/^- /.test(line)) {
+          if (!inList || listType !== "ul") {
+            if (inList) html += `</${listType}>`;
+            html += "<ul>"; inList = true; listType = "ul";
+          }
+          html += `<li>${inlineMd(line.slice(2))}</li>`;
+        } else if (/^\d+\.\s/.test(line)) {
+          if (!inList || listType !== "ol") {
+            if (inList) html += `</${listType}>`;
+            html += "<ol>"; inList = true; listType = "ol";
+          }
+          html += `<li>${inlineMd(line.replace(/^\d+\.\s/, ""))}</li>`;
+        } else if (/^>\s?/.test(line)) {
+          if (inList) { html += `</${listType}>`; inList = false; }
+          html += `<blockquote>${inlineMd(line.replace(/^>\s?/, ""))}</blockquote>`;
+        } else if (line.trim() === "") {
+          if (inList) { html += `</${listType}>`; inList = false; }
+        } else {
+          if (inList) { html += `</${listType}>`; inList = false; }
+          html += `<p>${inlineMd(line)}</p>`;
+        }
+      }
+      if (inList) html += `</${listType}>`;
+      return html;
+    }
+    function escapeHtml(s) {
+      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+    function inlineMd(s) {
+      return escapeHtml(s)
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.+?)\*/g, "<em>$1</em>")
+        .replace(/`(.+?)`/g, "<code class='bg-stone-200 px-1 rounded'>$1</code>");
+    }
+
+    // ════════════════════════════════════════════════
+    // 헤더
+    // ════════════════════════════════════════════════
+    function Masthead({ user, onLogout, route }) {
+      const isCategory = route.name === "category";
+      const isHistory = route.name === "history";
+      return (
+        <header className="relative z-10">
+          <div className="max-w-6xl mx-auto px-6 pt-6 pb-3 flex items-center justify-between text-xs uppercase tracking-widest">
+            <div className="text-stone-500">No. 03 — {new Date().getFullYear()} · Spring</div>
+            <div className="flex gap-5 items-center">
+              {user ? (
+                <>
+                  <span className="text-stone-700">{user.name}</span>
+                  <a href="#/history" className="hover:text-accent">구매이력</a>
+                  <button onClick={onLogout} className="hover:text-accent">로그아웃</button>
+                </>
+              ) : (
+                <>
+                  <a href="#/login" className="hover:text-accent">로그인</a>
+                  <a href="#/signup" className="hover:text-accent">구독자등록</a>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="rule-thick max-w-6xl mx-auto"></div>
+          <div className="max-w-6xl mx-auto px-6 py-6 text-center">
+            <a href="#/" className="inline-block">
+              <h1 className="display text-7xl md:text-8xl font-black tracking-tight leading-none">APERTURE</h1>
+              <p className="editorial italic text-stone-600 mt-2 text-lg">a magazine for photographers and the work behind their work</p>
+            </a>
+          </div>
+          <div className="rule-thick max-w-6xl mx-auto"></div>
+
+          <nav className="max-w-6xl mx-auto px-6 py-3 flex justify-center gap-10 uppercase tracking-[0.25em] text-xs">
+            <a href="#/" className={"hover:text-accent " + (route.name === "home" ? "text-accent" : "")}>The Issue</a>
+            <a href="#/lecture" className={"hover:text-accent " + (isCategory && route.category==="lecture" ? "text-accent" : "")}>Photography</a>
+            <a href="#/marketing" className={"hover:text-accent " + (isCategory && route.category==="marketing" ? "text-accent" : "")}>Marketing</a>
+            {user && <a href="#/history" className={"hover:text-accent " + (isHistory ? "text-accent" : "")}>Library</a>}
+          </nav>
+          <div className="rule-thin max-w-6xl mx-auto"></div>
+        </header>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 콘텐츠 카드
+    // ════════════════════════════════════════════════
+    function ContentCard({ c, large = false }) {
+      return (
+        <a href={`#/c/${c.slug}`} className="card block group">
+          <div className={`relative overflow-hidden bg-stone-200 ${large ? "aspect-[16/10]" : "aspect-[4/3]"}`}>
+            {c.cover_image && (
+              <img src={c.cover_image} alt={c.title} className="card-img absolute inset-0 w-full h-full object-cover" />
+            )}
+            <div className="absolute top-3 left-3 flex gap-2">
+              <span className={`px-2 py-1 text-[10px] uppercase tracking-widest font-semibold ${
+                c.category === "marketing" ? "bg-ink text-cream" : "bg-cream text-ink"
+              }`}>
+                {c.category === "marketing" ? "Marketing" : "Photography"}
+              </span>
+              {c.is_premium && (
+                <span className="px-2 py-1 text-[10px] uppercase tracking-widest bg-accent text-white">
+                  {c.has_access ? "Owned" : "Premium"}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="pt-4">
+            <div className="text-[11px] uppercase tracking-widest text-stone-500 mb-1">
+              Issue {c.issue_no} · {c.author} · {c.read_minutes}분 읽기
+            </div>
+            <h3 className={`display font-bold leading-tight group-hover:text-accent transition ${large ? "text-3xl" : "text-xl"}`}>
+              {c.title}
+            </h3>
+            {c.subtitle && (
+              <p className="editorial italic text-stone-600 mt-1.5">{c.subtitle}</p>
+            )}
+            {c.is_premium && !c.has_access && (
+              <div className="mt-3 text-sm text-accent font-semibold">
+                ₩{c.price.toLocaleString()} · 잠금 콘텐츠
+              </div>
+            )}
+            {(!c.is_premium || c.has_access) && (
+              <div className="mt-3 text-sm text-stone-500">
+                {!c.is_premium ? "무료 공개" : "구매 완료 — 열람 가능"}
+              </div>
+            )}
+          </div>
+        </a>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 홈
+    // ════════════════════════════════════════════════
+    function HomePage() {
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [err, setErr] = useState("");
+
+      useEffect(() => {
+        api("/api/contents")
+          .then(setItems)
+          .catch((e) => setErr(e.message))
+          .finally(() => setLoading(false));
+      }, []);
+
+      if (loading) return <div className="text-center py-20 text-stone-500">발행 중...</div>;
+      if (err) return <div className="text-center py-20 text-accent">{err}</div>;
+
+      const featured = items[0];
+      const rest = items.slice(1);
+      const lectures = rest.filter((i) => i.category === "lecture");
+      const marketing = rest.filter((i) => i.category === "marketing");
+
+      return (
+        <main className="max-w-6xl mx-auto px-6 py-10 fade-in">
+          {featured && (
+            <section className="mb-16">
+              <div className="text-center text-[11px] uppercase tracking-[0.3em] text-stone-500 mb-4">
+                — Cover Story —
+              </div>
+              <ContentCard c={featured} large />
+            </section>
+          )}
+
+          {lectures.length > 0 && (
+            <section className="mb-16">
+              <div className="rule-thin mb-4"></div>
+              <div className="flex justify-between items-baseline mb-6">
+                <h2 className="display text-4xl font-bold">Photography</h2>
+                <a href="#/lecture" className="text-xs uppercase tracking-widest text-stone-500 hover:text-accent">
+                  See all →
+                </a>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {lectures.slice(0, 6).map((c) => <ContentCard key={c.id} c={c} />)}
+              </div>
+            </section>
+          )}
+
+          {marketing.length > 0 && (
+            <section className="mb-16">
+              <div className="rule-thin mb-4"></div>
+              <div className="flex justify-between items-baseline mb-6">
+                <h2 className="display text-4xl font-bold">Marketing & Business</h2>
+                <a href="#/marketing" className="text-xs uppercase tracking-widest text-stone-500 hover:text-accent">
+                  See all →
+                </a>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {marketing.slice(0, 6).map((c) => <ContentCard key={c.id} c={c} />)}
+              </div>
+            </section>
+          )}
+        </main>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 카테고리
+    // ════════════════════════════════════════════════
+    function CategoryPage({ category }) {
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        setLoading(true);
+        api(`/api/contents?category=${category}`)
+          .then(setItems)
+          .finally(() => setLoading(false));
+      }, [category]);
+
+      const title = category === "lecture" ? "Photography" : "Marketing & Business";
+      const sub = category === "lecture"
+        ? "기초부터 심화까지, 사진을 다루는 손과 눈"
+        : "사진을 일로 만드는 사람들을 위한 비즈니스 노트";
+
+      return (
+        <main className="max-w-6xl mx-auto px-6 py-10 fade-in">
+          <div className="text-center mb-12">
+            <div className="text-[11px] uppercase tracking-[0.3em] text-stone-500 mb-2">— Section —</div>
+            <h2 className="display text-5xl font-black">{title}</h2>
+            <p className="editorial italic text-stone-600 mt-3 text-lg">{sub}</p>
+          </div>
+          <div className="rule-thin mb-10"></div>
+          {loading ? (
+            <div className="text-center py-20 text-stone-500">불러오는 중...</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {items.map((c) => <ContentCard key={c.id} c={c} />)}
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 슬라이드 잠금 해제 (드래그)
+    //   - resetKey 가 바뀌면 슬라이더가 원위치로 리셋됨 (모달 닫을 때 사용)
+    // ════════════════════════════════════════════════
+    function SlideToUnlock({ price, onUnlock, disabled, resetKey }) {
+      const trackRef = useRef(null);
+      const [x, setX] = useState(0);
+      const [maxX, setMaxX] = useState(0);
+      const [dragging, setDragging] = useState(false);
+      const [unlocked, setUnlocked] = useState(false);
+      // ref 로 최신값을 보존 — useEffect 클로저의 stale state 로 인한
+      // 빠른 스와이프 시 unlock 누락 race 를 방지
+      const xRef = useRef(0);
+      const maxXRef = useRef(0);
+      const draggingRef = useRef(false);
+      const startXRef = useRef(0);
+      const startThumbRef = useRef(0);
+
+      useEffect(() => {
+        function recalc() {
+          if (!trackRef.current) return;
+          const w = trackRef.current.offsetWidth;
+          const m = Math.max(0, w - 64);
+          setMaxX(m);
+          maxXRef.current = m;
+        }
+        recalc();
+        window.addEventListener("resize", recalc);
+        return () => window.removeEventListener("resize", recalc);
+      }, []);
+
+      // resetKey 가 변경되면 (예: 모달 닫힘) 슬라이더를 원위치로
+      useEffect(() => {
+        setX(0);
+        xRef.current = 0;
+        setUnlocked(false);
+        setDragging(false);
+        draggingRef.current = false;
+      }, [resetKey]);
+
+      function startDrag(clientX) {
+        if (disabled || unlocked) return;
+        // 드래그 시작 시점에 정확한 maxX 를 새로 계산 (레이아웃이 마운트 후 변할 수 있음)
+        if (trackRef.current) {
+          const m = Math.max(0, trackRef.current.offsetWidth - 64);
+          if (m !== maxXRef.current) {
+            maxXRef.current = m;
+            setMaxX(m);
+          }
+        }
+        setDragging(true);
+        draggingRef.current = true;
+        startXRef.current = clientX;
+        startThumbRef.current = xRef.current;
+      }
+      function moveDrag(clientX) {
+        if (!draggingRef.current || disabled) return;
+        const delta = clientX - startXRef.current;
+        const next = Math.max(0, Math.min(maxXRef.current, startThumbRef.current + delta));
+        xRef.current = next;
+        setX(next);
+      }
+      function endDrag() {
+        if (!draggingRef.current) return;
+        draggingRef.current = false;
+        setDragging(false);
+        if (xRef.current >= maxXRef.current - 4) {
+          setUnlocked(true);
+          setTimeout(() => onUnlock && onUnlock(), 200);
+        } else {
+          xRef.current = 0;
+          setX(0);
+        }
+      }
+
+      // 마우스 이벤트 — 의존성 배열은 비워서 effect 가 한 번만 등록되게 한다.
+      // dragging/x/maxX 값은 모두 ref 를 통해 최신값을 읽으므로 stale closure 가 생기지 않는다.
+      useEffect(() => {
+        function onMove(e) { moveDrag(e.clientX); }
+        function onUp() { endDrag(); }
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+        return () => {
+          window.removeEventListener("mousemove", onMove);
+          window.removeEventListener("mouseup", onUp);
+        };
+      }, []);
+
+      const progress = maxX > 0 ? Math.min(1, x / maxX) : 0;
+
+      return (
+        <div className="select-none">
+          <div
+            ref={trackRef}
+            className="slide-track relative h-16 rounded-full bg-stone-200 overflow-hidden border border-stone-300 shadow-inner"
+            onTouchStart={(e) => startDrag(e.touches[0].clientX)}
+            onTouchMove={(e) => moveDrag(e.touches[0].clientX)}
+            onTouchEnd={endDrag}
+          >
+            <div
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-accent/30 to-accent/60 transition-none"
+              style={{ width: `${64 + x}px` }}
+            ></div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span
+                className="uppercase tracking-[0.35em] text-xs font-bold transition-colors"
+                style={{ color: progress > 0.55 ? "rgba(255,255,255,0.9)" : "#1a1815", opacity: 1 - progress * 0.4 }}
+              >
+                {unlocked ? "결제창을 여는 중..." : `슬라이드해서 ₩${price.toLocaleString()} 결제`}
+              </span>
+            </div>
+            <div
+              className={`slide-thumb ${dragging ? "" : "released"} absolute top-0 bottom-0 left-0 w-16 flex items-center justify-center bg-ink text-cream rounded-full shadow-lg cursor-grab active:cursor-grabbing`}
+              style={{ transform: `translateX(${x}px)` }}
+              onMouseDown={(e) => startDrag(e.clientX)}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M13 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
+          <div className="text-center text-xs text-stone-500 mt-2 uppercase tracking-widest">
+            오른쪽 끝까지 밀어주세요
+          </div>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 결제 모달 (TossPayments 위젯 모드)
+    //   - 슬라이드를 끝까지 밀면 부모가 prepare 결과(order)와 함께 이 모달을 연다
+    //   - 위젯 SDK 의 customerKey/orderId 규칙에 맞춰 한 번만 init/render
+    //   - 같은 주문이면 setAmount 만, 다른 주문이면 fresh init
+    // ════════════════════════════════════════════════
+    function CheckoutModal({ open, order, content, user, onClose, onCancelOrder }) {
+      const widgetsRef = useRef(null);
+      const isRenderedRef = useRef(false);
+      const currentOrderIdRef = useRef(null);
+      const [ready, setReady] = useState(false);
+      const [submitting, setSubmitting] = useState(false);
+      const [error, setError] = useState("");
+
+      // 모달 열린 동안 body 스크롤 잠금
+      useEffect(() => {
+        if (!open) return;
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = prev; };
+      }, [open]);
+
+      const orderId = order?.orderId ?? null;
+      const amount = order?.amount != null ? Number(order.amount) : null;
+      const userId = user?.id ?? null;
+
+      // 위젯 init + render: orderId 기준 한 번. 금액만 바뀌면 setAmount 만 호출.
+      const [reloadKey, setReloadKey] = useState(0);
+      useEffect(() => {
+        if (!open) return;
+        if (!orderId || !userId || amount == null) return;
+
+        let cancelled = false;
+        (async () => {
+          try {
+            console.log("[Toss] 위젯 init 시작", { orderId, amount, userId });
+
+            // 동일 주문 → setAmount 만
+            if (
+              isRenderedRef.current &&
+              widgetsRef.current &&
+              currentOrderIdRef.current === orderId
+            ) {
+              await widgetsRef.current.setAmount({ currency: "KRW", value: amount });
+              if (!cancelled) setReady(true);
+              return;
+            }
+
+            // 새 주문 → fresh init
+            setError("");
+            setReady(false);
+            isRenderedRef.current = false;
+            widgetsRef.current = null;
+            currentOrderIdRef.current = orderId;
+
+            if (typeof TossPayments !== "function") {
+              throw new Error("TossPayments SDK 가 로드되지 않았습니다 (네트워크 차단?)");
+            }
+            const cfg = await api("/api/payment/config");
+            if (!cfg.clientKey) throw new Error("서버에 TOSS_CLIENT_KEY 가 비어있습니다");
+            console.log("[Toss] clientKey OK, prefix:", cfg.clientKey.slice(0, 18));
+            if (cancelled) return;
+
+            const tossPayments = TossPayments(cfg.clientKey);
+            const customerKey = `magazine-user-${userId}`;
+            const widgets = tossPayments.widgets({ customerKey });
+            widgetsRef.current = widgets;
+            console.log("[Toss] widgets() 생성 완료, customerKey:", customerKey);
+
+            await widgets.setAmount({ currency: "KRW", value: amount });
+            console.log("[Toss] setAmount 완료, value:", amount);
+            if (cancelled) return;
+
+            // 마운트 포인트 존재 확인 — 다음 microtask 까지 기다려서 React commit 직후 체크
+            await new Promise((r) => requestAnimationFrame(() => r()));
+            const pmEl = document.getElementById("payment-method");
+            const agEl = document.getElementById("agreement");
+            if (!pmEl || !agEl) {
+              throw new Error("결제 위젯 마운트 포인트(#payment-method, #agreement)를 찾을 수 없습니다");
+            }
+
+            await widgets.renderPaymentMethods({
+              selector: "#payment-method",
+              variantKey: "DEFAULT",
+            });
+            console.log("[Toss] renderPaymentMethods 완료");
+            if (cancelled) return;
+
+            await widgets.renderAgreement({
+              selector: "#agreement",
+              variantKey: "AGREEMENT",
+            });
+            console.log("[Toss] renderAgreement 완료");
+            if (cancelled) return;
+
+            isRenderedRef.current = true;
+            if (!cancelled) {
+              setReady(true);
+              console.log("[Toss] 위젯 ready=true ✓");
+            }
+          } catch (e) {
+            console.error("[Toss] 위젯 로드 실패:", e);
+            const msg = e?.message || "결제 위젯 로드 실패";
+            const code = e?.code ? ` (code: ${e.code})` : "";
+            if (!cancelled) setError(msg + code);
+          }
+        })();
+
+        return () => { cancelled = true; };
+      }, [open, orderId, amount, userId, reloadKey]);
+
+      // 모달이 닫히면 모든 ref/state 리셋 → 다음에 새 주문으로 fresh init
+      useEffect(() => {
+        if (!open) {
+          isRenderedRef.current = false;
+          widgetsRef.current = null;
+          currentOrderIdRef.current = null;
+          setReady(false);
+          setSubmitting(false);
+          setError("");
+        }
+      }, [open]);
+
+      if (!open || !order || !content) return null;
+
+      async function handlePay() {
+        setError("");
+        setSubmitting(true);
+        try {
+          if (!widgetsRef.current) throw new Error("결제 위젯이 아직 준비되지 않았습니다");
+          const origin = window.location.origin;
+          await widgetsRef.current.requestPayment({
+            orderId: order.orderId,
+            orderName: order.orderName,
+            customerEmail: order.customerEmail,
+            customerName: order.customerName,
+            // hash 는 절대 successUrl 에 두지 말 것 — 토스가 ?paymentKey=… 를 뒤에 붙여 깨진다.
+            successUrl: `${origin}/?payment=success&slug=${encodeURIComponent(content.slug)}`,
+            failUrl: `${origin}/?payment=fail&slug=${encodeURIComponent(content.slug)}`,
+          });
+          // requestPayment 가 페이지를 떠나기 때문에 보통 아래는 실행되지 않음
+        } catch (e) {
+          console.error("[Toss] requestPayment 에러:", e);
+          setSubmitting(false);
+          if (e?.code === "USER_CANCEL") {
+            // 사용자가 토스 창에서 취소 — 모달은 유지, 재시도 가능
+            return;
+          }
+          setError(e?.message || "결제 요청에 실패했습니다");
+        }
+      }
+
+      async function handleClose() {
+        if (submitting) return;
+        // 사용자가 모달을 그냥 닫는 건 = 결제 의사 철회. pending 주문 정리.
+        try {
+          await api("/api/payment/cancel-pending", {
+            method: "POST",
+            body: JSON.stringify({ orderId: order.orderId }),
+          });
+        } catch (_) { /* 무시 — 사용자 흐름은 어차피 닫힘 */ }
+        onCancelOrder && onCancelOrder();
+        onClose && onClose();
+      }
+
+      return (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-paper w-full max-w-2xl max-h-[92vh] overflow-y-auto fade-in">
+            <div className="p-5 border-b border-stone-200 flex items-center justify-between sticky top-0 bg-paper z-10">
+              <div>
+                <div className="text-xs uppercase tracking-[0.3em] text-stone-500">Checkout</div>
+                <h2 className="display text-2xl font-bold mt-0.5">결제</h2>
+              </div>
+              <button
+                onClick={handleClose}
+                disabled={submitting}
+                className="p-1.5 hover:bg-stone-100 rounded-full disabled:opacity-50"
+                aria-label="닫기"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* 주문 요약 */}
+              <div className="border border-stone-200 p-4 bg-cream/40">
+                <div className="text-xs uppercase tracking-widest text-stone-500 mb-2">Order · {order.orderId.slice(0, 18)}…</div>
+                <div className="display text-lg font-bold leading-snug">{content.title}</div>
+                {content.subtitle && (
+                  <div className="editorial italic text-stone-600 mt-1">{content.subtitle}</div>
+                )}
+                <div className="border-t border-stone-200 mt-3 pt-3 flex justify-between font-semibold">
+                  <span>최종 결제 금액</span>
+                  <span>₩{Number(order.amount).toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* 토스 위젯 마운트 포인트 — 항상 DOM 에 존재해야 useEffect 가 mount 가능
+                  iframe 이 비동기로 들어오므로 min-height 로 영역을 잡아 둠 */}
+              <div className="relative">
+                <div id="payment-method" style={{ minHeight: ready ? "auto" : 200 }} />
+                <div id="agreement" style={{ minHeight: ready ? "auto" : 60, marginTop: 8 }} />
+
+                {!ready && !error && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <div className="inline-block w-6 h-6 border-2 border-stone-300 border-t-ink rounded-full animate-spin mb-2"></div>
+                      <div className="text-sm text-stone-500 uppercase tracking-widest">결제 위젯 불러오는 중…</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <div className="text-sm bg-red-50 border border-red-200 p-4">
+                  <div className="font-semibold text-accent mb-1">결제 위젯 로드 실패</div>
+                  <div className="text-stone-700 mb-3 break-words">{error}</div>
+                  <button
+                    onClick={() => { setError(""); setReady(false); setReloadKey((k) => k + 1); }}
+                    className="px-4 py-2 bg-ink text-cream text-xs uppercase tracking-widest hover:bg-accent"
+                  >
+                    재시도
+                  </button>
+                  <div className="text-[11px] text-stone-500 mt-3">
+                    문제가 계속되면 브라우저 콘솔(F12)을 열어 [Toss] 로그를 확인해주세요.
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleClose}
+                  disabled={submitting}
+                  className="flex-1 border border-stone-300 text-stone-700 py-3 text-sm uppercase tracking-widest hover:border-ink disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handlePay}
+                  disabled={!ready || submitting}
+                  className="flex-[2] bg-ink text-cream py-3 text-sm uppercase tracking-[0.25em] font-semibold hover:bg-accent transition disabled:opacity-50"
+                >
+                  {submitting ? "결제창 여는 중…" : `₩${Number(order.amount).toLocaleString()} 결제하기`}
+                </button>
+              </div>
+
+              <p className="text-[11px] text-stone-500 leading-relaxed">
+                · 테스트 결제 환경입니다. 실제 결제는 이루어지지 않습니다.<br/>
+                · 결제 완료 시 자동으로 본문 잠금이 풀립니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 콘텐츠 상세 + 잠금/결제
+    // ════════════════════════════════════════════════
+    function ContentDetail({ slug, user }) {
+      const [content, setContent] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [err, setErr] = useState("");
+      const [preparing, setPreparing] = useState(false);
+      const [payErr, setPayErr] = useState("");
+      const [order, setOrder] = useState(null);            // prepare 결과
+      const [modalOpen, setModalOpen] = useState(false);
+      const [slideResetKey, setSlideResetKey] = useState(0);
+
+      const reload = useCallback(async () => {
+        setLoading(true); setErr("");
+        try {
+          const data = await api(`/api/contents/${slug}`);
+          setContent(data);
+        } catch (e) {
+          setErr(e.message);
+        } finally {
+          setLoading(false);
+        }
+      }, [slug]);
+
+      useEffect(() => { reload(); }, [reload]);
+
+      // 슬라이드 풀림 → prepare 호출 → 결제 모달 오픈
+      async function startPayment() {
+        console.log("[Pay] 슬라이드 풀림, startPayment 진입. user:", user?.email, "content:", content?.slug);
+        if (!user) {
+          if (confirm("결제하려면 로그인이 필요합니다. 로그인 페이지로 이동할까요?")) {
+            location.hash = "/login";
+          }
+          setSlideResetKey((k) => k + 1);
+          return;
+        }
+        if (!content) return;
+
+        setPreparing(true);
+        setPayErr("");
+        try {
+          console.log("[Pay] /api/payment/prepare 호출 — content_id:", content.id);
+          const prep = await api("/api/payment/prepare", {
+            method: "POST",
+            body: JSON.stringify({ content_id: content.id }),
+          });
+          console.log("[Pay] prepare 성공:", prep);
+          setOrder(prep);
+          setModalOpen(true);
+        } catch (e) {
+          console.error("[Pay] prepare 실패:", e);
+          setPayErr(e.message || "결제 준비에 실패했습니다");
+          setSlideResetKey((k) => k + 1);
+        } finally {
+          setPreparing(false);
+        }
+      }
+
+      // 모달 닫힘 → 슬라이드 리셋, order 비우기
+      function handleModalClose() {
+        setModalOpen(false);
+        setOrder(null);
+        setSlideResetKey((k) => k + 1);
+      }
+
+      if (loading) return <div className="text-center py-20 text-stone-500">불러오는 중...</div>;
+      if (err) return (
+        <div className="max-w-2xl mx-auto py-20 text-center">
+          <p className="text-accent mb-4">{err}</p>
+          <a href="#/" className="underline">← 메인으로</a>
+        </div>
+      );
+      if (!content) return null;
+
+      const cat = content.category === "marketing" ? "Marketing" : "Photography";
+
+      return (
+        <main className="max-w-3xl mx-auto px-6 py-10 fade-in">
+          {/* 카테고리 + 호 */}
+          <div className="text-center mb-2 text-[11px] uppercase tracking-[0.3em] text-stone-500">
+            Issue {content.issue_no} · {cat} · {content.read_minutes}분 읽기
+          </div>
+          <h1 className="display text-4xl md:text-5xl font-black text-center leading-[1.05] mb-3">
+            {content.title}
+          </h1>
+          {content.subtitle && (
+            <p className="editorial italic text-stone-600 text-center text-xl mb-6">
+              {content.subtitle}
+            </p>
+          )}
+          <div className="text-center text-sm text-stone-500 mb-8">
+            글 · {content.author}
+          </div>
+
+          {content.cover_image && (
+            <div className="mb-10 aspect-[16/10] overflow-hidden bg-stone-200">
+              <img src={content.cover_image} alt={content.title} className="w-full h-full object-cover" />
+            </div>
+          )}
+
+          {/* 본문 */}
+          {content.has_access ? (
+            <article
+              className="article-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(content.body) }}
+            />
+          ) : (
+            <>
+              <div className="article-body mb-2">
+                <p className="editorial">{content.excerpt}</p>
+              </div>
+
+              {/* 블러 처리된 가짜 본문 미리보기 */}
+              <div className="locked-body">
+                <div className="article-body">
+                  <p>이어지는 내용이 더 깊고 풍부하게 펼쳐집니다. 핵심 노하우, 단계별 가이드, 실전 예시들이 본문 전체를 채우고 있습니다.</p>
+                  <h3>다음에 다루는 주제</h3>
+                  <ul>
+                    <li>실제 적용 사례와 결과 비교</li>
+                    <li>저자만의 노트와 디테일</li>
+                    <li>한 달 안에 적용 가능한 실습 과제</li>
+                  </ul>
+                  <p>이 부분부터는 결제 후 열람하실 수 있습니다. 매거진 한 호의 일부로, 같은 호의 다른 콘텐츠는 별도 결제가 필요합니다.</p>
+                </div>
+                <div className="locked-fade"></div>
+              </div>
+
+              {/* 잠금 안내 + 슬라이드 결제 */}
+              <div className="mt-6 border border-stone-300 bg-cream/60 p-8 text-center">
+                <div className="text-[11px] uppercase tracking-[0.3em] text-stone-500 mb-3">— Locked —</div>
+                <div className="display text-2xl font-bold mb-2">전체 본문은 잠금 콘텐츠입니다</div>
+                <p className="editorial text-stone-600 mb-6">
+                  결제 후 언제든 다시 열람하실 수 있습니다. 한 번의 결제로 영구 소장.
+                </p>
+                <div className="display text-5xl font-black mb-6">
+                  ₩{Number(content.price).toLocaleString()}
+                </div>
+
+                {payErr && (
+                  <div className="mb-4 text-sm text-accent">{payErr}</div>
+                )}
+                {preparing ? (
+                  <div className="text-stone-500 py-4">결제 준비 중...</div>
+                ) : (
+                  <SlideToUnlock
+                    price={Number(content.price)}
+                    onUnlock={startPayment}
+                    disabled={preparing || modalOpen}
+                    resetKey={slideResetKey}
+                  />
+                )}
+                {!user && (
+                  <div className="mt-4 text-xs text-stone-500">
+                    *결제 진행 시 로그인이 필요합니다
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          <div className="mt-16 rule-thin pt-6 text-center text-xs uppercase tracking-widest text-stone-500">
+            <a href={`#/${content.category}`} className="hover:text-accent">
+              ← {cat} 더 보기
+            </a>
+          </div>
+
+          {/* 결제 모달 — 슬라이드 풀리고 prepare 성공하면 열림 */}
+          <CheckoutModal
+            open={modalOpen}
+            order={order}
+            content={content}
+            user={user}
+            onClose={handleModalClose}
+            onCancelOrder={() => { /* 별도 후처리 없음 — order 는 handleModalClose 에서 비움 */ }}
+          />
+        </main>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 구매 이력 (Library)
+    // ════════════════════════════════════════════════
+    function HistoryPage() {
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [err, setErr] = useState("");
+
+      useEffect(() => {
+        api("/api/purchases")
+          .then(setItems)
+          .catch((e) => setErr(e.message))
+          .finally(() => setLoading(false));
+      }, []);
+
+      return (
+        <main className="max-w-5xl mx-auto px-6 py-10 fade-in">
+          <div className="text-center mb-10">
+            <div className="text-[11px] uppercase tracking-[0.3em] text-stone-500 mb-2">— My Library —</div>
+            <h2 className="display text-5xl font-black">구매한 콘텐츠</h2>
+            <p className="editorial italic text-stone-600 mt-3 text-lg">한 번의 결제, 평생의 열람</p>
+          </div>
+          <div className="rule-thin mb-10"></div>
+
+          {loading && <div className="text-center py-20 text-stone-500">불러오는 중...</div>}
+          {err && <div className="text-center py-20 text-accent">{err}</div>}
+          {!loading && !err && items.length === 0 && (
+            <div className="text-center py-20">
+              <p className="editorial text-2xl text-stone-600 mb-4">아직 구매하신 콘텐츠가 없습니다</p>
+              <a href="#/" className="underline">메인 잡지에서 둘러보기 →</a>
+            </div>
+          )}
+          {!loading && items.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {items.map((p) => (
+                <a key={p.id} href={`#/c/${p.slug}`} className="card group block">
+                  <div className="aspect-[4/3] overflow-hidden bg-stone-200 relative">
+                    {p.cover_image && (
+                      <img src={p.cover_image} alt={p.title} className="card-img absolute inset-0 w-full h-full object-cover" />
+                    )}
+                    <span className="absolute top-3 left-3 px-2 py-1 text-[10px] uppercase tracking-widest bg-accent text-white">
+                      Owned
+                    </span>
+                  </div>
+                  <div className="pt-4">
+                    <div className="text-[11px] uppercase tracking-widest text-stone-500 mb-1">
+                      {p.category === "marketing" ? "Marketing" : "Photography"} · {p.author}
+                    </div>
+                    <h3 className="display font-bold leading-tight group-hover:text-accent transition text-xl">
+                      {p.title}
+                    </h3>
+                    {p.subtitle && (
+                      <p className="editorial italic text-stone-600 mt-1.5">{p.subtitle}</p>
+                    )}
+                    <div className="mt-3 text-xs text-stone-500">
+                      구매일 {new Date(p.paid_at).toLocaleDateString("ko-KR")} · ₩{p.amount.toLocaleString()}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 로그인 / 가입
+    // ════════════════════════════════════════════════
+    function AuthForm({ mode, onAuth }) {
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [name, setName] = useState("");
+      const [err, setErr] = useState("");
+      const [busy, setBusy] = useState(false);
+
+      async function submit(e) {
+        e.preventDefault();
+        setErr(""); setBusy(true);
+        try {
+          const path = mode === "signup" ? "/api/auth/register" : "/api/auth/login";
+          const body = mode === "signup" ? { email, password, name } : { email, password };
+          const data = await api(path, { method: "POST", body: JSON.stringify(body) });
+          saveAuth(data.token, data.user);
+          onAuth(data.user);
+          location.hash = "/";
+        } catch (e) {
+          setErr(e.message);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      return (
+        <main className="max-w-md mx-auto px-6 py-16 fade-in">
+          <div className="text-center mb-8">
+            <div className="text-[11px] uppercase tracking-[0.3em] text-stone-500 mb-2">
+              — {mode === "signup" ? "Subscribe" : "Sign In"} —
+            </div>
+            <h2 className="display text-4xl font-black">
+              {mode === "signup" ? "구독자 등록" : "구독자 로그인"}
+            </h2>
+            <p className="editorial italic text-stone-600 mt-2">
+              {mode === "signup"
+                ? "이미 등록하셨나요?"
+                : "처음 오셨나요?"}{" "}
+              <a href={mode === "signup" ? "#/login" : "#/signup"} className="underline">
+                {mode === "signup" ? "로그인" : "구독자 등록"}
+              </a>
+            </p>
+          </div>
+
+          <form onSubmit={submit} className="space-y-4">
+            {mode === "signup" && (
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-stone-500 mb-1">이름</label>
+                <input
+                  type="text" value={name} onChange={(e) => setName(e.target.value)}
+                  required minLength={1}
+                  className="w-full px-4 py-3 border border-stone-300 bg-paper focus:border-ink focus:outline-none editorial text-lg"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-stone-500 mb-1">이메일</label>
+              <input
+                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-stone-300 bg-paper focus:border-ink focus:outline-none editorial text-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-stone-500 mb-1">비밀번호</label>
+              <input
+                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                required minLength={4}
+                className="w-full px-4 py-3 border border-stone-300 bg-paper focus:border-ink focus:outline-none editorial text-lg"
+              />
+            </div>
+            {err && <div className="text-sm text-accent">{err}</div>}
+            <button
+              type="submit" disabled={busy}
+              className="w-full py-4 bg-ink text-cream uppercase tracking-[0.25em] text-sm font-semibold hover:bg-accent transition disabled:opacity-60"
+            >
+              {busy ? "처리 중..." : mode === "signup" ? "구독 시작" : "로그인"}
+            </button>
+          </form>
+        </main>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // 푸터
+    // ════════════════════════════════════════════════
+    function Footer() {
+      return (
+        <footer className="max-w-6xl mx-auto px-6 py-12 mt-20 border-t border-stone-300 text-center text-sm text-stone-500">
+          <div className="display text-2xl text-ink mb-2">APERTURE</div>
+          <div className="editorial italic mb-4">
+            "the work behind the work"
+          </div>
+          <div className="text-xs uppercase tracking-[0.3em]">
+            © {new Date().getFullYear()} Aperture Magazine · 사진과 마케팅 사이
+          </div>
+        </footer>
+      );
+    }
+
+    // ════════════════════════════════════════════════
+    // App
+    // ════════════════════════════════════════════════
+    function App() {
+      const [route, setRoute] = useState(parseHash());
+      const [user, setUser] = useState(getUser());
+      const [toast, setToast] = useState(null);
+
+      useEffect(() => {
+        function onHash() { setRoute(parseHash()); window.scrollTo(0, 0); }
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, []);
+
+      // 토큰 검증
+      useEffect(() => {
+        if (!getToken()) return;
+        api("/api/auth/me")
+          .then((d) => {
+            saveAuth(getToken(), d.user);
+            setUser(d.user);
+          })
+          .catch(() => {
+            clearAuth();
+            setUser(null);
+          });
+      }, []);
+
+      // ── 토스 결제 리디렉션 처리 (마운트 시 단 1회) ──
+      // successUrl: /?payment=success&slug=...&paymentKey=...&orderId=...&amount=...
+      // failUrl:    /?payment=fail&slug=...&code=...&message=...
+      useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const payment = params.get("payment");
+        if (!payment) return;
+
+        const paymentKey = params.get("paymentKey");
+        const orderId    = params.get("orderId");
+        const amount     = params.get("amount");
+        const slug       = params.get("slug");
+        const failCode   = params.get("code") || "UNKNOWN";
+        const failMsg    = params.get("message") || "결제가 취소되었습니다";
+
+        // 쿼리 즉시 정리 — 새로고침 시 중복 confirm 방지
+        try { history.replaceState(null, "", location.pathname); } catch (_) {}
+
+        function showToast(msg, ms = 2800) {
+          setToast(msg);
+          setTimeout(() => setToast(null), ms);
+        }
+
+        if (payment === "success") {
+          if (!paymentKey || !orderId || !amount) {
+            showToast("결제 정보가 누락되었습니다");
+            return;
+          }
+          (async () => {
+            try {
+              await api("/api/payment/confirm", {
+                method: "POST",
+                body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
+              });
+              showToast("결제 완료! 본문이 열렸습니다");
+              // 잠금 풀린 콘텐츠 상세로 이동
+              if (slug) location.hash = `/c/${slug}`;
+              else      location.hash = `/history`;
+            } catch (e) {
+              console.error("[Toss] confirm 실패:", e);
+              showToast("결제 승인 실패: " + (e.message || ""), 4000);
+              if (slug) location.hash = `/c/${slug}`;
+            }
+          })();
+        } else if (payment === "fail") {
+          showToast(`결제 실패: ${failMsg} (${failCode})`, 4000);
+          // pending 주문이 남아 있을 수 있으므로 서버에 정리 요청
+          if (orderId) {
+            api("/api/payment/cancel-pending", {
+              method: "POST",
+              body: JSON.stringify({ orderId }),
+            }).catch(() => {});
+          }
+          if (slug) location.hash = `/c/${slug}`;
+        }
+      }, []); // 마운트 시 1회만
+
+      function logout() {
+        clearAuth();
+        setUser(null);
+        location.hash = "/";
+      }
+
+      let page;
+      if (route.name === "home") page = <HomePage />;
+      else if (route.name === "category") page = <CategoryPage category={route.category} />;
+      else if (route.name === "content") page = <ContentDetail slug={route.slug} user={user} />;
+      else if (route.name === "history") {
+        page = user ? <HistoryPage /> : <AuthForm mode="login" onAuth={setUser} />;
+      }
+      else if (route.name === "login") page = <AuthForm mode="login" onAuth={setUser} />;
+      else if (route.name === "signup") page = <AuthForm mode="signup" onAuth={setUser} />;
+      else page = <HomePage />;
+
+      return (
+        <div className="min-h-screen relative">
+          <Masthead user={user} onLogout={logout} route={route} />
+          {page}
+          <Footer />
+          {toast && (
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-ink text-cream px-6 py-3 shadow-2xl uppercase tracking-widest text-sm fade-in">
+              {toast}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

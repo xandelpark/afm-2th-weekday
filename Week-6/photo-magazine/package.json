@@ -1,0 +1,17 @@
+{
+  "name": "photo-magazine",
+  "version": "1.0.0",
+  "description": "잡지 컨셉 사진/마케팅 블로그 — 유료/무료 콘텐츠 + TossPayments",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.0"
+  }
+}
