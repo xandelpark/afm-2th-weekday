@@ -1,0 +1,16 @@
+{
+  "name": "mini-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "결제한 유저만 콘텐츠 열람 가능한 미니앱 + JWT 인증 + 어드민",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

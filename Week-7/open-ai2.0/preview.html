@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>기리고 — OpenAI 생성 포스터</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+KR:wght@300;500;700&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Noto Serif KR", serif;
+    background: #0a0a0a;
+    color: #ededed;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 40px; }
+  header h1 {
+    font-family: "Cinzel", serif;
+    font-size: 24px;
+    letter-spacing: 0.4em;
+    color: #c9302c;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  header p { font-size: 12px; color: #888; letter-spacing: 0.2em; }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) 1.2fr;
+    gap: 32px;
+    align-items: start;
+  }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .poster-frame {
+    background: #050505;
+    padding: 16px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.05);
+  }
+  .poster-frame img { width: 100%; display: block; }
+  .meta { font-size: 14px; line-height: 1.7; color: #c8c8c8; }
+  .meta h2 {
+    font-family: "Cinzel", serif;
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: #c9302c;
+    text-transform: uppercase;
+    margin: 32px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .meta h2:first-child { margin-top: 0; }
+  .meta dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; }
+  .meta dt { color: #777; font-size: 12px; }
+  .meta dd { color: #ededed; }
+  .meta code {
+    background: #1a1a1a;
+    color: #c9302c;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  .prompt {
+    background: #111;
+    border: 1px solid #222;
+    padding: 16px;
+    font-family: "Noto Serif KR", serif;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #aaa;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .actions a, .actions button {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #ddd;
+    font-family: "Cinzel", serif;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .actions a:hover, .actions button:hover {
+    background: #c9302c;
+    color: #fff;
+    border-color: #c9302c;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>OpenAI Generated Poster</h1>
+      <p>기리고 (Wish Your Death) · gpt-image-1</p>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="poster-frame">
+          <img src="kirigo-poster-v1.png" alt="기리고 영화 포스터" />
+        </div>
+        <div class="actions">
+          <a href="kirigo-poster-v1.png" download>PNG 다운로드</a>
+          <a href="kirigo-poster-v1.png" target="_blank">원본 크기로 보기</a>
+        </div>
+      </div>
+
+      <div class="meta">
+        <h2>생성 정보</h2>
+        <dl>
+          <dt>모델</dt><dd><code>gpt-image-1</code></dd>
+          <dt>크기</dt><dd>1024 × 1536 (포트레이트)</dd>
+          <dt>품질</dt><dd>high</dd>
+          <dt>토큰 사용</dt><dd>입력 447 / 출력 6,240 / 합계 6,687</dd>
+          <dt>파일 크기</dt><dd>약 2.67 MB</dd>
+          <dt>API</dt><dd>POST <code>/v1/images/generations</code></dd>
+        </dl>
+
+        <h2>구성된 비주얼 요소</h2>
+        <ul style="list-style: none; padding-left: 0;">
+          <li>· 한글 타이틀 "기리고" 직접 렌더링 (Hangul, 굵은 세리프)</li>
+          <li>· 영문 부제 "WISH YOUR DEATH" 자간 넓힌 대문자</li>
+          <li>· 한국 여고생, 폰의 핏빛 글로우가 얼굴 일부만 비춤</li>
+          <li>· 배경에 다른 학생 실루엣 / 부적 잔상</li>
+          <li>· 태그라인 "소원을 빌면, 죽음이 응답한다." 하단</li>
+          <li>· 35mm 그레인 + 비넷 + 시네마틱 톤</li>
+        </ul>
+
+        <h2>사용된 프롬프트 (요지)</h2>
+        <div class="prompt" id="prompt">로딩 중...</div>
+
+        <h2>다음 단계 옵션</h2>
+        <ul style="list-style: none; padding-left: 0;">
+          <li>· 변형(variations): 동일 프롬프트로 N개 더 생성 → seed/style 차이 비교</li>
+          <li>· 인페인팅: 부분 영역 덧칠 (예: 얼굴 톤 조정)</li>
+          <li>· 가로형 1536×1024로 한 컷 더 (시네마 와이드)</li>
+          <li>· 출연 배우 5인 라인업 따로 생성 후 캐스트 라인 합성</li>
+          <li>· 인쇄용 A4 PDF로 변환 (300dpi 업스케일)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    fetch('generate.py').then(r => r.text()).then(t => {
+      const m = t.match(/PROMPT = """([\s\S]*?)"""/);
+      document.getElementById('prompt').textContent = m ? m[1].trim() : '(프롬프트를 찾을 수 없음)';
+    }).catch(() => {
+      document.getElementById('prompt').textContent = '(generate.py 파일을 정적 서버로 서빙해야 표시됩니다)';
+    });
+  </script>
+</body>
+</html>

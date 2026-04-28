@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unlock — 결제 후 열람 미니앱</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
+  <style>
+    html, body { background: #fafafa; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Segoe UI", Roboto, sans-serif; color: #111827; }
+    .ink { color: #1f2937; }
+    .ink-bg { background-color: #1f2937; }
+    .ink-border { border-color: #1f2937; }
+    .grad-1 { background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%); }
+    .grad-2 { background: linear-gradient(135deg, #374151 0%, #9ca3af 100%); }
+    .grad-3 { background: linear-gradient(135deg, #111827 0%, #6b7280 100%); }
+    .grad-4 { background: linear-gradient(135deg, #1e293b 0%, #94a3b8 100%); }
+    .grad-5 { background: linear-gradient(135deg, #0f172a 0%, #475569 100%); }
+    .grad-6 { background: linear-gradient(135deg, #334155 0%, #cbd5e1 100%); }
+    .blur-content { filter: blur(6px); user-select: none; pointer-events: none; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.25s ease-out; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.8s linear infinite; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useEffect, useMemo, useCallback, useRef, createContext, useContext } = React;
+
+    // ========================================
+    // Dummy Content Data
+    // ========================================
+    const CONTENTS = [
+      {
+        id: 'c1',
+        title: '필름 카메라의 부활이 만든 브랜드 언어',
+        desc: '디지털이 점령한 시대에 필름이 다시 마케팅의 중심으로.',
+        category: '사진×마케팅',
+        duration: '8분',
+        price: 2000,
+        image: 'images/c1.jpg',
+        body: [
+          '필름 카메라는 2010년대 후반부터 다시 주목받기 시작했다. 단순한 향수가 아니라, 디지털의 완벽함에 지친 사람들이 “느린 결과물”에서 얻는 정서적 만족이 핵심이었다.',
+          '브랜드들은 이 흐름을 빠르게 포착했다. 콘탁스 T2를 든 모델, 후지필름 룩의 캠페인, 즉석 사진의 한정판 패키지까지 — 필름은 단순한 도구가 아닌 “브랜드의 톤”이 되었다.',
+          '특히 패션·뷰티 산업에서 필름 룩은 “솔직함”과 “현장감”의 시각적 코드가 됐다. 보정 없는 디테일, 약간의 그레인, 부드러운 하이라이트는 그 자체로 브랜드 메시지가 된다.',
+          '재미있는 점은 — 진짜 필름이 아니어도 된다는 것이다. 필름 룩 LUT, 필름 시뮬레이션 프리셋, 심지어 AI로 재현된 그레인까지. 결과물의 “질감”이 진짜보다 더 중요해졌다.',
+          '이 변화가 마케터에게 주는 시사점은 분명하다. 콘텐츠는 이제 “정보”가 아니라 “질감”으로 소비된다. 어떤 톤으로 보일 것인가는 어떤 메시지를 던질 것인가만큼 중요하다.',
+          '브랜드 가이드라인에 컬러 팔레트와 폰트만 적는 시대는 끝났다. “우리 브랜드의 그레인은 어느 정도인가”라는 질문이, 다음 세대의 무드보드를 정의할 것이다.',
+          '필름의 부활은 결국 “감각의 회복”이다. 마케팅이 데이터로 환원되는 시대일수록, 사람의 손맛이 남은 매체가 더 큰 가치를 갖는다는 사실은 역설적이지만 진실이다.',
+        ],
+      },
+      {
+        id: 'c2',
+        title: '포토그래퍼가 디렉팅한 캠페인 3선',
+        desc: '대행사가 아닌 사진가가 직접 이끈 브랜드 캠페인의 결과물.',
+        category: '사진',
+        duration: '10분',
+        price: 3000,
+        image: 'images/c2.jpg',
+        body: [
+          '광고 캠페인은 보통 크리에이티브 디렉터가 이끈다. 하지만 최근 몇 년, “사진가”가 디렉터의 자리에 앉는 사례가 늘고 있다.',
+          '첫 번째 사례는 글로컬 패션 브랜드 A의 SS25 캠페인이다. 사진가 본인이 모델 캐스팅·로케이션·의상 디테일까지 결정했고, 기존 대행사 안 대비 제작비는 절반, 콘텐츠 활용도는 두 배였다.',
+          '두 번째 사례는 뷰티 브랜드 B의 “민낯” 시리즈. 보정을 최소화하고, 사진가의 미감 그대로 출고된 비주얼은 SNS에서 “브랜드가 처음으로 솔직해 보였다”는 평을 얻었다.',
+          '세 번째는 라이프스타일 브랜드 C의 다큐멘터리형 캠페인. 사진가가 1주일 동안 사용자 가정에 머물며 촬영한 결과물은, 광고가 아닌 “관찰의 기록”처럼 소비됐다.',
+          '세 캠페인의 공통점은 — 사진가가 단순한 “찍는 사람”이 아니라, 메시지 자체를 설계한 사람이라는 점이다.',
+          '이런 흐름이 가능해진 배경에는 “브랜드의 시각 언어”가 점점 작가의 개성과 분리되기 어려워진다는 사실이 있다.',
+          '마케터가 사진가에게 의뢰할 때 가장 먼저 봐야 할 것은 “포트폴리오의 사진”이 아니라 “포트폴리오의 일관성”이다.',
+          '결국 좋은 사진가는 좋은 디렉터다. 단지 표현 매체가 셔터일 뿐이다.',
+        ],
+      },
+      {
+        id: 'c3',
+        title: '마케터를 위한 컴포지션 입문',
+        desc: '구도 4가지만 알아도 SNS 콘텐츠 퀄리티가 달라진다.',
+        category: '마케팅',
+        duration: '6분',
+        price: 2000,
+        image: 'images/c3.jpg',
+        body: [
+          '브랜드 SNS의 첫인상은 “구도”에서 결정된다. 같은 제품, 같은 모델이라도 어디에 두느냐에 따라 클릭률이 달라진다.',
+          '첫 번째는 삼분할법. 화면을 가로·세로 3등분 한 교차점에 피사체를 두는 가장 기본적인 구도다. 모바일 썸네일에서 가장 안전하다.',
+          '두 번째는 대각선 구도. 정적인 제품 사진에 동세를 부여한다. 음식·의류 컷에서 특히 효과적이다.',
+          '세 번째는 프레임 인 프레임. 창문, 문, 거울 같은 “안의 프레임”을 활용해 시선을 가둔다. 광고 인서트 컷에서 즐겨 쓴다.',
+          '네 번째는 네거티브 스페이스. 피사체보다 “비어 있는 공간”에 더 많은 면적을 줘서, 카피가 들어갈 자리를 미리 비워두는 마케터 친화적 구도다.',
+          '이 네 가지만 익숙해져도 인하우스 콘텐츠 퀄리티가 한 단계 올라간다. 카메라보다 훨씬 중요한 건 결국 “어디에 둘 것인가”이다.',
+        ],
+      },
+      {
+        id: 'c4',
+        title: '미드저니 시대, 인간 사진가의 자리',
+        desc: 'AI가 “예쁜 이미지”를 무한 생성하는 시대, 사진가는 무엇을 파는가.',
+        category: 'AI',
+        duration: '12분',
+        price: 3000,
+        image: 'images/c4.jpg',
+        body: [
+          'AI 이미지가 “기술적 완성도” 면에서 사람을 추월한 지 이미 오래다. 미드저니, 플럭스, 구글 이마젠 모두 충분히 “예쁜” 결과물을 낸다.',
+          '그렇다면 인간 사진가는 더 이상 필요 없을까? 답은 “필요한데, 다른 이유로 필요해졌다”이다.',
+          '첫째, “현장”의 가치다. AI는 존재하지 않는 장면을 만든다. 하지만 브랜드가 “이 모델, 이 매장, 이 순간”을 기록하길 원할 때 사진가는 대체 불가능하다.',
+          '둘째, “저작권”의 가치다. AI 이미지의 권리관계는 여전히 회색지대다. 분쟁 가능성이 큰 광고·법적 자산에는 사람이 찍은 원본이 안전하다.',
+          '셋째, “관계”의 가치다. 모델·디렉터·브랜드 매니저와의 협업에서 발생하는 디테일은 프롬프트로 환원되지 않는다.',
+          '넷째, “편집권”의 가치다. AI 이미지는 결과물에 대한 의도를 사후 설명하기 어렵다. 사진가는 “왜 이 컷을 골랐는가”를 말할 수 있는 사람이다.',
+          '결국 사진가는 “이미지를 만드는 사람”에서 “이미지를 책임지는 사람”으로 역할이 옮겨가고 있다.',
+          'AI는 무한한 옵션을 던진다. 그 무한 속에서 단 하나의 컷을 고르는 일이, 다음 시대의 사진가가 하는 일이 될 것이다.',
+        ],
+      },
+      {
+        id: 'c5',
+        title: '브랜드 룩북, 직접 찍을 때 챙기는 4가지',
+        desc: '인하우스 촬영을 하기 전 반드시 점검할 체크리스트.',
+        category: '실용',
+        duration: '7분',
+        price: 2500,
+        image: 'images/c5.jpg',
+        body: [
+          '소규모 브랜드일수록 룩북은 외주 대신 직접 찍는 일이 많다. 잘만 하면 비용은 1/5, 활용도는 더 높다.',
+          '첫째, 무드 레퍼런스를 “다섯 장 이내”로 추려라. 너무 많으면 톤이 흩어진다. 일관된 분위기 다섯 컷이면 충분하다.',
+          '둘째, 모델 의상은 “촬영 전날” 미리 입혀보라. 사이즈·컬러는 카메라 안에서 다르게 보인다. 본 촬영 당일에 처음 보는 일이 없도록.',
+          '셋째, 자연광 시간대를 “30분 단위”로 쪼개서 스케줄링하라. 오전 9–9:30, 9:30–10:00 식. 빛은 가장 변덕스러운 변수다.',
+          '넷째, 후반 보정 톤을 “한 장”으로 미리 잡아라. 100컷 보정한 뒤에 톤을 바꾸면 늦다. 가장 중요한 1컷을 먼저 완성하고, 나머지는 그것에 맞춘다.',
+          '이 네 가지만 챙겨도 인하우스 룩북의 만족도는 외주 대비 80% 가까이 따라온다. 나머지 20%는 경험이다.',
+        ],
+      },
+      {
+        id: 'c6',
+        title: '스튜디오 없이 자연광으로 끝내는 제품 컷',
+        desc: '북향 창 하나면 충분하다. 진짜다.',
+        category: '실용',
+        duration: '9분',
+        price: 2500,
+        image: 'images/c6.jpg',
+        body: [
+          '제품 컷에 스튜디오 조명이 필수라는 건 옛말이다. 북향 창 하나만 있어도 “부드럽고 일정한” 빛을 무료로 얻을 수 있다.',
+          '첫째, 창 옆 1m 거리. 너무 가까우면 콘트라스트가 강해진다. 1m 정도 떨어진 위치가 가장 부드럽다.',
+          '둘째, 흰 폼보드 한 장. 그림자 쪽에 세워두면 빛이 반사돼 양쪽 톤이 균일해진다. 만 원이면 산다.',
+          '셋째, 시간대는 “정오 직전”. 북향 창은 시간에 따른 변화가 적지만, 정오 직전이 가장 균일하다.',
+          '넷째, 배경은 “벽 + A4 종이”로 충분하다. 인스타그램 정사각 컷에서 큰 배경은 어차피 잘려나간다.',
+          '다섯째, 카메라는 삼각대에 고정하고 셔터스피드만 조절한다. ISO는 100–200으로 고정. 노이즈 없는 깨끗한 톤이 나온다.',
+          '이 다섯 가지로 찍은 컷은 — 잘 찍은 스튜디오 컷과 SNS 썸네일 크기에서는 사실상 구분되지 않는다. 시작은 충분히 가볍게 해도 된다.',
+        ],
+      },
+    ];
+
+    // ========================================
+    // Auth + API Helpers
+    // ========================================
+    const TOKEN_KEY = 'auth_token';
+    const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+    const saveToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+    const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+    const formatPrice = (n) => `₩${n.toLocaleString('ko-KR')}`;
+
+    const api = async (path, opts = {}) => {
+      const token = getToken();
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(path, { ...opts, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(data.error || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      return data;
+    };
+
+    // ========================================
+    // Hash Router
+    // ========================================
+    const useHash = () => {
+      const [hash, setHash] = useState(window.location.hash || '#/');
+      useEffect(() => {
+        const onChange = () => setHash(window.location.hash || '#/');
+        window.addEventListener('hashchange', onChange);
+        return () => window.removeEventListener('hashchange', onChange);
+      }, []);
+      return hash;
+    };
+    const navigate = (path) => { window.location.hash = path; };
+
+    // ========================================
+    // Design System Components
+    // ========================================
+    function Button({ children, variant = 'primary', size = 'md', disabled, onClick, className = '', ...rest }) {
+      const base = 'inline-flex items-center justify-center font-medium rounded-lg transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed';
+      const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2 text-sm', lg: 'px-5 py-3 text-base' };
+      const variants = {
+        primary: 'ink-bg text-white hover:bg-gray-800',
+        secondary: 'bg-white border border-gray-300 text-gray-900 hover:bg-gray-50',
+        ghost: 'text-gray-700 hover:bg-gray-100',
+      };
+      return (
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Badge({ children, className = '' }) {
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    function PriceBadge({ price }) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ink-bg text-white">
+          {formatPrice(price)}
+        </span>
+      );
+    }
+
+    function LockIcon({ className = 'w-4 h-4' }) {
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 1 1 8 0v4" />
+        </svg>
+      );
+    }
+
+    function CheckIcon({ className = 'w-4 h-4' }) {
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 13l4 4L19 7" />
+        </svg>
+      );
+    }
+
+    function Toast({ message, show }) {
+      if (!show) return null;
+      return (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] fade-in">
+          <div className="ink-bg text-white px-4 py-2.5 rounded-lg shadow-lg text-sm flex items-center gap-2">
+            <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full spinner"></span>
+            {message}
+          </div>
+        </div>
+      );
+    }
+
+    function Modal({ isOpen, onClose, children }) {
+      useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+      }, [isOpen, onClose]);
+      if (!isOpen) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md fade-in">
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Header
+    // ========================================
+    function Header({ user, unlockedCount, onLogin, onLogout }) {
+      const [menuOpen, setMenuOpen] = useState(false);
+      return (
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 group"
+            >
+              <span className="ink-bg text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold tracking-tighter">U</span>
+              <span className="ink font-bold text-lg tracking-tight">Unlock</span>
+            </button>
+            <div className="flex items-center gap-2">
+              {user ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-sm">
+                    <CheckIcon className="w-4 h-4 ink" />
+                    <span className="ink font-medium">내 보관함 <span className="font-bold">{unlockedCount}</span></span>
+                  </div>
+                  <div className="relative">
+                    <button onClick={() => setMenuOpen((v) => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-sm">
+                      <span className="w-6 h-6 rounded-full ink-bg text-white flex items-center justify-center text-xs font-bold">{(user.email[0] || '?').toUpperCase()}</span>
+                      <span className="ink hidden sm:inline max-w-[140px] truncate">{user.email}</span>
+                      <span className="text-gray-500 text-xs">▾</span>
+                    </button>
+                    {menuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)}></div>
+                        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-40 overflow-hidden">
+                          <div className="px-4 py-2.5 text-xs text-gray-500 border-b border-gray-100">로그인 계정</div>
+                          <div className="px-4 py-1 text-sm ink truncate">{user.email}</div>
+                          <button onClick={() => { setMenuOpen(false); navigate('/history'); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 ink border-t border-gray-100">결제 내역</button>
+                          {user.role === 'admin' && (
+                            <button onClick={() => { setMenuOpen(false); navigate('/admin'); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 ink font-medium border-t border-gray-100">⚙ 관리자 대시보드</button>
+                          )}
+                          <button onClick={() => { setMenuOpen(false); onLogout(); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 text-red-600 border-t border-gray-100">로그아웃</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <Button onClick={onLogin}>로그인</Button>
+              )}
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    // ========================================
+    // Content Card (Home grid item)
+    // ========================================
+    function ContentCard({ content, unlocked, onClick }) {
+      return (
+        <button
+          onClick={onClick}
+          className="group text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition"
+        >
+          <div className="relative h-44 bg-gray-200 flex items-center justify-center overflow-hidden">
+            <img src={content.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className={`absolute inset-0 ${unlocked ? 'bg-black/15' : 'bg-black/45'}`}></div>
+            <div className="relative text-white px-6 text-center drop-shadow">
+              <div className="text-xs uppercase tracking-widest opacity-90 mb-2">{content.category}</div>
+              <div className="text-base font-medium leading-snug line-clamp-2">{content.title}</div>
+            </div>
+            <div className="absolute top-3 right-3">
+              {unlocked ? (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/95 ink text-xs font-semibold">
+                  <CheckIcon className="w-3.5 h-3.5" />
+                  열람 가능
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/95 ink text-xs font-semibold">
+                  <LockIcon className="w-3.5 h-3.5" />
+                  {formatPrice(content.price)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge>{content.category}</Badge>
+              <Badge>{content.duration}</Badge>
+            </div>
+            <h3 className="font-semibold text-gray-900 leading-snug mb-1 line-clamp-2">{content.title}</h3>
+            <p className="text-sm text-gray-500 line-clamp-1">{content.desc}</p>
+          </div>
+        </button>
+      );
+    }
+
+    // ========================================
+    // Payment Modal
+    // ========================================
+    function PaymentModal({ content, isOpen, onClose, onPay, paying, needsLogin }) {
+      if (!content) return null;
+      return (
+        <Modal isOpen={isOpen} onClose={paying ? () => {} : onClose}>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <Badge>{content.category}</Badge>
+              <button onClick={onClose} disabled={paying} className="text-gray-400 hover:text-gray-700 disabled:opacity-40 text-2xl leading-none">×</button>
+            </div>
+            <h2 className="text-xl font-bold ink leading-snug mb-2">{content.title}</h2>
+            <p className="text-sm text-gray-600 leading-relaxed mb-5 line-clamp-3">
+              {content.body[0]}
+            </p>
+            <div className="flex items-center justify-between py-4 border-t border-b border-gray-200 mb-5">
+              <div>
+                <div className="text-xs text-gray-500 mb-0.5">단건 결제 (영구 열람)</div>
+                <div className="text-2xl font-bold ink">{formatPrice(content.price)}</div>
+              </div>
+              <div className="text-right text-xs text-gray-500">
+                <div>분량 · {content.duration}</div>
+                <div>구매 즉시 활성화</div>
+              </div>
+            </div>
+            {needsLogin && (
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                결제하려면 로그인이 필요합니다. "결제하기"를 누르면 로그인 창이 열립니다.
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="secondary" size="lg" onClick={onClose} disabled={paying} className="flex-1">
+                닫기
+              </Button>
+              <Button variant="primary" size="lg" onClick={onPay} disabled={paying} className="flex-1">
+                {paying ? '결제 중…' : (needsLogin ? '로그인하고 결제' : '결제하기')}
+              </Button>
+            </div>
+            <p className="text-[11px] text-gray-400 text-center mt-3">
+              TossPayments로 안전 결제 · 테스트 모드 (실 결제 X)
+            </p>
+          </div>
+        </Modal>
+      );
+    }
+
+    // ========================================
+    // Toss Payment Widget Modal — 결제 수단 선택 + 약관 동의 위젯
+    // ========================================
+    function TossWidgetModal({ content, order, user, onClose }) {
+      const [widgets, setWidgets] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [paying, setPaying] = useState(false);
+      const [err, setErr] = useState('');
+      const initRef = useRef(false);
+
+      useEffect(() => {
+        if (initRef.current) return;
+        initRef.current = true;
+        (async () => {
+          try {
+            const config = await api('/api/config');
+            const tp = TossPayments(config.clientKey);
+            const w = tp.widgets({ customerKey: order.customerKey });
+            await w.setAmount({ currency: 'KRW', value: order.amount });
+            await Promise.all([
+              w.renderPaymentMethods({ selector: '#payment-method', variantKey: 'DEFAULT' }),
+              w.renderAgreement({ selector: '#agreement', variantKey: 'AGREEMENT' }),
+            ]);
+            setWidgets(w);
+            setLoading(false);
+          } catch (e) {
+            console.error(e);
+            setErr('결제 위젯 로딩 실패: ' + (e.message || e.code || '알 수 없는 오류'));
+            setLoading(false);
+          }
+        })();
+      }, []);
+
+      const requestPay = async () => {
+        if (!widgets) return;
+        setPaying(true);
+        setErr('');
+        try {
+          await widgets.requestPayment({
+            orderId: order.orderId,
+            orderName: content.title,
+            successUrl: `${window.location.origin}/`,
+            failUrl: `${window.location.origin}/`,
+            customerEmail: user.email,
+            customerName: user.email.split('@')[0],
+          });
+          setPaying(false);
+        } catch (e) {
+          setPaying(false);
+          if (e.code === 'USER_CANCEL') return;
+          setErr('결제 요청 실패: ' + (e.message || e.code));
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="absolute inset-0 bg-black/50" onClick={paying ? null : onClose}></div>
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg my-8 fade-in">
+            <div className="p-5 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold ink">결제 수단 선택</h2>
+                <button onClick={onClose} disabled={paying} className="text-gray-400 hover:text-gray-700 disabled:opacity-40 text-2xl leading-none">×</button>
+              </div>
+              <div className="bg-gray-50 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500">결제 상품</div>
+                  <div className="text-sm ink font-medium line-clamp-1">{content.title}</div>
+                </div>
+                <div className="text-lg font-bold ink whitespace-nowrap ml-3">{formatPrice(order.amount)}</div>
+              </div>
+              {loading && <p className="text-gray-500 text-sm py-4 text-center">결제 위젯 로딩 중…</p>}
+              {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{err}</div>}
+              <div id="payment-method" className={loading ? 'hidden' : ''}></div>
+              <div id="agreement" className={`mt-3 ${loading ? 'hidden' : ''}`}></div>
+              {!loading && !err && (
+                <Button size="lg" className="w-full mt-4" onClick={requestPay} disabled={paying}>
+                  {paying ? '결제 진행 중…' : `${formatPrice(order.amount)} 결제하기`}
+                </Button>
+              )}
+              <p className="text-[11px] text-gray-400 text-center mt-3">
+                TossPayments 테스트 상점 · 실제 청구되지 않습니다
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Auth Modal (login + signup)
+    // ========================================
+    function AuthModal({ isOpen, onClose, onAuth }) {
+      const [mode, setMode] = useState('login');
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [busy, setBusy] = useState(false);
+      const [err, setErr] = useState('');
+
+      useEffect(() => {
+        if (!isOpen) {
+          setEmail(''); setPassword(''); setErr(''); setMode('login');
+        }
+      }, [isOpen]);
+
+      const submit = async (e) => {
+        e.preventDefault();
+        setBusy(true); setErr('');
+        try {
+          const data = await api(`/api/${mode === 'login' ? 'login' : 'register'}`, {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+          });
+          saveToken(data.token);
+          onAuth(data.user);
+          onClose();
+        } catch (e) {
+          setErr(e.message || '오류가 발생했습니다');
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      return (
+        <Modal isOpen={isOpen} onClose={busy ? () => {} : onClose}>
+          <div className="p-6 sm:p-8">
+            <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
+              <button type="button" onClick={() => { setMode('login'); setErr(''); }} className={`flex-1 py-2 rounded-md text-sm font-medium transition ${mode === 'login' ? 'bg-white shadow ink' : 'text-gray-500'}`}>로그인</button>
+              <button type="button" onClick={() => { setMode('signup'); setErr(''); }} className={`flex-1 py-2 rounded-md text-sm font-medium transition ${mode === 'signup' ? 'bg-white shadow ink' : 'text-gray-500'}`}>회원가입</button>
+            </div>
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">이메일</label>
+                <input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="you@example.com" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">비밀번호</label>
+                <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="6자 이상" />
+              </div>
+              {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{err}</div>}
+              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                {busy ? '처리 중...' : (mode === 'login' ? '로그인' : '회원가입 + 로그인')}
+              </Button>
+            </form>
+            <p className="text-[11px] text-gray-400 text-center mt-4">
+              {mode === 'login' ? '계정이 없으면 위에서 회원가입을 선택하세요.' : '이메일과 비밀번호만 있으면 가입할 수 있어요.'}
+            </p>
+          </div>
+        </Modal>
+      );
+    }
+
+    // ========================================
+    // History Page (사용자 본인 결제 내역)
+    // ========================================
+    function HistoryPage() {
+      const [orders, setOrders] = useState([]);
+      const [loading, setLoading] = useState(true);
+      useEffect(() => {
+        api('/api/me/orders').then(setOrders).catch(() => {}).finally(() => setLoading(false));
+      }, []);
+      return (
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <button onClick={() => navigate('/')} className="text-sm text-gray-500 hover:ink mb-6 inline-flex items-center gap-1">← 홈으로</button>
+          <h1 className="text-2xl sm:text-3xl font-bold ink mb-2">결제 내역</h1>
+          <p className="text-sm text-gray-500 mb-8">내가 결제한 모든 콘텐츠 (영구 열람)</p>
+          {loading ? (
+            <p className="text-gray-500">불러오는 중...</p>
+          ) : orders.length === 0 ? (
+            <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
+              <p className="text-gray-500 mb-3">아직 결제 내역이 없습니다.</p>
+              <Button onClick={() => navigate('/')} variant="secondary">콘텐츠 둘러보기</Button>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-4 py-3 text-left">콘텐츠</th>
+                      <th className="px-4 py-3 text-right whitespace-nowrap">금액</th>
+                      <th className="px-4 py-3 text-center">상태</th>
+                      <th className="px-4 py-3 text-right whitespace-nowrap">일시</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.slice().reverse().map((o) => {
+                      const c = CONTENTS.find((x) => x.id === o.contentId);
+                      return (
+                        <tr key={o.orderId} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="ink font-medium">{c ? c.title : o.contentId}</div>
+                            <div className="font-mono text-[11px] text-gray-400 mt-0.5">{o.orderId}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right ink whitespace-nowrap font-medium">{formatPrice(o.amount)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                              o.status === 'completed' ? 'bg-green-100 text-green-800'
+                              : o.status === 'failed' ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {o.status === 'completed' ? '완료' : o.status === 'failed' ? '실패' : '대기'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-xs text-gray-500 whitespace-nowrap">
+                            {new Date(o.paidAt || o.createdAt).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    // ========================================
+    // Admin Dashboard
+    // ========================================
+    function AdminPage() {
+      const [users, setUsers] = useState([]);
+      const [stats, setStats] = useState(null);
+      const [loading, setLoading] = useState(true);
+      useEffect(() => {
+        Promise.all([api('/api/admin/users'), api('/api/admin/stats')])
+          .then(([u, s]) => { setUsers(u); setStats(s); })
+          .catch(() => {})
+          .finally(() => setLoading(false));
+      }, []);
+      return (
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <button onClick={() => navigate('/')} className="text-sm text-gray-500 hover:ink mb-6 inline-flex items-center gap-1">← 홈으로</button>
+          <div className="flex items-center gap-2 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold ink">관리자 대시보드</h1>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-medium">ADMIN</span>
+          </div>
+          <p className="text-sm text-gray-500 mb-8">전체 사용자 / 결제 / 매출 현황</p>
+          {loading ? (
+            <p className="text-gray-500">불러오는 중...</p>
+          ) : (
+            <>
+              {stats && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <div className="text-xs text-gray-500 mb-1">전체 사용자</div>
+                    <div className="text-2xl font-bold ink">{stats.userCount}</div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <div className="text-xs text-gray-500 mb-1">관리자</div>
+                    <div className="text-2xl font-bold ink">{stats.adminCount}</div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <div className="text-xs text-gray-500 mb-1">총 결제 건수</div>
+                    <div className="text-2xl font-bold ink">{stats.totalUnlocks}</div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <div className="text-xs text-gray-500 mb-1">총 매출</div>
+                    <div className="text-2xl font-bold ink">{formatPrice(stats.totalRevenue)}</div>
+                  </div>
+                </div>
+              )}
+              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200 text-sm font-medium ink">사용자 목록 ({users.length})</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3 text-left">이메일</th>
+                        <th className="px-4 py-3 text-center">권한</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">결제 수</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">매출</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">가입일</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={u.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 ink">{u.email}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-700'}`}>
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right ink font-medium">{u.unlockedCount}</td>
+                          <td className="px-4 py-3 text-right ink whitespace-nowrap">{formatPrice(u.revenue)}</td>
+                          <td className="px-4 py-3 text-right text-xs text-gray-500 whitespace-nowrap">
+                            {new Date(u.createdAt).toLocaleDateString('ko-KR')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </main>
+      );
+    }
+
+    // ========================================
+    // Home Page
+    // ========================================
+    function HomePage({ unlockedIds, onCardClick }) {
+      return (
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <section className="mb-10">
+            <h1 className="text-2xl sm:text-3xl font-bold ink leading-tight mb-2">
+              결제한 만큼만, 내 것이 되는 콘텐츠
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600">
+              한 편당 ₩2,000부터. 한 번 결제하면 영구 열람할 수 있어요.
+            </p>
+          </section>
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {CONTENTS.map((c) => (
+              <ContentCard
+                key={c.id}
+                content={c}
+                unlocked={unlockedIds.includes(c.id)}
+                onClick={() => onCardClick(c)}
+              />
+            ))}
+          </section>
+        </main>
+      );
+    }
+
+    // ========================================
+    // Detail Page
+    // ========================================
+    function DetailPage({ contentId, unlockedIds, onUnlockClick }) {
+      const content = CONTENTS.find((c) => c.id === contentId);
+      if (!content) {
+        return (
+          <main className="max-w-3xl mx-auto px-4 py-20 text-center">
+            <p className="text-gray-500 mb-4">존재하지 않는 콘텐츠입니다.</p>
+            <Button onClick={() => navigate('/')}>홈으로 돌아가기</Button>
+          </main>
+        );
+      }
+      const unlocked = unlockedIds.includes(content.id);
+
+      return (
+        <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <button onClick={() => navigate('/')} className="text-sm text-gray-500 hover:ink mb-6 inline-flex items-center gap-1">
+            <span>←</span> 목록으로
+          </button>
+
+          <div className="flex items-center gap-2 mb-3">
+            <Badge>{content.category}</Badge>
+            <Badge>{content.duration}</Badge>
+            {unlocked && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ink-bg text-white">
+                <CheckIcon className="w-3 h-3" /> 열람 가능
+              </span>
+            )}
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-bold ink leading-tight mb-3">{content.title}</h1>
+          <p className="text-gray-600 mb-6">{content.desc}</p>
+
+          <div className="relative h-56 sm:h-72 rounded-2xl bg-gray-200 flex items-center justify-center mb-8 overflow-hidden">
+            <img src={content.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/25"></div>
+            <div className="relative text-white text-xs uppercase tracking-[0.3em] drop-shadow">{content.category}</div>
+          </div>
+
+          <div className="relative">
+            <article className={`prose prose-gray max-w-none space-y-5 text-[15px] leading-7 text-gray-800 ${unlocked ? '' : 'blur-content'}`}>
+              {content.body.map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+            </article>
+
+            {!unlocked && (
+              <div className="absolute inset-0 flex items-start justify-center pt-16 sm:pt-24">
+                <div className="bg-white border border-gray-200 rounded-2xl shadow-xl p-6 sm:p-8 max-w-sm w-full text-center">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center ink">
+                    <LockIcon className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold ink mb-1">결제 후 열람 가능</h3>
+                  <p className="text-sm text-gray-600 mb-5">
+                    {formatPrice(content.price)} · 한 번 결제로 영구 열람
+                  </p>
+                  <Button size="lg" className="w-full" onClick={() => onUnlockClick(content)}>
+                    결제하고 열람하기
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+      );
+    }
+
+    // ========================================
+    // App Root
+    // ========================================
+    function App() {
+      const hash = useHash();
+      const [user, setUser] = useState(null);
+      const [unlockedIds, setUnlockedIds] = useState([]);
+      const [authLoading, setAuthLoading] = useState(true);
+      const [authModalOpen, setAuthModalOpen] = useState(false);
+      const [modalContent, setModalContent] = useState(null);
+      const [paying, setPaying] = useState(false);
+      const [tossOrder, setTossOrder] = useState(null);
+      const [toast, setToast] = useState({ show: false, message: '결제 진행 중…' });
+
+      // Mount: load /api/me + handle Toss redirect query
+      useEffect(() => {
+        (async () => {
+          const token = getToken();
+          if (token) {
+            try {
+              const u = await api('/api/me');
+              setUser(u);
+              setUnlockedIds(u.unlocked || []);
+            } catch (e) {
+              if (e.status === 401) clearToken();
+            }
+          }
+          setAuthLoading(false);
+
+          // Toss redirect handling
+          const params = new URLSearchParams(window.location.search);
+          const paymentKey = params.get('paymentKey');
+          const orderId = params.get('orderId');
+          const amount = params.get('amount');
+          const failCode = params.get('code');
+          const failMsg = params.get('message');
+
+          if (paymentKey && orderId && amount) {
+            history.replaceState({}, '', '/');
+            setToast({ show: true, message: '결제 승인 중…' });
+            try {
+              const data = await api('/api/payments/confirm', {
+                method: 'POST',
+                body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
+              });
+              const me = await api('/api/me');
+              setUser(me);
+              setUnlockedIds(me.unlocked || []);
+              setToast({ show: false, message: '' });
+              if (data.contentId) navigate(`/c/${data.contentId}`);
+            } catch (e) {
+              setToast({ show: false, message: '' });
+              alert('결제 승인 실패: ' + e.message);
+            }
+          } else if (failCode) {
+            history.replaceState({}, '', '/');
+            alert('결제 실패: ' + (failMsg || failCode));
+          }
+        })();
+      }, []);
+
+      // Routing
+      const route = useMemo(() => {
+        const path = hash.replace(/^#/, '') || '/';
+        if (path === '/admin') return { name: 'admin' };
+        if (path === '/history') return { name: 'history' };
+        const m = path.match(/^\/c\/([^/]+)$/);
+        if (m) return { name: 'detail', id: m[1] };
+        return { name: 'home' };
+      }, [hash]);
+
+      const handleCardClick = useCallback((content) => {
+        if (user && unlockedIds.includes(content.id)) {
+          navigate(`/c/${content.id}`);
+        } else {
+          setModalContent(content);
+        }
+      }, [user, unlockedIds]);
+
+      const handleUnlockClick = useCallback((content) => {
+        setModalContent(content);
+      }, []);
+
+      const closeModal = useCallback(() => {
+        if (paying) return;
+        setModalContent(null);
+      }, [paying]);
+
+      // 결제 시작 — 주문 생성 후 토스 위젯 모달 오픈
+      const handlePay = useCallback(async () => {
+        if (!modalContent) return;
+        if (!user) {
+          setModalContent(null);
+          setAuthModalOpen(true);
+          return;
+        }
+        setPaying(true);
+        setToast({ show: true, message: '주문 생성 중…' });
+        try {
+          const order = await api('/api/orders', {
+            method: 'POST',
+            body: JSON.stringify({ contentId: modalContent.id, amount: modalContent.price }),
+          });
+          setToast({ show: false, message: '' });
+          setTossOrder(order); // 위젯 모달 오픈
+          setPaying(false);
+        } catch (e) {
+          setPaying(false);
+          setToast({ show: false, message: '' });
+          alert('주문 생성 실패: ' + (e.message || '알 수 없는 오류'));
+        }
+      }, [modalContent, user]);
+
+      const closeTossWidget = useCallback(() => {
+        setTossOrder(null);
+        setModalContent(null);
+      }, []);
+
+      const handleAuth = useCallback((u) => {
+        setUser(u);
+        setUnlockedIds(u.unlocked || []);
+      }, []);
+
+      const handleLogout = useCallback(() => {
+        clearToken();
+        setUser(null);
+        setUnlockedIds([]);
+        navigate('/');
+      }, []);
+
+      if (authLoading) {
+        return <div className="min-h-screen flex items-center justify-center text-gray-500 text-sm">불러오는 중…</div>;
+      }
+
+      const needsLogin = (route.name === 'history' || route.name === 'admin') && !user;
+      const needsAdmin = route.name === 'admin' && user && user.role !== 'admin';
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Header user={user} unlockedCount={unlockedIds.length} onLogin={() => setAuthModalOpen(true)} onLogout={handleLogout} />
+
+          {needsLogin && (
+            <main className="max-w-3xl mx-auto px-4 py-20 text-center">
+              <p className="text-gray-500 mb-4">이 페이지는 로그인 후 이용 가능합니다.</p>
+              <Button size="lg" onClick={() => setAuthModalOpen(true)}>로그인</Button>
+            </main>
+          )}
+          {needsAdmin && (
+            <main className="max-w-3xl mx-auto px-4 py-20 text-center">
+              <p className="text-gray-500 mb-4">관리자 권한이 필요합니다.</p>
+              <Button onClick={() => navigate('/')} variant="secondary">홈으로</Button>
+            </main>
+          )}
+
+          {!needsLogin && !needsAdmin && route.name === 'home' && (
+            <HomePage unlockedIds={unlockedIds} onCardClick={handleCardClick} />
+          )}
+          {!needsLogin && !needsAdmin && route.name === 'detail' && (
+            <DetailPage contentId={route.id} unlockedIds={unlockedIds} onUnlockClick={handleUnlockClick} />
+          )}
+          {!needsLogin && route.name === 'history' && <HistoryPage />}
+          {!needsLogin && !needsAdmin && route.name === 'admin' && <AdminPage />}
+
+          <footer className="mt-auto border-t border-gray-200 py-6">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 text-xs text-gray-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span>© Unlock — 결제 후 열람 미니앱 · TossPayments</span>
+              <span>JWT 인증 / 단건 결제 / 영구 열람</span>
+            </div>
+          </footer>
+
+          <PaymentModal
+            content={!tossOrder ? modalContent : null}
+            isOpen={!!modalContent && !tossOrder}
+            onClose={closeModal}
+            onPay={handlePay}
+            paying={paying}
+            needsLogin={!user}
+          />
+          {tossOrder && modalContent && user && (
+            <TossWidgetModal
+              content={modalContent}
+              order={tossOrder}
+              user={user}
+              onClose={closeTossWidget}
+            />
+          )}
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => setAuthModalOpen(false)}
+            onAuth={handleAuth}
+          />
+          <Toast message={toast.message} show={toast.show} />
+        </div>
+      );
+    }
+
+    // ========================================
+    // Render
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

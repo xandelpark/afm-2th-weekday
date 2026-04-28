@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soft Studio — 아기 카툰 쇼츠 메이커</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    // Tailwind 토큰 확장 — Editorial Cream 팔레트
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream:    '#FAF7F2',
+            paper:    '#FFFFFF',
+            ink:      '#1A1A1A',
+            muted:    '#7B7470',
+            faint:    '#A8A29A',
+            hairline: '#E8E4DD',
+            accent:   '#C97B63',     // terracotta
+            accentSoft: '#F2DDD3',
+            sage:     '#9CAF88',
+          },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+            serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      background: #FAF7F2;
+      min-height: 100vh;
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      color: #1A1A1A;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.005em;
+    }
+    /* 부드럽게 떠오르는 fade — 장식 최소화 */
+    @keyframes softFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .anim-fade-in { animation: softFadeIn 0.28s ease-out; }
+
+    /* 숨겨진 진짜 file input (자리만) */
+    .file-input-hidden { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+    /* wordmark 트래킹 */
+    .wordmark { letter-spacing: 0.18em; }
+
+    /* number 텍스트 — 모노스페이스 느낌 */
+    .num { font-feature-settings: 'tnum' 1; font-variant-numeric: tabular-nums; }
+
+    /* 인라인 텍스트 편집 호버 */
+    .editable:hover { box-shadow: inset 0 -1px 0 0 #C97B63; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useMemo, useCallback } = React;
+
+    // ========================================
+    // 더미 데이터 / 상수
+    // ========================================
+    const DUMMY_SEGMENTS = [
+      { id: 1, start: 0.0,  end: 2.5,  text: "우리 아기 잘 잤어?",        speaker: "A" },
+      { id: 2, start: 2.6,  end: 4.2,  text: "응애에에",                  speaker: "B" },
+      { id: 3, start: 4.3,  end: 6.8,  text: "배고프구나~ 우유 줄게",     speaker: "A" },
+      { id: 4, start: 6.9,  end: 8.5,  text: "꺄르륵",                    speaker: "B" },
+      { id: 5, start: 8.6,  end: 10.5, text: "아빠도 같이 먹을까?",       speaker: "C" },
+      { id: 6, start: 10.6, end: 12.0, text: "옹알옹알",                  speaker: "B" },
+    ];
+
+    const ROLES = [
+      { key: "dad",  label: "Father" , kr: "아빠" },
+      { key: "mom",  label: "Mother" , kr: "엄마" },
+      { key: "baby", label: "Baby"   , kr: "아기" },
+    ];
+
+    const SPEAKER_KEYS = ["A", "B", "C"];
+
+    // 화자별 — 모노톤 명도 변형(액센트 톤 변형) 으로 절제된 구분
+    const SPEAKER_COLORS = {
+      A: { dot: "bg-[#C97B63]",   chip: "bg-[#F2DDD3] text-[#7A3A28]", bar: "bg-[#C97B63]" },
+      B: { dot: "bg-[#9CAF88]",   chip: "bg-[#E5EAD9] text-[#48553A]", bar: "bg-[#9CAF88]" },
+      C: { dot: "bg-[#7B7470]",   chip: "bg-[#E8E4DD] text-[#3A3530]", bar: "bg-[#7B7470]" },
+    };
+
+    const BABY_ONOMATOPOEIA = ["응애", "꺄르륵", "옹알옹알", "꺅", "헤헤", "아바바"];
+
+    const STEPS = [
+      { id: 1, key: "upload",    label: "Upload",     kr: "업로드"   },
+      { id: 2, key: "label",     label: "Label",      kr: "라벨"     },
+      { id: 3, key: "character", label: "Character",  kr: "캐릭터"   },
+      { id: 4, key: "preview",   label: "Preview",    kr: "미리보기" },
+      { id: 5, key: "export",    label: "Export",     kr: "내보내기" },
+    ];
+
+    // 시간(초)을 mm:ss.s 형식으로 변환
+    const fmtTime = (sec) => {
+      const m = Math.floor(sec / 60);
+      const s = (sec - m * 60).toFixed(1);
+      return `${m}:${s.padStart(4, "0")}`;
+    };
+
+    // ========================================
+    // Inline SVG Icons — stroke 1.5, 16~20px
+    // ========================================
+    const Icon = {
+      upload: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||18} height={p.size||18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <path d="M12 4v12"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>
+        </svg>
+      ),
+      file: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||18} height={p.size||18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>
+        </svg>
+      ),
+      arrowRight: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+        </svg>
+      ),
+      arrowLeft: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <path d="M19 12H5"/><path d="m11 19-7-7 7-7"/>
+        </svg>
+      ),
+      check: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||14} height={p.size||14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+      ),
+      lock: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||14} height={p.size||14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <rect width="14" height="10" x="5" y="11" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+      ),
+      play: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/>
+        </svg>
+      ),
+      pause: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <rect x="6" y="5" width="4" height="14" fill="currentColor" stroke="none"/>
+          <rect x="14" y="5" width="4" height="14" fill="currentColor" stroke="none"/>
+        </svg>
+      ),
+      download: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>
+        </svg>
+      ),
+      share: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/>
+        </svg>
+      ),
+      clock: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||14} height={p.size||14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+        </svg>
+      ),
+      // 사람 흉상 silhouette (캐릭터 placeholder용)
+      bust: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||32} height={p.size||32} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <circle cx="32" cy="22" r="10"/>
+          <path d="M14 54c0-10 8-16 18-16s18 6 18 16"/>
+        </svg>
+      ),
+      // 작은 아기 (조금 더 둥근 머리 — 그래도 모노크롬 라인)
+      bustSmall: (p) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={p.size||32} height={p.size||32} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className={p.className}>
+          <circle cx="32" cy="26" r="11"/>
+          <path d="M18 56c0-8 6-14 14-14s14 6 14 14"/>
+        </svg>
+      ),
+    };
+
+    // ========================================
+    // Design System — Button
+    // ========================================
+    function Button({ variant = "primary", size = "md", disabled, onClick, children, className = "", type = "button" }) {
+      const base = "inline-flex items-center justify-center gap-2 font-medium rounded-lg transition active:scale-[0.99] disabled:opacity-30 disabled:cursor-not-allowed tracking-tight";
+      const sizes = {
+        sm: "px-3 py-1.5 text-[13px]",
+        md: "px-4 py-2.5 text-[13px]",
+        lg: "px-5 py-3.5 text-[14px]",
+      };
+      const variants = {
+        primary:   "bg-ink text-cream hover:bg-[#000]",
+        accent:    "bg-accent text-white hover:bg-[#B96A52]",
+        secondary: "bg-paper text-ink border border-hairline hover:border-ink/40",
+        ghost:     "bg-transparent text-ink hover:bg-hairline/60",
+        outline:   "bg-transparent text-ink border border-ink/80 hover:bg-ink hover:text-cream",
+      };
+      return (
+        <button type={type} disabled={disabled} onClick={onClick}
+          className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}>
+          {children}
+        </button>
+      );
+    }
+
+    // ========================================
+    // Design System — Card (hairline border, no gradient)
+    // ========================================
+    function Card({ children, className = "" }) {
+      return (
+        <div className={`bg-paper border border-hairline rounded-xl p-5 ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Design System — Checkbox
+    // ========================================
+    function Checkbox({ checked, onChange, children }) {
+      return (
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <span className={`mt-0.5 w-[18px] h-[18px] rounded-[4px] border flex items-center justify-center transition shrink-0 ${checked ? 'bg-ink border-ink' : 'bg-paper border-hairline'}`}>
+            {checked && <Icon.check size={12} className="text-cream" />}
+          </span>
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+            className="sr-only"
+          />
+          <span className="text-[13px] text-ink/80 leading-relaxed">{children}</span>
+        </label>
+      );
+    }
+
+    // ========================================
+    // Layout — Header (minimal wordmark)
+    // ========================================
+    function Header({ currentStep }) {
+      return (
+        <header className="px-6 pt-7 pb-5 flex items-baseline justify-between border-b border-hairline">
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif italic text-[17px] text-ink leading-none">Soft</span>
+            <span className="wordmark text-[10px] uppercase text-muted">Studio</span>
+          </div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted num">
+            Step {currentStep} <span className="text-faint">/ {STEPS.length}</span>
+          </div>
+        </header>
+      );
+    }
+
+    // ========================================
+    // Layout — StepNav (hairline + 텍스트 라벨, 현재만 강조)
+    // ========================================
+    function StepNav({ currentStep, onStepClick }) {
+      return (
+        <nav className="px-6 pt-5">
+          <ol className="flex items-center justify-between gap-2">
+            {STEPS.map((s) => {
+              const isCurrent = s.id === currentStep;
+              const isDone = s.id < currentStep;
+              const labelCls = isCurrent
+                ? "text-ink"
+                : isDone
+                  ? "text-ink/60"
+                  : "text-faint";
+              return (
+                <li key={s.id} className="flex-1">
+                  <button
+                    type="button"
+                    onClick={() => onStepClick(s.id)}
+                    className="w-full text-left focus:outline-none group"
+                    aria-current={isCurrent ? "step" : undefined}
+                    aria-label={`${s.id}단계: ${s.kr}`}
+                  >
+                    <div className={`text-[10px] uppercase tracking-[0.16em] mb-1.5 num ${isCurrent ? 'text-accent' : 'text-faint'}`}>
+                      0{s.id}
+                    </div>
+                    <div className={`text-[12px] font-medium ${labelCls} ${isCurrent ? 'underline underline-offset-[6px] decoration-accent decoration-1' : ''}`}>
+                      {s.label}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          {/* 매우 얇은 progress line */}
+          <div className="mt-4 h-px w-full bg-hairline relative">
+            <div
+              className="absolute left-0 top-0 h-full bg-ink transition-all duration-500"
+              style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
+            />
+          </div>
+        </nav>
+      );
+    }
+
+    // ========================================
+    // Layout — StepFooter
+    // ========================================
+    function StepFooter({ currentStep, onPrev, onNext, nextLabel, nextDisabled }) {
+      const isFirst = currentStep === 1;
+      const isLast = currentStep === STEPS.length;
+      return (
+        <div className="px-6 pb-7 pt-4 flex items-center gap-3 border-t border-hairline">
+          <Button variant="secondary" size="lg" onClick={onPrev} disabled={isFirst} className="flex-1">
+            <Icon.arrowLeft /> 이전
+          </Button>
+          {!isLast && (
+            <Button variant="primary" size="lg" onClick={onNext} disabled={nextDisabled} className="flex-1">
+              {nextLabel || "다음"} <Icon.arrowRight />
+            </Button>
+          )}
+          {isLast && (
+            <Button variant="outline" size="lg" onClick={() => onPrev(true)} className="flex-1">
+              처음으로
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Page — UploadStep
+    // ========================================
+    function UploadStep({ fileName, setFileName, consent, setConsent }) {
+      return (
+        <div className="px-6 py-7 space-y-5 anim-fade-in">
+          <div className="space-y-1.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">01 — Upload</div>
+            <h2 className="font-serif text-[26px] leading-[1.15] text-ink">
+              아기와의 대화를<br/>들려주세요.
+            </h2>
+            <p className="text-[13px] text-muted leading-relaxed pt-1">
+              녹음된 mp4 · m4a · mp3 파일을 올리면, AI가 화자를 구분합니다. 최대 5분.
+            </p>
+          </div>
+
+          {/* 파일 선택 영역 — hairline dropzone */}
+          <label className="relative block bg-paper border border-hairline rounded-xl p-7 text-center cursor-pointer hover:border-ink/30 transition">
+            <input
+              type="file"
+              accept="audio/*,video/*"
+              className="file-input-hidden"
+              onChange={(e) => {
+                const f = e.target.files && e.target.files[0];
+                if (f) setFileName(f.name);
+              }}
+            />
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 rounded-full border border-hairline flex items-center justify-center text-ink/70">
+                {fileName ? <Icon.file size={18} /> : <Icon.upload size={18} />}
+              </div>
+              {fileName ? (
+                <>
+                  <div className="text-[13px] text-ink break-all max-w-[260px]">{fileName}</div>
+                  <div className="text-[11px] text-muted underline underline-offset-2">파일 다시 선택</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-[13px] text-ink">파일을 드래그하거나 선택하세요</div>
+                  <div className="text-[11px] text-muted">최대 100MB · mp4, m4a, mp3</div>
+                </>
+              )}
+            </div>
+          </label>
+
+          {/* 동의 체크박스 — 단정한 카드 */}
+          <Card className="!p-4">
+            <Checkbox checked={consent} onChange={setConsent}>
+              AssemblyAI에서 음성을 분석합니다. 원본은 1시간 후 자동 삭제됩니다.
+            </Checkbox>
+          </Card>
+
+          {/* 분석 시작 버튼 */}
+          <Button
+            variant="accent"
+            size="lg"
+            disabled={!fileName || !consent}
+            className="w-full"
+            onClick={() => {/* Day 2 실제 호출 */}}
+          >
+            분석 시작 <Icon.arrowRight />
+          </Button>
+
+          {(!fileName || !consent) && (
+            <p className="text-center text-[11px] text-faint">
+              파일과 동의가 필요합니다.
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Page — LabelStep
+    // ========================================
+    function LabelStep({ segments, roleMapping, setRoleMapping }) {
+      const totalDuration = useMemo(
+        () => segments.reduce((max, s) => Math.max(max, s.end), 0),
+        [segments]
+      );
+
+      const speakerSegments = useMemo(() => {
+        const map = { A: [], B: [], C: [] };
+        segments.forEach((s) => { if (map[s.speaker]) map[s.speaker].push(s); });
+        return map;
+      }, [segments]);
+
+      const usedRoles = Object.values(roleMapping).filter(Boolean);
+      const hasDuplicate = usedRoles.length !== new Set(usedRoles).size;
+
+      return (
+        <div className="px-6 py-7 space-y-5 anim-fade-in">
+          <div className="space-y-1.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">02 — Label</div>
+            <h2 className="font-serif text-[26px] leading-[1.15] text-ink">
+              누가 누구인지<br/>알려주세요.
+            </h2>
+            <p className="text-[13px] text-muted leading-relaxed pt-1">
+              AI가 사람 A · B · C로 자동 분리했어요. 각 화자가 누구인지 매칭하세요.
+            </p>
+          </div>
+
+          {/* timeline visualization */}
+          <Card>
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="text-[10px] uppercase tracking-[0.16em] text-muted">Timeline</span>
+              <span className="text-[10px] num text-faint">{fmtTime(totalDuration)}</span>
+            </div>
+            <div className="relative h-2 w-full rounded-full bg-hairline overflow-hidden">
+              {segments.map((s) => {
+                const left = (s.start / totalDuration) * 100;
+                const width = ((s.end - s.start) / totalDuration) * 100;
+                const sp = SPEAKER_COLORS[s.speaker] || SPEAKER_COLORS.C;
+                return (
+                  <div
+                    key={s.id}
+                    title={`${s.speaker}: ${s.text}`}
+                    className={`absolute top-0 bottom-0 ${sp.bar} opacity-90`}
+                    style={{ left: `${left}%`, width: `${width}%` }}
+                  />
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-[11px]">
+              {SPEAKER_KEYS.map((k) => (
+                <div key={k} className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${SPEAKER_COLORS[k].dot}`} />
+                  <span className="text-muted">사람 {k}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* speaker mapping cards */}
+          {SPEAKER_KEYS.map((sp) => {
+            const segs = speakerSegments[sp];
+            if (!segs || segs.length === 0) return null;
+            const sc = SPEAKER_COLORS[sp];
+            return (
+              <Card key={sp}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${sc.dot}`} />
+                    <span className="text-[13px] font-medium text-ink">사람 {sp}</span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-faint num">{segs.length}개 발화</span>
+                </div>
+
+                {/* segment 미리보기 */}
+                <div className="space-y-1 mb-4">
+                  {segs.slice(0, 2).map((s) => (
+                    <div key={s.id} className="text-[12px] text-ink/80 leading-relaxed flex gap-3">
+                      <span className="num text-faint shrink-0">{fmtTime(s.start)}</span>
+                      <span>"{s.text}"</span>
+                    </div>
+                  ))}
+                  {segs.length > 2 && (
+                    <div className="text-[11px] text-faint">+ {segs.length - 2}개 더</div>
+                  )}
+                </div>
+
+                {/* 역할 선택 — segmented buttons */}
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted mb-2">Role</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {ROLES.map((r) => {
+                      const selected = roleMapping[sp] === r.key;
+                      return (
+                        <button
+                          key={r.key}
+                          type="button"
+                          onClick={() => setRoleMapping({ ...roleMapping, [sp]: r.key })}
+                          className={`py-2.5 rounded-lg text-[12px] font-medium border transition
+                            ${selected
+                              ? 'bg-ink text-cream border-ink'
+                              : 'bg-paper text-ink/70 border-hairline hover:border-ink/30'}`}
+                        >
+                          {r.kr}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+
+          {hasDuplicate && (
+            <div className="px-4 py-3 rounded-lg border border-accent/40 bg-accentSoft/40 text-[12px] text-[#7A3A28] text-center">
+              같은 역할은 두 명에게 매길 수 없어요.
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Page — CharacterStep
+    // ========================================
+    function CharacterStep({ roleMapping, characterMapping, setCharacterMapping }) {
+      const mappedRoles = useMemo(() => {
+        const used = new Set(Object.values(roleMapping).filter(Boolean));
+        if (used.size === 0) return ROLES.map((r) => r.key);
+        return ROLES.map((r) => r.key).filter((k) => used.has(k));
+      }, [roleMapping]);
+
+      return (
+        <div className="px-6 py-7 space-y-5 anim-fade-in">
+          <div className="space-y-1.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">03 — Character</div>
+            <h2 className="font-serif text-[26px] leading-[1.15] text-ink">
+              캐릭터를<br/>골라주세요.
+            </h2>
+            <p className="text-[13px] text-muted leading-relaxed pt-1">
+              각 역할마다 5종 중 1개. 현재는 1번만 사용 가능, 나머지는 곧 풀립니다.
+            </p>
+          </div>
+
+          {mappedRoles.map((roleKey) => {
+            const role = ROLES.find((r) => r.key === roleKey);
+            if (!role) return null;
+            const isBabyRole = roleKey === 'baby';
+            return (
+              <div key={roleKey} className="space-y-3">
+                <div className="flex items-baseline gap-2 px-1">
+                  <h3 className="text-[14px] font-medium text-ink">{role.kr}</h3>
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-faint">{role.label}</span>
+                </div>
+
+                <div className="grid grid-cols-5 gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => {
+                    const charId = `${roleKey}-${n}`;
+                    const isLocked = n !== 1;
+                    const isSelected = characterMapping[roleKey] === charId;
+                    return (
+                      <button
+                        key={charId}
+                        type="button"
+                        disabled={isLocked}
+                        onClick={() => !isLocked && setCharacterMapping({ ...characterMapping, [roleKey]: charId })}
+                        className={`relative aspect-square rounded-lg border flex flex-col items-center justify-center transition
+                          ${isLocked
+                            ? 'bg-cream border-hairline opacity-40 cursor-not-allowed'
+                            : isSelected
+                              ? 'bg-ink border-ink text-cream'
+                              : 'bg-paper border-hairline text-ink/70 hover:border-ink/40 cursor-pointer'}`}
+                        aria-pressed={isSelected}
+                        aria-label={`${role.kr} 캐릭터 ${n}번${isLocked ? " (잠김)" : ""}`}
+                      >
+                        {isBabyRole
+                          ? <Icon.bustSmall size={28} className="" />
+                          : <Icon.bust size={28} className="" />
+                        }
+                        <div className={`text-[9px] uppercase tracking-[0.12em] mt-1 num ${isSelected ? 'text-cream/70' : 'text-faint'}`}>
+                          0{n}
+                        </div>
+                        {isLocked && (
+                          <div className="absolute top-1.5 right-1.5 text-faint">
+                            <Icon.lock size={11} />
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 text-cream">
+                            <Icon.check size={12} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Page — PreviewStep
+    // ========================================
+    function PreviewStep({ segments, roleMapping, characterMapping, editedSegments, setEditedSegments }) {
+      const [editingId, setEditingId] = useState(null);
+      const [playing, setPlaying] = useState(false);
+
+      const getText = (s) => editedSegments[s.id] !== undefined ? editedSegments[s.id] : s.text;
+      const getRoleForSpeaker = (sp) => roleMapping[sp];
+      const getRoleLabelForSpeaker = (sp) => {
+        const role = ROLES.find((r) => r.key === getRoleForSpeaker(sp));
+        return role ? role.kr : `사람 ${sp}`;
+      };
+
+      const onTextChange = (id, val) => {
+        setEditedSegments({ ...editedSegments, [id]: val });
+      };
+
+      const togglePlay = () => {
+        setPlaying((p) => !p);
+        if (!playing) {
+          setTimeout(() => setPlaying(false), 3000);
+        }
+      };
+
+      const firstSeg = segments[0];
+      const firstRole = getRoleForSpeaker(firstSeg.speaker);
+      const firstIsBaby = firstRole === 'baby';
+
+      return (
+        <div className="px-6 py-7 space-y-5 anim-fade-in">
+          <div className="space-y-1.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">04 — Preview</div>
+            <h2 className="font-serif text-[26px] leading-[1.15] text-ink">
+              미리 보고<br/>다듬어보세요.
+            </h2>
+          </div>
+
+          {/* Preview surface — clean monochrome */}
+          <Card className="!p-0 overflow-hidden">
+            <div className="aspect-video bg-cream relative flex items-center justify-center border-b border-hairline">
+              {playing ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="text-ink/80">
+                    {firstIsBaby ? <Icon.bustSmall size={56} /> : <Icon.bust size={56} />}
+                  </div>
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-ink text-cream text-[12px] rounded-md whitespace-nowrap">
+                    {getText(firstSeg)}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-faint">
+                  <div className="w-12 h-12 mx-auto mb-2 rounded-full border border-hairline flex items-center justify-center text-ink/40">
+                    <Icon.play size={18} />
+                  </div>
+                  <div className="text-[11px] uppercase tracking-[0.16em]">Tap play to preview</div>
+                </div>
+              )}
+            </div>
+            <div className="p-4 flex items-center justify-between gap-3">
+              <Button variant={playing ? "secondary" : "primary"} size="md" onClick={togglePlay}>
+                {playing ? <><Icon.pause /> 일시정지</> : <><Icon.play /> 재생</>}
+              </Button>
+              <span className="text-[10px] uppercase tracking-[0.14em] text-faint">실제 합성은 다음 단계에서</span>
+            </div>
+          </Card>
+
+          {/* 자막 리스트 */}
+          <div>
+            <div className="flex items-baseline justify-between mb-3 px-1">
+              <h3 className="text-[13px] font-medium text-ink">자막</h3>
+              <span className="text-[11px] text-faint">탭하면 수정 가능</span>
+            </div>
+            <div className="bg-paper border border-hairline rounded-xl divide-y divide-hairline">
+              {segments.map((s) => {
+                const isEditing = editingId === s.id;
+                const sp = SPEAKER_COLORS[s.speaker] || SPEAKER_COLORS.C;
+                const role = getRoleForSpeaker(s.speaker);
+                const isBaby = role === "baby";
+                return (
+                  <div key={s.id} className="px-4 py-3.5">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${sp.dot}`} />
+                      <span className="text-[12px] font-medium text-ink">{getRoleLabelForSpeaker(s.speaker)}</span>
+                      <span className="text-[10px] text-faint num ml-auto">
+                        {fmtTime(s.start)} — {fmtTime(s.end)}
+                      </span>
+                    </div>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={getText(s)}
+                        onChange={(e) => onTextChange(s.id, e.target.value)}
+                        onBlur={() => setEditingId(null)}
+                        onKeyDown={(e) => { if (e.key === "Enter") setEditingId(null); }}
+                        className="w-full pb-1 text-[14px] text-ink bg-transparent border-b border-accent focus:outline-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(s.id)}
+                        className="block w-full text-left text-[14px] text-ink leading-relaxed editable transition pb-px"
+                      >
+                        {getText(s)}
+                      </button>
+                    )}
+                    {isBaby && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-faint mr-1">의성어</span>
+                        {BABY_ONOMATOPOEIA.slice(0, 4).map((w) => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => onTextChange(s.id, w)}
+                            className="text-[11px] px-2 py-0.5 rounded-full border border-hairline text-ink/70 hover:bg-ink hover:text-cream hover:border-ink transition"
+                          >
+                            {w}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Page — ExportStep
+    // ========================================
+    function ExportStep() {
+      const [progress, setProgress] = useState(0);
+      const [rendering, setRendering] = useState(false);
+      const [done, setDone] = useState(false);
+
+      const startRender = useCallback(() => {
+        setRendering(true);
+        setProgress(0);
+        setDone(false);
+        const iv = setInterval(() => {
+          setProgress((p) => {
+            if (p >= 100) {
+              clearInterval(iv);
+              setRendering(false);
+              setDone(true);
+              return 100;
+            }
+            return p + 5;
+          });
+        }, 150);
+      }, []);
+
+      return (
+        <div className="px-6 py-7 space-y-5 anim-fade-in">
+          <div className="space-y-1.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">05 — Export</div>
+            <h2 className="font-serif text-[26px] leading-[1.15] text-ink">
+              완성된 영상을<br/>받아가세요.
+            </h2>
+            <p className="text-[13px] text-muted leading-relaxed pt-1">
+              MP4로 저장하거나 SNS로 바로 공유할 수 있습니다.
+            </p>
+          </div>
+
+          {/* 합성 영역 */}
+          <Card>
+            {!rendering && !done && (
+              <Button variant="accent" size="lg" className="w-full" onClick={startRender}>
+                영상 합성 시작 <Icon.arrowRight />
+              </Button>
+            )}
+            {rendering && (
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-muted">Rendering</span>
+                  <span className="text-[12px] num text-ink">{progress}%</span>
+                </div>
+                <div className="h-1 w-full bg-hairline rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-ink transition-all duration-200"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted">
+                  카툰 캐릭터와 자막을 입히는 중입니다.
+                </p>
+              </div>
+            )}
+            {done && (
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-accent">Complete</span>
+                  <span className="text-[12px] num text-ink">100%</span>
+                </div>
+                <div className="h-1 w-full bg-hairline rounded-full overflow-hidden">
+                  <div className="h-full bg-accent" style={{ width: '100%' }} />
+                </div>
+                <p className="text-[11px] text-muted">
+                  합성이 완료되었습니다. 아래에서 받아가세요.
+                </p>
+              </div>
+            )}
+          </Card>
+
+          {/* Actions */}
+          <div className="space-y-2.5">
+            <Button
+              variant="primary"
+              size="lg"
+              disabled={!done}
+              className="w-full"
+              onClick={() => {/* Day 5 다운로드 */}}
+            >
+              <Icon.download /> MP4 다운로드
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              disabled={!done}
+              className="w-full"
+              onClick={() => {/* Day 6 Web Share */}}
+            >
+              <Icon.share /> 공유하기
+            </Button>
+            <Button
+              variant="ghost"
+              size="lg"
+              disabled
+              className="w-full"
+            >
+              유튜브 업로드 (준비 중)
+            </Button>
+          </div>
+
+          {/* 자동 삭제 안내 — 조용히 */}
+          <div className="flex items-start gap-2 px-1 pt-2 text-[11px] text-muted leading-relaxed">
+            <Icon.clock size={13} className="mt-0.5 shrink-0" />
+            <span>업로드 원본과 결과물 모두 1시간 후 자동 삭제됩니다.</span>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // App — 루트 컴포넌트
+    // ========================================
+    function App() {
+      const [step, setStep] = useState(1);
+
+      const [fileName, setFileName] = useState("");
+      const [consent, setConsent] = useState(false);
+      const [roleMapping, setRoleMapping] = useState({ A: "dad", B: "baby", C: "mom" });
+      const [characterMapping, setCharacterMapping] = useState({ dad: "dad-1", mom: "mom-1", baby: "baby-1" });
+      const [editedSegments, setEditedSegments] = useState({});
+
+      const canAdvance = useMemo(() => {
+        if (step === 1) return !!fileName && consent;
+        if (step === 2) {
+          const usedSpeakers = SPEAKER_KEYS.filter(
+            (k) => DUMMY_SEGMENTS.some((s) => s.speaker === k)
+          );
+          const allMapped = usedSpeakers.every((k) => !!roleMapping[k]);
+          const used = usedSpeakers.map((k) => roleMapping[k]).filter(Boolean);
+          const noDup = used.length === new Set(used).size;
+          return allMapped && noDup;
+        }
+        if (step === 3) {
+          const usedRoles = Object.values(roleMapping).filter(Boolean);
+          return usedRoles.every((r) => !!characterMapping[r]);
+        }
+        return true;
+      }, [step, fileName, consent, roleMapping, characterMapping]);
+
+      const onPrev = (reset = false) => {
+        if (reset === true) { setStep(1); return; }
+        setStep((s) => Math.max(1, s - 1));
+      };
+      const onNext = () => setStep((s) => Math.min(STEPS.length, s + 1));
+      const onStepClick = (n) => setStep(n);
+
+      const nextLabel =
+        step === 1 ? "분석 단계로" :
+        step === 2 ? "캐릭터 고르기" :
+        step === 3 ? "미리보기" :
+        step === 4 ? "내보내기" : "다음";
+
+      return (
+        <div className="min-h-screen w-full flex justify-center bg-cream">
+          <div className="w-full max-w-md bg-cream min-h-screen flex flex-col">
+            <Header currentStep={step} />
+            <StepNav currentStep={step} onStepClick={onStepClick} />
+
+            <main className="flex-1">
+              {step === 1 && (
+                <UploadStep
+                  fileName={fileName}
+                  setFileName={setFileName}
+                  consent={consent}
+                  setConsent={setConsent}
+                />
+              )}
+              {step === 2 && (
+                <LabelStep
+                  segments={DUMMY_SEGMENTS}
+                  roleMapping={roleMapping}
+                  setRoleMapping={setRoleMapping}
+                />
+              )}
+              {step === 3 && (
+                <CharacterStep
+                  roleMapping={roleMapping}
+                  characterMapping={characterMapping}
+                  setCharacterMapping={setCharacterMapping}
+                />
+              )}
+              {step === 4 && (
+                <PreviewStep
+                  segments={DUMMY_SEGMENTS}
+                  roleMapping={roleMapping}
+                  characterMapping={characterMapping}
+                  editedSegments={editedSegments}
+                  setEditedSegments={setEditedSegments}
+                />
+              )}
+              {step === 5 && <ExportStep />}
+            </main>
+
+            <StepFooter
+              currentStep={step}
+              onPrev={onPrev}
+              onNext={onNext}
+              nextLabel={nextLabel}
+              nextDisabled={!canAdvance}
+            />
+
+            {/* 푸터 — 절제된 사인 */}
+            <div className="text-center pb-5 pt-2 text-[10px] uppercase tracking-[0.18em] text-faint">
+              Soft Studio · Prototype v1
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

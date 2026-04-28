@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>기리고 — A4 포스터</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;900&family=Noto+Serif+KR:wght@200;300;400;500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { font-family: "Noto Serif KR", serif; }
+
+    body {
+      background: #1a1a1a;
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: #aaa;
+      font-family: "Cinzel", serif;
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+    }
+    .toolbar button {
+      background: #2a2a2a;
+      color: #ddd;
+      border: 1px solid #444;
+      padding: 8px 16px;
+      font-family: "Cinzel", serif;
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .toolbar button:hover {
+      background: #7c1d1d;
+      color: #fff;
+      border-color: #7c1d1d;
+    }
+
+    /* ───────── A4 포스터 ───────── */
+    .poster {
+      width: 210mm;
+      height: 297mm;
+      background: #050505;
+      color: #ededed;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255,255,255,0.04);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 배경 — 핵심 키 비주얼 (01 phone glow) */
+    .key-visual {
+      position: absolute;
+      inset: 0;
+      background: url('poster-assets/01-hero-phone-glow.jpg') center 30% / cover no-repeat;
+      filter: contrast(1.05) brightness(0.6) saturate(1.1);
+      z-index: 0;
+    }
+
+    /* 어두운 그라디언트 오버레이 — 가독성 + 호러 무드 */
+    .gradient-overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(5,5,5,0.85) 0%, rgba(5,5,5,0.55) 30%, rgba(5,5,5,0.7) 55%, rgba(5,5,5,0.95) 75%, #050505 100%),
+        radial-gradient(ellipse at center 30%, transparent 0%, rgba(124,29,29,0.18) 40%, rgba(0,0,0,0.7) 90%);
+      z-index: 1;
+    }
+
+    /* 그레인 노이즈 */
+    .grain {
+      position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+      opacity: 0.22;
+      mix-blend-mode: overlay;
+      pointer-events: none;
+      z-index: 9;
+    }
+
+    /* 스캔라인 */
+    .scanlines {
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg,
+        rgba(0,0,0,0) 0px,
+        rgba(0,0,0,0) 2px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0) 4px);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* 한자 祈 워터마크 */
+    .watermark {
+      position: absolute;
+      top: 35%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: "Noto Serif KR", serif;
+      font-weight: 900;
+      font-size: 480pt;
+      color: #7c1d1d;
+      opacity: 0.08;
+      line-height: 1;
+      pointer-events: none;
+      z-index: 2;
+      user-select: none;
+    }
+
+    /* 콘텐츠 */
+    .content {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 14mm 14mm 12mm;
+    }
+
+    /* 상단 라벨 */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-family: "Cinzel", serif;
+      font-size: 8.5pt;
+      letter-spacing: 0.5em;
+      color: #d8d8d8;
+      text-transform: uppercase;
+    }
+    .top-bar .left { display: flex; flex-direction: column; gap: 2mm; }
+    .top-bar .left .netflix {
+      color: #e50914;
+      font-weight: 700;
+      letter-spacing: 0.6em;
+      font-size: 9pt;
+    }
+    .top-bar .right { text-align: right; display: flex; flex-direction: column; gap: 2mm; font-size: 7.5pt; }
+
+    /* 중앙 타이틀 */
+    .title-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding-top: 22mm;
+    }
+    .title-eyebrow {
+      font-family: "Cinzel", serif;
+      font-weight: 500;
+      font-size: 10pt;
+      letter-spacing: 0.6em;
+      color: #c9302c;
+      text-transform: uppercase;
+      margin-bottom: 6mm;
+    }
+    .title-main {
+      font-family: "Noto Serif KR", serif;
+      font-weight: 900;
+      font-size: 120pt;
+      line-height: 0.95;
+      letter-spacing: 0.18em;
+      color: #fafafa;
+      text-shadow:
+        2px 0 0 rgba(229,9,20,0.5),
+        -2px 0 0 rgba(0,200,255,0.25),
+        0 4px 28px rgba(0,0,0,0.85);
+    }
+    .title-underline {
+      width: 60mm;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #7c1d1d, transparent);
+      margin: 6mm 0 5mm;
+      position: relative;
+    }
+    .title-underline::before {
+      content: "✦";
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #7c1d1d;
+      font-size: 13pt;
+      background: #050505;
+      padding: 0 6pt;
+    }
+    .title-sub {
+      font-family: "Cinzel", serif;
+      font-weight: 600;
+      font-size: 12pt;
+      letter-spacing: 0.55em;
+      color: #ededed;
+      text-transform: uppercase;
+    }
+    .tagline {
+      margin-top: 8mm;
+      font-family: "Noto Serif KR", serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: 12pt;
+      letter-spacing: 0.04em;
+      color: #d8d8d8;
+      max-width: 130mm;
+      line-height: 1.5;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+    }
+    .tagline strong {
+      color: #e50914;
+      font-weight: 600;
+      font-style: normal;
+    }
+
+    /* ───────── 분위기 사진 스트립 ───────── */
+    .photo-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1.5mm;
+      margin-top: 8mm;
+      padding: 2mm 0;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+    .photo-strip .frame {
+      aspect-ratio: 3/4;
+      background-size: cover;
+      background-position: center;
+      filter: grayscale(0.3) contrast(1.1) brightness(0.7);
+      position: relative;
+    }
+    .photo-strip .frame::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.5));
+    }
+    .photo-strip .f1 { background-image: url('poster-assets/02-candles-altar.jpg'); }
+    .photo-strip .f2 { background-image: url('poster-assets/03-hand-phone-dark.jpg'); }
+    .photo-strip .f3 { background-image: url('poster-assets/04-dark-corridor.jpg'); }
+    .photo-strip .f4 { background-image: url('poster-assets/06-silhouette-group.jpg'); background-position: center 60%; }
+    .photo-strip .f5 { background-image: url('poster-assets/05-red-paper.jpg'); filter: grayscale(0) contrast(1.2) brightness(0.8) saturate(1.4); }
+
+    /* 크레딧 */
+    .credits-block {
+      margin-top: 6mm;
+      text-align: center;
+    }
+    .cast-line {
+      font-family: "Noto Serif KR", serif;
+      font-weight: 600;
+      font-size: 13pt;
+      letter-spacing: 0.18em;
+      color: #ededed;
+      margin-bottom: 3mm;
+      line-height: 1.4;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+    }
+    .cast-line .sep { color: #7c1d1d; margin: 0 2pt; font-weight: 400; }
+
+    .special-cast {
+      font-family: "Cinzel", serif;
+      font-size: 7.5pt;
+      letter-spacing: 0.5em;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 1.5mm;
+    }
+    .special-cast-names {
+      font-family: "Noto Serif KR", serif;
+      font-weight: 500;
+      font-size: 10pt;
+      letter-spacing: 0.15em;
+      color: #c8c8c8;
+      margin-bottom: 5mm;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+    }
+    .special-cast-names .sep { color: #555; margin: 0 4pt; }
+
+    .billing-block {
+      font-family: "Cinzel", serif;
+      letter-spacing: 0.25em;
+      color: #888;
+      text-transform: uppercase;
+      line-height: 1.7;
+      font-size: 7pt;
+    }
+    .billing-block .role { color: #555; font-weight: 400; }
+    .billing-block .name { color: #d8d8d8; font-weight: 600; }
+
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 5mm;
+      padding-top: 3mm;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      font-family: "Cinzel", serif;
+      font-size: 7pt;
+      letter-spacing: 0.4em;
+      color: #777;
+      text-transform: uppercase;
+    }
+    .bottom-bar .ratings { display: flex; gap: 3mm; align-items: center; }
+    .age-rating {
+      width: 7mm; height: 7mm;
+      border: 1.5px solid #c9302c;
+      color: #c9302c;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Cinzel", serif;
+      font-weight: 700;
+      font-size: 8pt;
+      letter-spacing: 0;
+    }
+
+    /* 인쇄 */
+    @media print {
+      @page { size: A4; margin: 0; }
+      html, body { background: white; padding: 0; margin: 0; }
+      body { display: block; }
+      .toolbar { display: none; }
+      .poster { box-shadow: none; page-break-after: avoid; page-break-inside: avoid; }
+    }
+    @media screen and (max-width: 900px) {
+      .poster { transform: scale(0.5); transform-origin: top center; }
+      body { min-height: auto; padding: 16px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span style="align-self:center">기리고 · A4 포스터 (실사진 통합)</span>
+    <button onclick="window.print()">PDF로 저장 / 인쇄</button>
+    <button onclick="location.href='/'">← design-01 페이지</button>
+  </div>
+
+  <div class="poster">
+    <div class="key-visual"></div>
+    <div class="gradient-overlay"></div>
+    <div class="watermark">祈</div>
+
+    <div class="content">
+      <div class="top-bar">
+        <div class="left">
+          <div class="netflix">Netflix Series</div>
+          <div>한국 · 미스터리 · 호러</div>
+        </div>
+        <div class="right">
+          <div>2026.04.24 공개</div>
+          <div>총 8부작</div>
+          <div>YA HORROR</div>
+        </div>
+      </div>
+
+      <div class="title-area">
+        <div class="title-eyebrow">Wish · Curse · Death</div>
+        <div class="title-main">기리고</div>
+        <div class="title-underline"></div>
+        <div class="title-sub">Wish&nbsp;&nbsp;Your&nbsp;&nbsp;Death</div>
+        <div class="tagline">
+          소원을 빌면,<br/>
+          <strong>죽음이 응답한다.</strong>
+        </div>
+      </div>
+
+      <div class="photo-strip">
+        <div class="frame f1" title="굿당 / 무당"></div>
+        <div class="frame f2" title="저주의 알림"></div>
+        <div class="frame f3" title="복도"></div>
+        <div class="frame f4" title="고등학생들"></div>
+        <div class="frame f5" title="부적"></div>
+      </div>
+
+      <div class="credits-block">
+        <div class="cast-line">
+          전소영<span class="sep">·</span>강미나<span class="sep">·</span>백선호<span class="sep">·</span>현우석<span class="sep">·</span>이효제
+        </div>
+        <div class="special-cast">Special Appearance — 무당</div>
+        <div class="special-cast-names">
+          전소니<span class="sep">·</span>이상희
+        </div>
+        <div class="billing-block">
+          <span class="role">Directed by</span>&nbsp;&nbsp;<span class="name">박윤서</span>
+          &nbsp;&nbsp;|&nbsp;&nbsp;
+          <span class="role">Written by</span>&nbsp;&nbsp;<span class="name">박충섭</span>
+        </div>
+      </div>
+
+      <div class="bottom-bar">
+        <div>Originally streaming on Netflix</div>
+        <div class="ratings">
+          <span>청소년 관람불가</span>
+          <div class="age-rating">19</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grain"></div>
+    <div class="scanlines"></div>
+  </div>
+</body>
+</html>
