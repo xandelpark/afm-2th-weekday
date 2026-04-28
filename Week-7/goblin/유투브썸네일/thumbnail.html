@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>빠니보틀 스타일 썸네일</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #000; }
+  .thumb {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .bg {
+    position: absolute; inset: 0;
+    background-image: url('hunza-base.jpg');
+    background-size: cover;
+    background-position: center;
+    filter: saturate(1.15) contrast(1.05);
+  }
+  /* 하단 그라디언트로 자막 가독성 확보 */
+  .vignette {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 38%, rgba(0,0,0,0) 60%),
+      linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 25%);
+  }
+
+  /* 좌상단 채널 라벨 (빠니보틀 로고 자리) */
+  .channel {
+    position: absolute;
+    top: 38px; left: 44px;
+    display: flex; align-items: center; gap: 14px;
+    color: #fff;
+    font-family: 'Jua', sans-serif;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.6);
+  }
+  .channel .dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #ff2d2d;
+    box-shadow: 0 0 12px rgba(255,45,45,0.8);
+  }
+  .channel .name { font-size: 38px; letter-spacing: -1px; }
+
+  /* 우상단 회차 라벨 */
+  .ep {
+    position: absolute;
+    top: 38px; right: 44px;
+    background: #ffd400;
+    color: #111;
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 44px;
+    padding: 8px 22px 6px;
+    letter-spacing: 1px;
+    transform: rotate(-3deg);
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.55);
+  }
+
+  /* 메인 카피: 빠니보틀식 큰 한글 자막 */
+  .title-wrap {
+    position: absolute;
+    left: 60px;
+    bottom: 70px;
+    width: calc(100% - 120px);
+  }
+  .sub {
+    color: #ffd400;
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 64px;
+    line-height: 1;
+    letter-spacing: -1px;
+    text-shadow:
+      4px 4px 0 #000,
+      -2px -2px 0 #000,
+      2px -2px 0 #000,
+      -2px 2px 0 #000;
+    margin-bottom: 18px;
+  }
+  .title {
+    color: #fff;
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 168px;
+    line-height: 0.95;
+    letter-spacing: -4px;
+    text-shadow:
+      6px 6px 0 #000,
+      -3px -3px 0 #000,
+      3px -3px 0 #000,
+      -3px 3px 0 #000,
+      0 12px 24px rgba(0,0,0,0.6);
+  }
+  .title .accent {
+    color: #ff2d2d;
+    text-shadow:
+      6px 6px 0 #000,
+      -3px -3px 0 #000,
+      3px -3px 0 #000,
+      -3px 3px 0 #000;
+  }
+
+  /* 하단 우측 작은 위치 태그 */
+  .place {
+    position: absolute;
+    right: 56px;
+    bottom: 38px;
+    color: #fff;
+    font-family: 'Jua', sans-serif;
+    font-size: 32px;
+    opacity: 0.85;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.7);
+  }
+  .place::before {
+    content: '📍 ';
+  }
+</style>
+</head>
+<body>
+  <div class="thumb">
+    <div class="bg"></div>
+    <div class="vignette"></div>
+
+    <div class="channel">
+      <span class="dot"></span>
+      <span class="name">빠니보틀 / Pani Bottle</span>
+    </div>
+
+    <div class="ep">EP.27</div>
+
+    <div class="title-wrap">
+      <div class="sub">파키스탄 배낭여행 #27</div>
+      <div class="title">
+        여기가 진짜<br>
+        <span class="accent">파라다이스</span>임;;
+      </div>
+    </div>
+
+    <div class="place">파키스탄 · 훈자 밸리</div>
+  </div>
+</body>
+</html>
