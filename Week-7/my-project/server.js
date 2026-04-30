@@ -10,6 +10,9 @@ const fs = require('fs');
 const multer = require('multer');
 const { Pool } = require('pg');
 const axios = require('axios');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileP = promisify(execFile);
 
 // =====================================================================
 // 1) 설정
@@ -17,6 +20,13 @@ const axios = require('axios');
 const PORT = parseInt(process.env.PORT || '3007', 10);
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).trim();
 const ASSEMBLYAI_API_KEY = (process.env.ASSEMBLYAI_API_KEY || '').trim();
+// AssemblyAI 모델 — 우선순위 배열로 전달 (앞이 우선)
+//   universal-3-pro는 한국어 미지원이므로 universal-2로 자동 폴백 필요.
+//   AssemblyAI 권장: ["universal-3-pro", "universal-2"]
+const ASSEMBLYAI_SPEECH_MODELS = (process.env.ASSEMBLYAI_SPEECH_MODELS || 'universal-3-pro,universal-2')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 const DATABASE_URL = (process.env.DATABASE_URL || '').trim();
 
 const ROOT_DIR = __dirname;
@@ -34,12 +44,16 @@ const ALLOWED_MIMES = new Set([
   'audio/x-m4a',
   'audio/mp3',
   'video/mp4',
+  'video/quicktime', // iPhone 기본 포맷 (.mov)
 ]);
-const ALLOWED_EXTS = new Set(['.mp3', '.m4a', '.mp4']);
+const ALLOWED_EXTS = new Set(['.mp3', '.m4a', '.mp4', '.mov']);
 
 // AssemblyAI 폴링 설정
 const ASSEMBLY_POLL_INTERVAL_MS = 3000;   // 3초마다
 const ASSEMBLY_POLL_TIMEOUT_MS = 5 * 60 * 1000; // 최대 5분
+
+// 입력 영상/음성 제약 (MISSION.md: 5분 이내)
+const MAX_DURATION_SEC = 5 * 60 + 5; // 약간의 여유 5초
 
 // =====================================================================
 // 2) 시작 시 디렉토리 보장
@@ -140,13 +154,65 @@ const tmpStorage = multer.diskStorage({
   },
 });
 
+// ffprobe로 오디오 스트림 + duration 검증
+//   반환: { ok: true, durationSec, channels, sampleRate } | { ok: false, code, message }
+async function probeMedia(filePath) {
+  try {
+    const { stdout } = await execFileP('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-show_entries', 'stream=codec_type,codec_name,channels,sample_rate',
+      '-of', 'json',
+      filePath,
+    ]);
+    const data = JSON.parse(stdout);
+    const streams = Array.isArray(data.streams) ? data.streams : [];
+    const audio = streams.find((s) => s.codec_type === 'audio');
+    if (!audio) {
+      return {
+        ok: false,
+        code: 'NO_AUDIO',
+        message: '오디오 트랙이 없는 영상입니다. 음성이 녹음된 mp4 / mov / m4a / mp3 파일을 업로드해주세요.',
+      };
+    }
+    const durationSec = Number(data.format?.duration || 0);
+    if (!Number.isFinite(durationSec) || durationSec <= 0) {
+      return { ok: false, code: 'INVALID_DURATION', message: '재생 시간을 확인할 수 없는 파일입니다.' };
+    }
+    if (durationSec > MAX_DURATION_SEC) {
+      const m = Math.floor(durationSec / 60);
+      const s = Math.round(durationSec - m * 60);
+      return {
+        ok: false,
+        code: 'TOO_LONG',
+        message: `영상이 너무 깁니다 (${m}분 ${s}초). 5분 이하의 영상만 가능합니다.`,
+      };
+    }
+    return {
+      ok: true,
+      durationSec,
+      channels: audio.channels || null,
+      sampleRate: audio.sample_rate ? Number(audio.sample_rate) : null,
+      audioCodec: audio.codec_name || null,
+    };
+  } catch (err) {
+    // 상세 stderr는 서버 로그에만 남기고, 사용자에게는 짧은 메시지
+    console.error('[probeMedia] ffprobe 실패 — file=%s\n%s', filePath, (err.stderr || err.message || '').toString().slice(0, 500));
+    return {
+      ok: false,
+      code: 'PROBE_FAILED',
+      message: '파일을 분석할 수 없습니다. 손상되었거나 지원하지 않는 형식일 수 있어요. mp4 / mov / m4a / mp3 파일로 다시 시도해주세요.',
+    };
+  }
+}
+
 function fileFilter(_req, file, cb) {
   const ext = path.extname(file.originalname || '').toLowerCase();
   const mime = (file.mimetype || '').toLowerCase();
   if (ALLOWED_MIMES.has(mime) || ALLOWED_EXTS.has(ext)) {
     return cb(null, true);
   }
-  cb(new Error(`지원하지 않는 파일 형식입니다. mp3 / m4a / mp4 만 허용됩니다. (받은 형식: ${mime || ext || '알 수 없음'})`));
+  cb(new Error(`지원하지 않는 파일 형식입니다. mp3 / m4a / mp4 / mov 만 허용됩니다. (받은 형식: ${mime || ext || '알 수 없음'})`));
 }
 
 const upload = multer({
@@ -181,6 +247,18 @@ app.post('/api/upload', (req, res) => {
     const originalFilename = req.file.originalname || 'unknown';
     const ext = path.extname(originalFilename).toLowerCase();
 
+    // 1) ffprobe 사전 검증 — 오디오 스트림 / duration
+    const probe = await probeMedia(tmpPath);
+    if (!probe.ok) {
+      try { fs.unlinkSync(tmpPath); } catch (_e) { /* ignore */ }
+      console.warn(`[업로드 거부] file=${originalFilename} code=${probe.code} reason=${probe.message}`);
+      return res.status(400).json({
+        success: false,
+        code: probe.code,
+        message: probe.message,
+      });
+    }
+
     try {
       // DB INSERT — id는 DB가 gen_random_uuid()로 발급
       const insertSql = `
@@ -205,10 +283,15 @@ app.post('/api/upload', (req, res) => {
         [finalPath, jobId]
       );
 
-      console.log(`[업로드] jobId=${jobId} file=${originalFilename} → ${finalPath}`);
+      console.log(`[업로드] jobId=${jobId} file=${originalFilename} → ${finalPath} (${probe.durationSec.toFixed(1)}s, ${probe.audioCodec}/${probe.channels}ch/${probe.sampleRate}Hz)`);
       res.status(201).json({
         success: true,
-        data: { jobId, expiresAt },
+        data: {
+          jobId,
+          expiresAt,
+          durationSec: probe.durationSec,
+          audio: { codec: probe.audioCodec, channels: probe.channels, sampleRate: probe.sampleRate },
+        },
         message: '업로드 완료. 1시간 후 자동 삭제됩니다.',
       });
     } catch (dbErr) {
@@ -226,33 +309,60 @@ app.post('/api/upload', (req, res) => {
 // =====================================================================
 // 7) AssemblyAI 발화자 구분
 // =====================================================================
+// AssemblyAI 응답에서 사람이 읽을 수 있는 에러 메시지 추출
+function describeAssemblyError(err, stage) {
+  if (err.response) {
+    const status = err.response.status;
+    const data = err.response.data;
+    const detail = (data && (data.error || data.message)) || JSON.stringify(data || {}).slice(0, 200);
+    return `AssemblyAI ${stage} 실패 (HTTP ${status}): ${detail}`;
+  }
+  return `AssemblyAI ${stage} 실패: ${err.message}`;
+}
+
 async function uploadToAssemblyAI(filePath) {
   const stream = fs.createReadStream(filePath);
-  const resp = await axios.post('https://api.assemblyai.com/v2/upload', stream, {
-    headers: {
-      authorization: ASSEMBLYAI_API_KEY,
-      'transfer-encoding': 'chunked',
-    },
-    maxBodyLength: Infinity,
-    maxContentLength: Infinity,
-  });
+  let resp;
+  try {
+    resp = await axios.post('https://api.assemblyai.com/v2/upload', stream, {
+      headers: {
+        authorization: ASSEMBLYAI_API_KEY,
+        'transfer-encoding': 'chunked',
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
+  } catch (err) {
+    throw new Error(describeAssemblyError(err, '오디오 업로드'));
+  }
   if (!resp.data || !resp.data.upload_url) {
     throw new Error('AssemblyAI 업로드 응답에 upload_url이 없습니다.');
   }
   return resp.data.upload_url;
 }
 
-async function requestTranscript(audioUrl) {
-  const resp = await axios.post(
-    'https://api.assemblyai.com/v2/transcript',
-    {
-      audio_url: audioUrl,
-      speaker_labels: true,
-      language_code: 'ko',
-      speakers_expected: 3,
-    },
-    { headers: { authorization: ASSEMBLYAI_API_KEY } }
-  );
+async function requestTranscript(audioUrl, opts = {}) {
+  // speakers_expected: 정확히 알 때만 지정. 기본은 미지정 (자동 감지)
+  // → 1~2명만 등장하는 영상에서 강제 3분할되는 문제 방지
+  const body = {
+    audio_url: audioUrl,
+    speaker_labels: true,
+    language_code: 'ko',
+    speech_models: ASSEMBLYAI_SPEECH_MODELS,
+  };
+  if (Number.isInteger(opts.speakersExpected) && opts.speakersExpected >= 1 && opts.speakersExpected <= 10) {
+    body.speakers_expected = opts.speakersExpected;
+  }
+  let resp;
+  try {
+    resp = await axios.post(
+      'https://api.assemblyai.com/v2/transcript',
+      body,
+      { headers: { authorization: ASSEMBLYAI_API_KEY } }
+    );
+  } catch (err) {
+    throw new Error(describeAssemblyError(err, 'transcript 요청'));
+  }
   if (!resp.data || !resp.data.id) {
     throw new Error('AssemblyAI transcript 요청 응답에 id가 없습니다.');
   }
@@ -265,10 +375,15 @@ async function pollTranscript(transcriptId) {
     if (Date.now() - startedAt > ASSEMBLY_POLL_TIMEOUT_MS) {
       throw new Error('AssemblyAI 처리 시간이 5분을 초과했습니다. (timeout)');
     }
-    const resp = await axios.get(
-      `https://api.assemblyai.com/v2/transcript/${transcriptId}`,
-      { headers: { authorization: ASSEMBLYAI_API_KEY } }
-    );
+    let resp;
+    try {
+      resp = await axios.get(
+        `https://api.assemblyai.com/v2/transcript/${transcriptId}`,
+        { headers: { authorization: ASSEMBLYAI_API_KEY } }
+      );
+    } catch (err) {
+      throw new Error(describeAssemblyError(err, '처리 상태 조회'));
+    }
     const status = resp.data?.status;
     if (status === 'completed') {
       return resp.data;
@@ -346,6 +461,10 @@ app.post('/api/transcribe', async (req, res) => {
       // 일부 짧은 음성은 utterances가 비어있을 수 있음 — 경고만 하고 빈 배열 저장
       console.warn(`[전사] jobId=${jobId} utterances가 비어있습니다.`);
     }
+    const speakerSet = new Set(segments.map((s) => s.speaker));
+    const speakerCount = speakerSet.size;
+    const audioDuration = Number(result.audio_duration) || null; // 초
+    const confidence = Number(result.confidence) || null;        // 0~1
 
     // 4) DB 저장
     await pool.query(
@@ -353,10 +472,17 @@ app.post('/api/transcribe', async (req, res) => {
       [JSON.stringify(segments), jobId]
     );
 
-    console.log(`[전사] jobId=${jobId} 완료 — segments=${segments.length}개`);
+    console.log(`[전사] jobId=${jobId} 완료 — segments=${segments.length}개 / 화자=${speakerCount}명 / duration=${audioDuration}s / confidence=${confidence}`);
     res.json({
       success: true,
-      data: { jobId, segments },
+      data: {
+        jobId,
+        segments,
+        speakerCount,
+        speakers: [...speakerSet].sort(),
+        audioDurationSec: audioDuration,
+        confidence,
+      },
       message: '발화자 구분이 완료되었습니다.',
     });
   } catch (err) {
@@ -372,6 +498,165 @@ app.post('/api/transcribe', async (req, res) => {
       success: false,
       message: `발화자 구분에 실패했습니다: ${err.message}`,
     });
+  }
+});
+
+// =====================================================================
+// 7-1) 업로드 오디오 스트리밍 — 브라우저 미리보기용
+//   GET /api/jobs/:id/audio
+//   - Range 요청 지원 (Express static과 동일하게 res.sendFile이 처리)
+//   - 만료된 job은 410, 없으면 404
+// =====================================================================
+const AUDIO_MIME_BY_EXT = {
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+};
+
+app.get('/api/jobs/:id/audio', async (req, res) => {
+  const { id } = req.params;
+  // UUID 형식만 허용 (간단 검사)
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return res.status(400).json({ success: false, message: '잘못된 jobId 형식입니다.' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, upload_path, expires_at FROM baby_cartoon.jobs WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '작업을 찾을 수 없습니다.' });
+    }
+    const job = rows[0];
+    if (new Date(job.expires_at).getTime() < Date.now()) {
+      return res.status(410).json({ success: false, message: '작업이 만료되었습니다.' });
+    }
+    if (!job.upload_path || !fs.existsSync(job.upload_path)) {
+      return res.status(404).json({ success: false, message: '파일이 삭제되었거나 찾을 수 없습니다.' });
+    }
+    // upload_path가 UPLOAD_DIR 바깥을 가리키는 일이 없도록 검사 (방어)
+    const resolved = path.resolve(job.upload_path);
+    if (!resolved.startsWith(path.resolve(UPLOAD_DIR))) {
+      return res.status(400).json({ success: false, message: '경로가 올바르지 않습니다.' });
+    }
+    const ext = path.extname(resolved).toLowerCase();
+    const mime = AUDIO_MIME_BY_EXT[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    return res.sendFile(resolved);
+  } catch (err) {
+    console.error('[오디오 스트리밍 오류]', err.message);
+    res.status(500).json({ success: false, message: '오디오를 불러올 수 없습니다.' });
+  }
+});
+
+// =====================================================================
+// 7-2) 매핑 저장 (Day 3)
+//   PATCH /api/jobs/:id
+//   body: { roleMapping?: {A,B,C → dad/mom/baby}, characterMapping?: {dad/mom/baby → "dad-1" 등} }
+// =====================================================================
+const ROLE_KEYS = new Set(['dad', 'mom', 'baby']);
+const SPEAKER_KEYS = new Set(['A', 'B', 'C']);
+const CHARACTER_ID_RE = /^(dad|mom|baby)-[1-5]$/;
+
+function validateRoleMapping(rm) {
+  if (rm === undefined) return null;
+  if (!rm || typeof rm !== 'object' || Array.isArray(rm)) {
+    return 'roleMapping은 객체여야 합니다.';
+  }
+  const used = [];
+  for (const [k, v] of Object.entries(rm)) {
+    if (!SPEAKER_KEYS.has(k)) return `roleMapping의 화자 키는 A/B/C 중 하나여야 합니다. (받은 값: ${k})`;
+    if (v == null) continue;
+    if (!ROLE_KEYS.has(v)) return `roleMapping의 역할은 dad/mom/baby 중 하나여야 합니다. (받은 값: ${v})`;
+    used.push(v);
+  }
+  if (used.length !== new Set(used).size) {
+    return '같은 역할(dad/mom/baby)을 두 명 이상에게 매길 수 없습니다.';
+  }
+  return null;
+}
+
+function validateCharacterMapping(cm) {
+  if (cm === undefined) return null;
+  if (!cm || typeof cm !== 'object' || Array.isArray(cm)) {
+    return 'characterMapping은 객체여야 합니다.';
+  }
+  for (const [k, v] of Object.entries(cm)) {
+    if (!ROLE_KEYS.has(k)) return `characterMapping의 역할 키는 dad/mom/baby 중 하나여야 합니다. (받은 값: ${k})`;
+    if (v == null) continue;
+    if (typeof v !== 'string' || !CHARACTER_ID_RE.test(v)) {
+      return `characterMapping의 캐릭터 id 형식이 올바르지 않습니다. 예: "dad-1". (받은 값: ${v})`;
+    }
+    const expectedRole = v.split('-')[0];
+    if (expectedRole !== k) {
+      return `characterMapping에서 역할 "${k}"에 "${v}" 캐릭터를 지정할 수 없습니다.`;
+    }
+  }
+  return null;
+}
+
+app.patch('/api/jobs/:id', async (req, res) => {
+  const { id } = req.params;
+  const { roleMapping, characterMapping } = req.body || {};
+
+  if (roleMapping === undefined && characterMapping === undefined) {
+    return res.status(400).json({ success: false, message: 'roleMapping 또는 characterMapping 중 최소 하나는 필요합니다.' });
+  }
+
+  const rmErr = validateRoleMapping(roleMapping);
+  if (rmErr) return res.status(400).json({ success: false, message: rmErr });
+  const cmErr = validateCharacterMapping(characterMapping);
+  if (cmErr) return res.status(400).json({ success: false, message: cmErr });
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, expires_at FROM baby_cartoon.jobs WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '해당 jobId의 작업을 찾을 수 없습니다.' });
+    }
+    if (new Date(rows[0].expires_at).getTime() < Date.now()) {
+      return res.status(410).json({ success: false, message: '작업이 만료되었습니다. 다시 업로드해주세요.' });
+    }
+
+    const sets = [];
+    const params = [];
+    let i = 1;
+    if (roleMapping !== undefined) {
+      sets.push(`role_mapping = $${i++}::jsonb`);
+      params.push(JSON.stringify(roleMapping));
+    }
+    if (characterMapping !== undefined) {
+      sets.push(`character_mapping = $${i++}::jsonb`);
+      params.push(JSON.stringify(characterMapping));
+    }
+    params.push(id);
+
+    const updateSql = `
+      UPDATE baby_cartoon.jobs
+      SET ${sets.join(', ')}
+      WHERE id = $${i}
+      RETURNING id, role_mapping, character_mapping, status
+    `;
+    const result = await pool.query(updateSql, params);
+    const job = result.rows[0];
+
+    console.log(`[매핑] jobId=${id} roleMapping=${roleMapping ? '저장' : '-'} characterMapping=${characterMapping ? '저장' : '-'}`);
+    res.json({
+      success: true,
+      data: {
+        jobId: job.id,
+        roleMapping: job.role_mapping,
+        characterMapping: job.character_mapping,
+        status: job.status,
+      },
+    });
+  } catch (err) {
+    console.error(`[매핑 실패] jobId=${id}`, err.message);
+    res.status(500).json({ success: false, message: '매핑 정보를 저장하는 중 오류가 발생했습니다.' });
   }
 });
 
