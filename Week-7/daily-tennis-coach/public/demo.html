@@ -1,0 +1,3063 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>데일리테니스 자세분석 데모 (PoC)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!--
+    MediaPipe Tasks Vision은 ESM 전용 → type="module"로 로드 후 window 전역에 노출.
+    React/Babel 영역에서는 window.MediaPipeReady (Promise) 로 접근.
+  -->
+  <script type="module">
+    import { PoseLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+    // 모델 사이즈별 URL 맵 (lite/full/heavy 토글용)
+    const MODEL_URLS = {
+      lite:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+      full:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task",
+      heavy: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task",
+    };
+
+    // Pose Landmarker 생성 함수 — 모델 변경 시 재초기화
+    async function createLandmarker(modelKey = "full") {
+      const filesetResolver = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      return await PoseLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: MODEL_URLS[modelKey],
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+    }
+
+    // React 측에서 호출할 수 있도록 window 전역에 노출
+    window.__MediaPipe = {
+      createLandmarker,
+      DrawingUtils,
+      // POSE_CONNECTIONS는 PoseLandmarker.POSE_CONNECTIONS 정적 속성
+      POSE_CONNECTIONS: PoseLandmarker.POSE_CONNECTIONS,
+      ready: true,
+    };
+
+    // 로딩 완료 이벤트 — React가 이벤트로 감지 가능
+    window.dispatchEvent(new Event("mediapipe-ready"));
+  </script>
+
+  <style>
+    /*
+     * video와 canvas 정확한 겹침 전략:
+     * - 컨테이너는 line-height:0 + relative.
+     * - video는 normal flow, width:100%; height:auto → 비율 유지하며 컨테이너 높이 결정.
+     * - canvas는 absolute로 video와 정확히 같은 위치+사이즈.
+     * - canvas 내부 해상도는 JS에서 video.videoWidth/videoHeight로 세팅 (CSS는 stretch).
+     */
+    .video-stack {
+      position: relative;
+      line-height: 0;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .video-stack > video {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .video-stack > canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* 손목 속도 그래프 컨테이너 */
+    .speed-chart { background: #0f172a; border-radius: 8px; }
+
+    /* 라임그린 액센트 */
+    .accent-lime { color: #a3e635; }
+    .bg-accent-lime { background-color: #a3e635; }
+    .border-accent-lime { border-color: #a3e635; }
+
+    /* 별점 */
+    .star-yellow { color: #fbbf24; }
+    .star-dim { color: #475569; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+    function Card({ className = "", children }) {
+      return (
+        <div className={`rounded-xl bg-slate-800 p-6 shadow-lg ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function Button({ className = "", children, ...props }) {
+      return (
+        <button
+          {...props}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function PrimaryButton({ className = "", children, ...props }) {
+      return (
+        <Button
+          {...props}
+          className={`bg-lime-400 hover:bg-lime-300 text-slate-900 ${className}`}
+        >
+          {children}
+        </Button>
+      );
+    }
+
+    function GhostButton({ className = "", children, ...props }) {
+      return (
+        <Button
+          {...props}
+          className={`bg-slate-700 hover:bg-slate-600 text-slate-100 ${className}`}
+        >
+          {children}
+        </Button>
+      );
+    }
+
+    function Radio({ name, value, checked, onChange, label }) {
+      return (
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="radio"
+            name={name}
+            value={value}
+            checked={checked}
+            onChange={onChange}
+            className="accent-lime-400"
+          />
+          <span className="text-sm">{label}</span>
+        </label>
+      );
+    }
+
+    function Badge({ tone = "slate", children }) {
+      const tones = {
+        slate: "bg-slate-700 text-slate-200",
+        lime:  "bg-lime-400/20 text-lime-300 border border-lime-400/40",
+        rose:  "bg-rose-500/20 text-rose-300 border border-rose-500/40",
+        cyan:  "bg-cyan-400/20 text-cyan-300 border border-cyan-400/40",
+        amber: "bg-amber-400/20 text-amber-300 border border-amber-400/40",
+      };
+      return (
+        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${tones[tone]}`}>
+          {children}
+        </span>
+      );
+    }
+
+    function Stat({ label, value, suffix = "" }) {
+      return (
+        <div className="flex flex-col">
+          <span className="text-xs text-slate-400">{label}</span>
+          <span className="text-lg font-semibold text-slate-100">
+            {value}
+            {suffix && <span className="text-xs text-slate-400 ml-1">{suffix}</span>}
+          </span>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 Pose Engine — MediaPipe 통합
+    //   - window.__MediaPipe 가 ready되면 createLandmarker로 인스턴스 생성
+    //   - 모델(lite/full/heavy) 변경 시 인스턴스 close() 후 재생성
+    // ========================================
+    function useMediaPipeReady() {
+      // window.__MediaPipe 가 set되었는지 추적
+      const [ready, setReady] = useState(!!window.__MediaPipe?.ready);
+      useEffect(() => {
+        if (ready) return;
+        const onReady = () => setReady(true);
+        window.addEventListener("mediapipe-ready", onReady);
+        // 혹시 이미 set되었으면 즉시 반영
+        if (window.__MediaPipe?.ready) setReady(true);
+        return () => window.removeEventListener("mediapipe-ready", onReady);
+      }, [ready]);
+      return ready;
+    }
+
+    // ========================================
+    // 🏃 Swing Detection — 손목 속도 시계열 → 피크 검출 → 포/백 분류
+    // ========================================
+
+    // MediaPipe Pose 33-keypoint 인덱스 (필요한 것만)
+    const KP = {
+      NOSE: 0,
+      LEFT_SHOULDER: 11,
+      RIGHT_SHOULDER: 12,
+      LEFT_ELBOW: 13,
+      RIGHT_ELBOW: 14,
+      LEFT_WRIST: 15,
+      RIGHT_WRIST: 16,
+      LEFT_HIP: 23,
+      RIGHT_HIP: 24,
+      LEFT_KNEE: 25,
+      RIGHT_KNEE: 26,
+      LEFT_ANKLE: 27,
+      RIGHT_ANKLE: 28,
+      LEFT_HEEL: 29,
+      RIGHT_HEEL: 30,
+      LEFT_FOOT_INDEX: 31,
+      RIGHT_FOOT_INDEX: 32,
+    };
+
+    // 부위별 파스텔 색상 (33 keypoint 그룹)
+    // 0~10 얼굴, 11~12 어깨, 13~22 팔, 23~24 골반, 25~32 다리
+    const KP_COLORS = (() => {
+      const map = new Array(33);
+      for (let i = 0; i <= 10; i++) map[i] = "#fbcfe8";        // 얼굴 (파스텔 핑크)
+      map[11] = "#bfdbfe"; map[12] = "#bfdbfe";                 // 어깨 (파스텔 블루)
+      for (let i = 13; i <= 22; i++) map[i] = "#bef264";        // 팔 (파스텔 라임)
+      map[23] = "#fde68a"; map[24] = "#fde68a";                 // 골반 (파스텔 옐로)
+      for (let i = 25; i <= 32; i++) map[i] = "#ddd6fe";        // 다리 (파스텔 퍼플)
+      return map;
+    })();
+
+    // 직접 Canvas API로 스켈레톤 그리기 (DrawingUtils 우회)
+    // - 선은 흰색 알파 0.6, 두께 2.5px
+    // - 점은 KP_COLORS 부위별 색상, 반지름 5.5px (중앙 흰 하이라이트)
+    // - 얼굴(0~10) 키포인트는 점/선 모두 그리지 않음 — 영상 얼굴이 그대로 노출되도록
+    function drawPoseSkeleton(ctx, landmarks, connections) {
+      const w = ctx.canvas.width;
+      const h = ctx.canvas.height;
+
+      // 선 — 한 쪽이라도 face 인덱스(0~10)면 스킵
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const conn of connections) {
+        // MediaPipe POSE_CONNECTIONS는 {start,end} 객체 배열
+        if (conn.start <= 10 || conn.end <= 10) continue; // 얼굴 관련 connector 제외
+        const a = landmarks[conn.start];
+        const b = landmarks[conn.end];
+        if (!a || !b) continue;
+        if ((a.visibility ?? 1) < 0.3 || (b.visibility ?? 1) < 0.3) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.x * w, a.y * h);
+        ctx.lineTo(b.x * w, b.y * h);
+        ctx.stroke();
+      }
+
+      // 점 — 얼굴(0~10) 인덱스는 그리지 않음
+      for (let i = 0; i < landmarks.length; i++) {
+        if (i <= 10) continue; // 얼굴 키포인트 스킵
+        const p = landmarks[i];
+        if (!p) continue;
+        if ((p.visibility ?? 1) < 0.3) continue;
+        const x = p.x * w;
+        const y = p.y * h;
+        const color = KP_COLORS[i] || "#ffffff";
+        // 외곽 채움
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        // 흰 가장자리 선
+        ctx.strokeStyle = "rgba(255,255,255,0.85)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // ========================================
+    // 🎾 Racket Tip Estimation — 손목+pinky+index로 라켓 끝 추정
+    // ========================================
+    // MediaPipe Pose 33 keypoint 손/손가락 인덱스
+    //   left:  wrist=15, pinky=17, index=19
+    //   right: wrist=16, pinky=18, index=20
+    // 라켓 길이는 손목~손중심 거리의 약 4배로 가정 (실험적 값)
+    const RACKET_LENGTH_MULTIPLIER = 4.0;
+
+    function estimateRacketTip(landmarks, hand) {
+      if (!landmarks) return null;
+      const wristIdx = hand === "right" ? 16 : 15;
+      const pinkyIdx = hand === "right" ? 18 : 17;
+      const indexIdx = hand === "right" ? 20 : 19;
+      const wrist = landmarks[wristIdx];
+      const pinky = landmarks[pinkyIdx];
+      const index = landmarks[indexIdx];
+      if (!wrist || !pinky || !index) return null;
+      // visibility 체크 — 한 점이라도 안 보이면 라켓 끝 추정 skip
+      const visMin = Math.min(
+        wrist.visibility ?? 0,
+        pinky.visibility ?? 0,
+        index.visibility ?? 0
+      );
+      if (visMin < 0.3) return null;
+      // 손 중심 = (pinky + index) / 2
+      const handCx = (pinky.x + index.x) / 2;
+      const handCy = (pinky.y + index.y) / 2;
+      // 라켓 방향 = handCenter - wrist
+      const dirX = handCx - wrist.x;
+      const dirY = handCy - wrist.y;
+      // 라켓 끝 = wrist + dir × multiplier
+      let tipX = wrist.x + dirX * RACKET_LENGTH_MULTIPLIER;
+      let tipY = wrist.y + dirY * RACKET_LENGTH_MULTIPLIER;
+      // 정규화 좌표 안에 clamp (화면 밖으로 너무 안 빠지도록 -0.1~1.1)
+      tipX = Math.max(-0.1, Math.min(1.1, tipX));
+      tipY = Math.max(-0.1, Math.min(1.1, tipY));
+      return { x: tipX, y: tipY };
+    }
+
+    // 라켓 끝 궤적 그리기 — 시안 그라디언트 페이드 + 끝점 글로우
+    // trail = [{ x, y, t }] 시계열 (정규화 좌표 + ms 타임스탬프)
+    // 최근 TRAIL_DURATION_MS 윈도우만 표시, 오래된 점은 알파 0으로 페이드
+    //
+    // 진짜 매끈한 한 줄기 곡선처럼 보이게:
+    //  (a) 입력 점 moving-average 스무딩 (jitter 제거)
+    //  (b) Catmull-Rom 서브스텝 보간 (segment당 8단계 lineTo로 미세 곡선)
+    //  (c) 서브스텝마다 alpha 보간 → 한 segment 안에서도 부드러운 페이드
+    const TRAIL_DURATION_MS = 1300;
+    const TRAIL_SUBSTEPS = 8;       // segment 당 보간 단계 수
+    const TRAIL_SMOOTH_WINDOW = 3;  // 입력 moving average window (홀수)
+
+    // 인접 N점 평균으로 jitter 제거. 첫/끝점은 원본 유지. timestamp는 원본 유지.
+    function smoothTrail(points, windowSize = TRAIL_SMOOTH_WINDOW) {
+      if (!points || points.length < 3) return points || [];
+      const half = Math.floor(windowSize / 2);
+      const n = points.length;
+      const out = new Array(n);
+      out[0] = points[0];
+      out[n - 1] = points[n - 1];
+      for (let i = 1; i < n - 1; i++) {
+        let sx = 0, sy = 0, c = 0;
+        for (let j = -half; j <= half; j++) {
+          const k = i + j;
+          if (k < 0 || k >= n) continue;
+          sx += points[k].x;
+          sy += points[k].y;
+          c += 1;
+        }
+        out[i] = { x: sx / c, y: sy / c, t: points[i].t };
+      }
+      return out;
+    }
+
+    // Catmull-Rom (tension=0.5) 보간 — t∈[0,1] 위에서 점 좌표 산출
+    function catmullRomPoint(p0, p1, p2, p3, t) {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const x = 0.5 * (
+        2 * p1.x +
+        (-p0.x + p2.x) * t +
+        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+      );
+      const y = 0.5 * (
+        2 * p1.y +
+        (-p0.y + p2.y) * t +
+        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+      );
+      return { x, y };
+    }
+
+    function drawRacketTrail(ctx, trail, nowMs) {
+      if (!trail || trail.length < 2) return;
+      const w = ctx.canvas.width;
+      const h = ctx.canvas.height;
+      const FADE_MS = TRAIL_DURATION_MS;
+
+      // 1) 스무딩
+      const sm = smoothTrail(trail, TRAIL_SMOOTH_WINDOW);
+      const n = sm.length;
+      if (n < 2) return;
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 5.5;
+      ctx.shadowColor = "rgba(103, 232, 249, 0.4)";
+      ctx.shadowBlur = 8;
+
+      // 2) Catmull-Rom 서브스텝 보간 — segment당 SUBSTEPS 단계 lineTo
+      // 한 segment 안에서도 alpha 보간 → 자연스러운 한 줄기 페이드
+      for (let i = 0; i < n - 1; i++) {
+        const p1 = sm[i];
+        const p2 = sm[i + 1];
+        const p0 = i === 0 ? p1 : sm[i - 1];
+        const p3 = i + 2 < n ? sm[i + 2] : p2;
+
+        const ageA = nowMs - p1.t;
+        const ageB = nowMs - p2.t;
+        if (ageA > FADE_MS && ageB > FADE_MS) continue;
+
+        // 픽셀 좌표 변환된 4점
+        const P0 = { x: p0.x * w, y: p0.y * h };
+        const P1 = { x: p1.x * w, y: p1.y * h };
+        const P2 = { x: p2.x * w, y: p2.y * h };
+        const P3 = { x: p3.x * w, y: p3.y * h };
+
+        // SUBSTEPS 만큼 미세한 직선으로 그림 — 각 미세선마다 alpha 보간
+        let prev = P1;
+        let prevAlpha = Math.max(0, 1 - ageA / FADE_MS);
+        for (let s = 1; s <= TRAIL_SUBSTEPS; s++) {
+          const t = s / TRAIL_SUBSTEPS;
+          const cur = catmullRomPoint(P0, P1, P2, P3, t);
+          // age 도 선형보간 → alpha 부드럽게
+          const ageT = ageA * (1 - t) + ageB * t;
+          const curAlpha = Math.max(0, 1 - ageT / FADE_MS);
+          // 미세선 한 개 — 평균 alpha 사용 (양 끝 점의 보간 alpha 평균)
+          const segAlpha = (prevAlpha + curAlpha) * 0.5;
+          if (segAlpha > 0.01) {
+            ctx.strokeStyle = `rgba(103, 232, 249, ${segAlpha.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(cur.x, cur.y);
+            ctx.stroke();
+          }
+          prev = cur;
+          prevAlpha = curAlpha;
+        }
+      }
+
+      // 곡선 그리기 끝 — shadow 리셋
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+
+      // 3) 끝점 글로우 — 곡선의 진짜 끝(가장 최근 점, 스무딩 적용)
+      const last = sm[n - 1];
+      const lastAge = nowMs - last.t;
+      if (lastAge <= FADE_MS) {
+        const x = last.x * w;
+        const y = last.y * h;
+        ctx.shadowColor = "#67e8f9";
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = "#67e8f9";
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        // 화이트 코어
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // 세 점으로 각도 계산 (p2 중심, p1-p2-p3) — 결과 0~180도
+    function angleAt(p1, p2, p3) {
+      if (!p1 || !p2 || !p3) return NaN;
+      const v1x = p1.x - p2.x, v1y = p1.y - p2.y;
+      const v2x = p3.x - p2.x, v2y = p3.y - p2.y;
+      const dot = v1x * v2x + v1y * v2y;
+      const m1 = Math.hypot(v1x, v1y);
+      const m2 = Math.hypot(v2x, v2y);
+      if (m1 === 0 || m2 === 0) return NaN;
+      const c = Math.max(-1, Math.min(1, dot / (m1 * m2)));
+      return Math.acos(c) * 180 / Math.PI;
+    }
+
+    // 두 점을 잇는 선이 수평선과 이루는 각도 (0~180)
+    function lineAngleDeg(a, b) {
+      if (!a || !b) return NaN;
+      return Math.abs(Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI);
+    }
+
+    // 0~100 점수로 클램프 + NaN 가드
+    function clampScore(v, fallback = 50) {
+      if (!Number.isFinite(v)) return fallback;
+      return Math.max(0, Math.min(100, Math.round(v)));
+    }
+
+    // 손목 속도 계산 — frame[i].wrist.x/y와 i-1프레임의 거리/시간
+    // 화면 좌표는 0~1 정규화이므로 단위는 "화면비율/초"
+    function computeWristSpeeds(frames, hand) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const speeds = [];
+      for (let i = 0; i < frames.length; i++) {
+        if (i === 0) {
+          speeds.push({ t: frames[i].t, v: 0 });
+          continue;
+        }
+        const a = frames[i - 1].landmarks?.[wristIdx];
+        const b = frames[i].landmarks?.[wristIdx];
+        const dt = (frames[i].t - frames[i - 1].t) / 1000; // ms→s
+        if (!a || !b || dt <= 0) {
+          speeds.push({ t: frames[i].t, v: 0 });
+          continue;
+        }
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        speeds.push({ t: frames[i].t, v: dist / dt });
+      }
+      return speeds;
+    }
+
+    // 간단한 1D 이동평균 smoothing (모션블러 흔들림 완화)
+    function smooth(values, windowSize = 3) {
+      const out = [];
+      for (let i = 0; i < values.length; i++) {
+        let sum = 0, n = 0;
+        for (let j = Math.max(0, i - windowSize); j <= Math.min(values.length - 1, i + windowSize); j++) {
+          sum += values[j].v; n++;
+        }
+        out.push({ t: values[i].t, v: sum / n });
+      }
+      return out;
+    }
+
+    // 피크 검출 — (평균 + k*std) 임계치 + 최소 간격
+    // minGapMs는 "실시간" 기준 기본값(500ms). 슬로모션 영상이면 호출자가
+    // minGapMs * slowMoFactor를 넘겨서 영상-시간 간격으로 변환해야 함.
+    function detectPeaks(speeds, { minGapMs = 500, kStd = 1.5 } = {}) {
+      if (speeds.length < 3) return [];
+      const vs = speeds.map(s => s.v);
+      const mean = vs.reduce((a, b) => a + b, 0) / vs.length;
+      const variance = vs.reduce((a, b) => a + (b - mean) ** 2, 0) / vs.length;
+      const std = Math.sqrt(variance);
+      const threshold = mean + kStd * std;
+
+      const candidates = [];
+      for (let i = 1; i < speeds.length - 1; i++) {
+        if (
+          speeds[i].v >= threshold &&
+          speeds[i].v >= speeds[i - 1].v &&
+          speeds[i].v >= speeds[i + 1].v
+        ) {
+          candidates.push({ idx: i, t: speeds[i].t, v: speeds[i].v });
+        }
+      }
+
+      // 최소 간격 필터 — 가까운 피크는 더 큰 쪽만 남김
+      candidates.sort((a, b) => b.v - a.v);
+      const kept = [];
+      for (const c of candidates) {
+        if (kept.every(k => Math.abs(k.t - c.t) >= minGapMs)) kept.push(c);
+      }
+      kept.sort((a, b) => a.t - b.t);
+      return kept;
+    }
+
+    // 포핸드/백핸드 자동 분류 — 다중 신호 가중 투표 (player frame projection)
+    // ----------------------------------------------------------------
+    // 원리: 양 어깨 벡터(LEFT_SHOULDER → RIGHT_SHOULDER)를 "선수의 오른쪽" 축으로
+    //   사용하고, 손목 위치를 골반 중심(hipMid) 기준 오프셋으로 잡은 뒤 그 축에
+    //   정사영(scalar projection). 카메라가 선수 좌측/우측/정면 어디 있든 부호
+    //   일관성이 유지됨.
+    //
+    // 다중 신호 (한 신호가 노이즈 끼어도 다른 신호로 보정):
+    //   1) 시작 위치 (start) — FH면 dominant 쪽, BH면 crossed body
+    //   2) 끝 위치 (end) — FH면 non-dominant 쪽, BH면 dominant 쪽
+    //   3) 시작→끝 변위 (displacement) — 가중치 1.5 (가장 강한 신호)
+    //
+    // 윈도우: 피크 ±0.4초(실시간). 슬로모션 영상이면 slowMoFactor로 영상시간 환산.
+    // 시작/끝은 단일 프레임 대신 ±3 프레임 평균으로 노이즈 완화.
+    // visibility 부족하면 fallback으로 구 방식(이미지 X축 dx) 사용.
+    // 어깨너비가 너무 짧은(완전 측면) 프레임만 잡히면 image-X fallback.
+    function classifySwing(frames, peakIdx, hand, slowMoFactor = 1) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const peakFrame = frames[peakIdx];
+      if (!peakFrame?.landmarks) return { type: "unknown", confidence: 0 };
+
+      const windowMs = 400 * slowMoFactor;
+
+      // 시작 프레임 = peak - windowMs
+      const tStart = peakFrame.t - windowMs;
+      let startIdx = peakIdx;
+      for (let i = peakIdx; i >= 0; i--) {
+        if (frames[i].t <= tStart) { startIdx = i; break; }
+        if (i === 0) startIdx = 0;
+      }
+
+      // 끝 프레임 = peak + windowMs (팔로우 스루까지 포함해서 더 큰 lever arm 확보)
+      const tEnd = peakFrame.t + windowMs;
+      let endIdx = peakIdx;
+      for (let i = peakIdx; i < frames.length; i++) {
+        if (frames[i].t >= tEnd) { endIdx = i; break; }
+        if (i === frames.length - 1) endIdx = i;
+      }
+
+      // 선수 몸 좌표계 투영 — 손목 offset(=wrist - hipMid)을
+      // 어깨 벡터(left → right shoulder, "선수의 오른쪽" 방향)에 정사영.
+      function projectOnPlayerRight(frame) {
+        if (!frame?.landmarks) return null;
+        const lm = frame.landmarks;
+        const ls = lm[KP.LEFT_SHOULDER];
+        const rs = lm[KP.RIGHT_SHOULDER];
+        const lh = lm[KP.LEFT_HIP];
+        const rh = lm[KP.RIGHT_HIP];
+        const w = lm[wristIdx];
+        if (!ls || !rs || !lh || !rh || !w) return null;
+
+        // 핵심 keypoint visibility < 0.4면 신뢰 X
+        const minVis = 0.4;
+        if ((ls.visibility ?? 1) < minVis ||
+            (rs.visibility ?? 1) < minVis ||
+            (lh.visibility ?? 1) < minVis ||
+            (rh.visibility ?? 1) < minVis ||
+            (w.visibility  ?? 1) < minVis) {
+          return null;
+        }
+
+        const hipMid = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
+        const playerRight = { x: rs.x - ls.x, y: rs.y - ls.y };
+        const prLen = Math.hypot(playerRight.x, playerRight.y) || 1;
+        // 어깨너비가 너무 짧으면(거의 측면 촬영) 투영 부호가 불안정 → 신뢰 X
+        if (prLen < 0.05) return null;
+
+        const offset = { x: w.x - hipMid.x, y: w.y - hipMid.y };
+        const proj = (offset.x * playerRight.x + offset.y * playerRight.y) / prLen;
+        return { proj, prLen };
+      }
+
+      // [from, to] 인덱스 구간의 평균 proj — visibility 통과한 프레임만
+      function avgProj(from, to) {
+        const projs = [];
+        let prSum = 0, prN = 0;
+        for (let i = from; i <= to; i++) {
+          const r = projectOnPlayerRight(frames[i]);
+          if (r) {
+            projs.push(r.proj);
+            prSum += r.prLen;
+            prN++;
+          }
+        }
+        if (projs.length === 0) return null;
+        return {
+          proj: projs.reduce((a, b) => a + b, 0) / projs.length,
+          prLen: prN > 0 ? prSum / prN : 0,
+          n: projs.length,
+        };
+      }
+
+      const FRAME_AVG = 3;
+      const startAvg = avgProj(startIdx, Math.min(startIdx + FRAME_AVG, peakIdx));
+      const endAvg = avgProj(Math.max(endIdx - FRAME_AVG, peakIdx), endIdx);
+      const peakInfo = projectOnPlayerRight(frames[peakIdx]);
+
+      // 모두 실패 → image-X fallback (visibility 부족 또는 완전 측면)
+      if (!startAvg && !endAvg && !peakInfo) {
+        const w0 = frames[startIdx]?.landmarks?.[wristIdx];
+        const w1 = frames[endIdx]?.landmarks?.[wristIdx];
+        if (!w0 || !w1) return { type: "unknown", confidence: 0 };
+        const dx = w1.x - w0.x;
+        const type = (hand === "right")
+          ? (dx < 0 ? "forehand" : "backhand")
+          : (dx > 0 ? "forehand" : "backhand");
+        const confidence = Math.min(0.5, Math.abs(dx) / 0.15);
+        console.log(`[classifySwing] hand=${hand} fallback(image-X) dx=${dx.toFixed(3)} conf=${confidence.toFixed(2)} → ${type}`);
+        return { type, confidence };
+      }
+
+      // hand=='right' 기준: FH면 start>0, end<0, dProj<0 ⇒ FH 점수 = +
+      // sign 곱해서 hand=='left'는 부호 반전
+      const sign = (hand === "right") ? 1 : -1;
+      const signals = [];
+
+      if (startAvg) {
+        // start가 dominant 쪽이면 FH (sign 곱한 값이 양수면 FH)
+        signals.push({ name: "start", value: startAvg.proj * sign, weight: 1.0 });
+      }
+      if (endAvg) {
+        // end가 non-dominant 쪽이면 FH (sign 곱한 값이 음수면 FH ⇒ 부호 반전)
+        signals.push({ name: "end", value: -endAvg.proj * sign, weight: 1.0 });
+      }
+      if (startAvg && endAvg) {
+        const dProj = endAvg.proj - startAvg.proj;
+        // dProj가 음수면 FH (sign 곱한 값이 음수면 FH ⇒ 부호 반전)
+        signals.push({ name: "displacement", value: -dProj * sign, weight: 1.5 });
+      }
+
+      // 어떤 신호도 못 모으면 (start/end 둘 다 fail이고 peak만 있는 등)
+      if (signals.length === 0) {
+        const w0 = frames[startIdx]?.landmarks?.[wristIdx];
+        const w1 = frames[endIdx]?.landmarks?.[wristIdx];
+        if (!w0 || !w1) return { type: "unknown", confidence: 0 };
+        const dx = w1.x - w0.x;
+        const type = (hand === "right")
+          ? (dx < 0 ? "forehand" : "backhand")
+          : (dx > 0 ? "forehand" : "backhand");
+        const confidence = Math.min(0.5, Math.abs(dx) / 0.15);
+        console.log(`[classifySwing] hand=${hand} no-signal-fallback dx=${dx.toFixed(3)} conf=${confidence.toFixed(2)} → ${type}`);
+        return { type, confidence };
+      }
+
+      // 가중 평균 점수 — 양수면 FH, 음수면 BH
+      let weighted = 0, totalWeight = 0;
+      for (const s of signals) {
+        weighted += s.value * s.weight;
+        totalWeight += s.weight;
+      }
+      const score = weighted / totalWeight;
+      const type = score > 0 ? "forehand" : "backhand";
+
+      // confidence: |score| / 어깨 너비 0.6 기준 정규화
+      const shoulderWidth = peakInfo?.prLen
+        ?? startAvg?.prLen
+        ?? endAvg?.prLen
+        ?? 0.3;
+      const confidence = Math.min(1, Math.abs(score) / Math.max(0.05, shoulderWidth * 0.6));
+
+      console.log(
+        `[classifySwing] hand=${hand}` +
+        ` start=${startAvg ? startAvg.proj.toFixed(3) : "—"}` +
+        ` end=${endAvg ? endAvg.proj.toFixed(3) : "—"}` +
+        ` peak=${peakInfo ? peakInfo.proj.toFixed(3) : "—"}` +
+        ` signals=[${signals.map(s => `${s.name}=${s.value.toFixed(3)}`).join(", ")}]` +
+        ` score=${score.toFixed(3)} shoulderW=${shoulderWidth.toFixed(3)}` +
+        ` conf=${confidence.toFixed(2)} → ${type}`
+      );
+      return { type, confidence };
+    }
+
+    // ========================================
+    // 📐 카메라 각도 자동 감지 — 양 어깨 X거리 기반 추정
+    // ========================================
+    // 어깨가 화면에서 차지하는 가로 비율로 측면/정면/대각선 추정.
+    // - 측면(좌우 90°): 양 어깨가 거의 겹쳐 X차이 작음 (≤ 0.08)
+    // - 정면 / 후방: 어깨가 펼쳐져 화면 폭의 15% 이상 (≥ 0.15)
+    // - 그 사이값(0.08~0.15): 대각선
+    // 사람 검출이 충분치 않으면 'unknown'.
+    function detectCameraView(frames) {
+      const valid = (frames || []).filter(f => {
+        if (!f.landmarks) return false;
+        const ls = f.landmarks[KP.LEFT_SHOULDER];
+        const rs = f.landmarks[KP.RIGHT_SHOULDER];
+        if (!ls || !rs) return false;
+        return (ls.visibility ?? 1) >= 0.5 && (rs.visibility ?? 1) >= 0.5;
+      });
+      if (valid.length < 5) return { view: 'unknown', avgShoulderX: 0, validCount: valid.length };
+
+      const dists = valid.map(f =>
+        Math.abs(f.landmarks[KP.RIGHT_SHOULDER].x - f.landmarks[KP.LEFT_SHOULDER].x)
+      );
+      const avg = dists.reduce((a, b) => a + b, 0) / dists.length;
+
+      let view;
+      if (avg <= 0.08) view = 'side';
+      else if (avg >= 0.15) view = 'front';
+      else view = 'oblique';
+
+      return { view, avgShoulderX: avg, validCount: valid.length };
+    }
+
+    // ========================================
+    // 📊 분석 진단 — 사람 검출률, 평균 신뢰도, 카메라 각도, 스윙 통계
+    // ========================================
+    function buildDiagnostics(frames, speeds, swings, hand) {
+      const totalFrames = frames.length;
+      const wristIdx = hand === 'right' ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+
+      // 사람 검출 = landmarks가 있고 평균 visibility >= 0.3
+      let detected = 0;
+      let confSum = 0, confCount = 0;
+      let wristVisFrames = 0;
+      for (const f of frames) {
+        if (!f.landmarks) continue;
+        let visSum = 0, visN = 0;
+        for (const lm of f.landmarks) {
+          const v = lm.visibility;
+          if (typeof v === 'number') {
+            visSum += v;
+            visN++;
+            confSum += v;
+            confCount++;
+          }
+        }
+        const visAvg = visN > 0 ? visSum / visN : 0;
+        if (visAvg >= 0.3) detected++;
+
+        const wrist = f.landmarks[wristIdx];
+        if (wrist && (wrist.visibility ?? 1) >= 0.5) wristVisFrames++;
+      }
+      const avgConf = confCount > 0 ? confSum / confCount : 0;
+
+      // 손목 속도 통계
+      const speedVals = (speeds || []).map(s => s.v).filter(Number.isFinite);
+      const speedMax = speedVals.length ? Math.max(...speedVals) : 0;
+      const speedMean = speedVals.length ? speedVals.reduce((a, b) => a + b, 0) / speedVals.length : 0;
+      const variance = speedVals.length
+        ? speedVals.reduce((a, b) => a + (b - speedMean) ** 2, 0) / speedVals.length
+        : 0;
+      const speedStd = Math.sqrt(variance);
+      const peakThreshold = speedMean + 1.5 * speedStd;
+
+      const camera = detectCameraView(frames);
+
+      return {
+        totalFrames,
+        detectedFrames: detected,
+        detectedRatio: totalFrames > 0 ? detected / totalFrames : 0,
+        avgConfidence: avgConf,
+        wristVisibleFrames: wristVisFrames,
+        wristVisibleRatio: totalFrames > 0 ? wristVisFrames / totalFrames : 0,
+        swingCount: swings.length,
+        speedMax, speedMean, speedStd, peakThreshold,
+        cameraView: camera.view,
+        cameraShoulderX: camera.avgShoulderX,
+      };
+    }
+
+    // 전체 파이프라인 — 프레임 시계열 → 스윙 리스트
+    // slowMoFactor: 슬로모션 영상 배율 (1=실시간, 2/4/8x). 시간 임계치를
+    //   영상시간 기준으로 늘려서 같은 "실제 0.5초" 간격이 적용되게 함.
+    function detectSwings(frames, hand, slowMoFactor = 1) {
+      if (frames.length < 5) {
+        const diag = buildDiagnostics(frames, [], [], hand);
+        console.log('[detectSwings] frames < 5, skipping. diagnostics:', diag);
+        return { swings: [], speeds: [], diagnostics: diag };
+      }
+      const rawSpeeds = computeWristSpeeds(frames, hand);
+      const speeds = smooth(rawSpeeds, 2);
+      // 최소 피크 간격: 실시간 500ms = 영상시간 500*factor ms
+      const peaks = detectPeaks(speeds, { minGapMs: 500 * slowMoFactor, kStd: 1.5 });
+
+      const swings = peaks.map((p, i) => {
+        const cls = classifySwing(frames, p.idx, hand, slowMoFactor);
+        return {
+          index: i + 1,
+          peakIdx: p.idx,
+          time: p.t,
+          speed: p.v,
+          autoType: cls.type,    // 자동 분류기 결과 (불변)
+          type: cls.type,        // 화면 표시용 (override 적용된 최종값) — useEffect에서 다시 세팅
+          classifyConfidence: cls.confidence,
+        };
+      });
+
+      const diagnostics = buildDiagnostics(frames, speeds, swings, hand);
+
+      // 콘솔 디버그 로그 — F12로 확인
+      console.log('[detectSwings] 분석 완료', {
+        cameraView: diagnostics.cameraView,
+        avgShoulderX: diagnostics.cameraShoulderX.toFixed(3),
+        totalFrames: diagnostics.totalFrames,
+        detectedFrames: diagnostics.detectedFrames,
+        detectedRatio: (diagnostics.detectedRatio * 100).toFixed(1) + '%',
+        avgConfidence: diagnostics.avgConfidence.toFixed(3),
+        wristVisibleRatio: (diagnostics.wristVisibleRatio * 100).toFixed(1) + '%',
+        '손목속도 max': diagnostics.speedMax.toFixed(3),
+        '손목속도 mean': diagnostics.speedMean.toFixed(3),
+        '피크 임계치': diagnostics.peakThreshold.toFixed(3),
+        '검출 피크': peaks.length,
+        '최종 스윙': swings.length,
+      });
+
+      return { swings, speeds, diagnostics };
+    }
+
+    // ========================================
+    // 🎯 6축 점수 — 룰베이스 휴리스틱 (데모용 합리값)
+    // ========================================
+
+    // 피크 ±offset(ms) 시점에 가장 가까운 frame 인덱스
+    function findFrameIdxAt(frames, peakIdx, offsetMs) {
+      const target = frames[peakIdx].t + offsetMs;
+      let bestI = peakIdx, bestD = Infinity;
+      for (let i = 0; i < frames.length; i++) {
+        const d = Math.abs(frames[i].t - target);
+        if (d < bestD) { bestD = d; bestI = i; }
+      }
+      return bestI;
+    }
+
+    // 양 hip의 평균 X (몸 중심)
+    function pelvisCenterX(lm) {
+      const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
+      if (!lh || !rh) return NaN;
+      return (lh.x + rh.x) / 2;
+    }
+
+    // a. 준비자세
+    // slowMoFactor: 슬로모션이면 시간 윈도우(영상시간 ms)를 factor 배 늘려
+    //   동일한 실제 시간 윈도우(피크 -500ms 실시간)를 가져옴.
+    function scoreReadyPosition(frames, peakIdx, slowMoFactor = 1) {
+      const idx = findFrameIdxAt(frames, peakIdx, -500 * slowMoFactor);
+      const lm = frames[idx]?.landmarks;
+      if (!lm) return 50;
+
+      // 무릎 굴곡 — 양쪽 평균 (이상적 ~150도, 곧은 180은 감점)
+      const leftKnee = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
+      const rightKnee = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
+      const knees = [leftKnee, rightKnee].filter(Number.isFinite);
+      const kneeAvg = knees.length ? knees.reduce((a, b) => a + b) / knees.length : 175;
+      // 150 기준 ±30도 허용. 거리 비례 감점.
+      const kneeDiff = Math.abs(kneeAvg - 150);
+      const kneeScore = Math.max(0, 100 - (kneeDiff / 30) * 100);
+
+      // 어깨 라인 수평 정도 — Y차이가 작을수록 좋음 (정규화 0~1)
+      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+      const dy = ls && rs ? Math.abs(ls.y - rs.y) : 0.05;
+      const shoulderScore = Math.max(0, 100 - (dy / 0.08) * 100);
+
+      return clampScore((kneeScore + shoulderScore) / 2);
+    }
+
+    // b. 백스윙 안정성
+    function scoreBackswing(frames, peakIdx, hand, slowMoFactor = 1) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const shoulderIdx = hand === "right" ? KP.RIGHT_SHOULDER : KP.LEFT_SHOULDER;
+      const elbowIdx = hand === "right" ? KP.RIGHT_ELBOW : KP.LEFT_ELBOW;
+
+      // 피크 -300ms(실시간) → 영상시간 -300*factor ms
+      const idx = findFrameIdxAt(frames, peakIdx, -300 * slowMoFactor);
+      const lm = frames[idx]?.landmarks;
+      if (!lm) return 50;
+
+      const wrist = lm[wristIdx];
+      const shoulder = lm[shoulderIdx];
+      // y는 위쪽이 작은 값 (이미지 좌표). wrist.y < shoulder.y면 손목이 어깨 위.
+      const above = wrist && shoulder ? (shoulder.y - wrist.y) : 0;
+      // 0.05 이상 차이가 이상적, 0이면 50점
+      const wristAboveScore = Math.max(0, Math.min(100, (above / 0.1) * 100 + 50));
+
+      // 어깨 회전 각도 — 양 어깨 잇는 선이 수평에서 얼마나 회전했나
+      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+      let rot = 0;
+      if (ls && rs) {
+        const dx = rs.x - ls.x;
+        const dy = rs.y - ls.y;
+        const ang = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI; // 0이면 정면
+        rot = ang; // 회전 각도 근사 (측면일수록 dx가 작아져 ang이 커짐)
+      }
+      // 30~60도 회전이 이상적
+      const rotScore = rot >= 30 ? Math.min(100, 60 + (rot - 30) * 1.5)
+                                  : Math.max(0, 60 - (30 - rot) * 2);
+
+      // 팔 각도 안정성 — 어깨-팔꿈치-손목, 너무 펴지거나 접히지 않은 ~120도가 좋음
+      const armAng = angleAt(lm[shoulderIdx], lm[elbowIdx], lm[wristIdx]);
+      const armScore = Number.isFinite(armAng)
+        ? Math.max(0, 100 - Math.abs(armAng - 120) * 1.5)
+        : 50;
+
+      return clampScore((wristAboveScore + rotScore + armScore) / 3);
+    }
+
+    // 🦶 스탠스 자동 감지 — 다중 프레임 + 다중 신호 가중 평균
+    // ----------------------------------------
+    // 단일 프레임/단일 신호로는 카메라 각도와 노이즈에 너무 취약 → 스윙 시작
+    // 윈도우(피크 -600~-200ms × slowMoFactor)의 여러 프레임에서 4개 신호를 측정,
+    // 각각을 0(완전 오픈)~1(완전 클로즈) 점수로 정규화한 뒤 가중 평균.
+    //   A: 어깨 라인 vs 발목 라인 각도 차
+    //   B: 발목 X 거리 / 어깨 X 거리 비율 (어깨와 발이 같이 옆으로 벌어졌는지)
+    //   C: 발목 Y 거리 (앞발이 화면상 앞쪽에 위치한 원근감 차이)
+    //   D: 발 방향 (heel→foot_index) 두 발 사이 각도 차
+    //
+    // 반환: 'closed' | 'semi-open' | 'open' | 'unknown'
+    // closed: 앞발이 코트와 직각 가까이 — 클래식·뉴트럴 통합
+    // semi-open: 비스듬 — 모던 표준
+    // open: 양 발이 코트와 거의 평행 — 회전 위주
+    // ----------------------------------------
+    const visOf = (p) => (p ? (p.visibility ?? p.score ?? 1) : 0);
+
+    // 신호 A: 어깨-발목 각도차 → 0(평행=오픈) ~ 1(직교=클로즈)
+    function sigShoulderAnkleAngleDiff(lm) {
+      const lA = lm[KP.LEFT_ANKLE], rA = lm[KP.RIGHT_ANKLE];
+      const lS = lm[KP.LEFT_SHOULDER], rS = lm[KP.RIGHT_SHOULDER];
+      if (visOf(lA) < 0.5 || visOf(rA) < 0.5 || visOf(lS) < 0.5 || visOf(rS) < 0.5) return null;
+      const shoulderAngle = Math.atan2(rS.y - lS.y, rS.x - lS.x);
+      const ankleAngle = Math.atan2(rA.y - lA.y, rA.x - lA.x);
+      let diff = Math.abs(shoulderAngle - ankleAngle) * 180 / Math.PI;
+      if (diff > 90) diff = 180 - diff;
+      // 15° 이하 → 0 (오픈), 40° 이상 → 1 (클로즈), 사이는 비례
+      if (diff <= 15) return 0;
+      if (diff >= 40) return 1;
+      return (diff - 15) / 25;
+    }
+
+    // 신호 B: 발목 X 거리 / 어깨 X 거리 → 1.0+ (오픈) ~ 0.5- (클로즈)
+    // 오픈은 어깨와 발 너비가 비슷, 클로즈는 발이 어깨보다 좁고 앞뒤로 어긋남
+    function sigAnkleShoulderXRatio(lm) {
+      const lA = lm[KP.LEFT_ANKLE], rA = lm[KP.RIGHT_ANKLE];
+      const lS = lm[KP.LEFT_SHOULDER], rS = lm[KP.RIGHT_SHOULDER];
+      if (visOf(lA) < 0.5 || visOf(rA) < 0.5 || visOf(lS) < 0.5 || visOf(rS) < 0.5) return null;
+      const ankleXDist = Math.abs(rA.x - lA.x);
+      const shoulderXDist = Math.max(0.05, Math.abs(rS.x - lS.x));
+      const ratio = ankleXDist / shoulderXDist;
+      // ratio >= 1.0 → 0 (오픈), ratio <= 0.4 → 1 (클로즈)
+      if (ratio >= 1.0) return 0;
+      if (ratio <= 0.4) return 1;
+      return (1.0 - ratio) / 0.6;
+    }
+
+    // 신호 C: 발목 Y 거리 (원근감) — 한 발이 앞으로 나오면 화면 Y가 다름
+    // |dy| 0.02 이하 → 0 (오픈), 0.10 이상 → 1 (클로즈)
+    function sigAnkleYDist(lm) {
+      const lA = lm[KP.LEFT_ANKLE], rA = lm[KP.RIGHT_ANKLE];
+      if (visOf(lA) < 0.5 || visOf(rA) < 0.5) return null;
+      const dy = Math.abs(rA.y - lA.y);
+      if (dy <= 0.02) return 0;
+      if (dy >= 0.10) return 1;
+      return (dy - 0.02) / 0.08;
+    }
+
+    // 신호 D: 발 방향(heel→foot_index) 두 발 사이 각도차
+    // 오픈: 양 발이 같은 방향(평행) → 작은 각도. 클로즈: 한 발(앞발)이 다른 방향 → 큰 각도
+    function sigFootDirectionAngle(lm) {
+      const lH = lm[KP.LEFT_HEEL], lF = lm[KP.LEFT_FOOT_INDEX];
+      const rH = lm[KP.RIGHT_HEEL], rF = lm[KP.RIGHT_FOOT_INDEX];
+      if (!lH || !lF || !rH || !rF) return null;
+      // visibility 부족하면 skip — 발은 종종 잘려나감
+      if (visOf(lH) < 0.5 || visOf(lF) < 0.5 || visOf(rH) < 0.5 || visOf(rF) < 0.5) return null;
+      const lvx = lF.x - lH.x, lvy = lF.y - lH.y;
+      const rvx = rF.x - rH.x, rvy = rF.y - rH.y;
+      const lLen = Math.hypot(lvx, lvy);
+      const rLen = Math.hypot(rvx, rvy);
+      if (lLen < 1e-4 || rLen < 1e-4) return null;
+      // dot product → cos(theta)
+      const cos = (lvx * rvx + lvy * rvy) / (lLen * rLen);
+      const clamped = Math.max(-1, Math.min(1, cos));
+      const angleDeg = Math.acos(clamped) * 180 / Math.PI;
+      // 10° 이하 → 0 (평행=오픈), 50° 이상 → 1 (벌어짐=클로즈)
+      if (angleDeg <= 10) return 0;
+      if (angleDeg >= 50) return 1;
+      return (angleDeg - 10) / 40;
+    }
+
+    // 한 프레임의 closeness 점수 (0~1). 신호별 가중 평균. 모두 null이면 null.
+    function frameStanceCloseness(lm) {
+      if (!lm) return null;
+      const sigA = sigShoulderAnkleAngleDiff(lm);
+      const sigB = sigAnkleShoulderXRatio(lm);
+      const sigC = sigAnkleYDist(lm);
+      const sigD = sigFootDirectionAngle(lm);
+      const weights = { A: 1.0, B: 1.0, C: 0.8, D: 1.2 };
+      const signals = [
+        { v: sigA, w: weights.A },
+        { v: sigB, w: weights.B },
+        { v: sigC, w: weights.C },
+        { v: sigD, w: weights.D },
+      ].filter(s => s.v !== null && Number.isFinite(s.v));
+      if (signals.length === 0) return { closeness: null, sigA, sigB, sigC, sigD };
+      const sum = signals.reduce((acc, s) => acc + s.v * s.w, 0);
+      const totalW = signals.reduce((acc, s) => acc + s.w, 0);
+      return { closeness: sum / totalW, sigA, sigB, sigC, sigD };
+    }
+
+    // 다중 프레임 통합 — peak 기준 [-600ms, -200ms] × slowMoFactor 윈도우
+    function detectStance(frames, peakIdx, slowMoFactor = 1) {
+      // 후방 호환 — 단일 landmarks로 호출하면 단일 프레임 fallback
+      if (Array.isArray(frames) && frames.length && frames[0] && !('t' in frames[0]) && !('landmarks' in frames[0])) {
+        // 사실상 단일 landmark 배열 (KP가 직접 들어있는 형태)
+        const r = frameStanceCloseness(frames);
+        if (!r || r.closeness == null) return 'unknown';
+        if (r.closeness < 0.30) return 'open';
+        if (r.closeness < 0.60) return 'semi-open';
+        return 'closed';
+      }
+      if (!Array.isArray(frames) || frames.length === 0 || peakIdx == null) return 'unknown';
+
+      const startIdx = findFrameIdxAt(frames, peakIdx, -600 * slowMoFactor);
+      const endIdx = findFrameIdxAt(frames, peakIdx, -200 * slowMoFactor);
+      const lo = Math.min(startIdx, endIdx);
+      const hi = Math.max(startIdx, endIdx);
+
+      const closenessVals = [];
+      const sigAccum = { A: [], B: [], C: [], D: [] };
+      for (let i = lo; i <= hi; i++) {
+        const lm = frames[i]?.landmarks;
+        if (!lm) continue;
+        const r = frameStanceCloseness(lm);
+        if (!r) continue;
+        if (Number.isFinite(r.closeness)) closenessVals.push(r.closeness);
+        if (Number.isFinite(r.sigA)) sigAccum.A.push(r.sigA);
+        if (Number.isFinite(r.sigB)) sigAccum.B.push(r.sigB);
+        if (Number.isFinite(r.sigC)) sigAccum.C.push(r.sigC);
+        if (Number.isFinite(r.sigD)) sigAccum.D.push(r.sigD);
+      }
+
+      // 신뢰할 만한 프레임이 3개 미만이면 unknown
+      if (closenessVals.length < 3) {
+        console.log('[detectStance] unknown — frames=' + closenessVals.length + ' (need >=3)');
+        return 'unknown';
+      }
+
+      const closeness = closenessVals.reduce((a, b) => a + b, 0) / closenessVals.length;
+      const avg = (arr) => arr.length ? +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(3) : null;
+      const decision = closeness < 0.30 ? 'open' : closeness < 0.60 ? 'semi-open' : 'closed';
+      console.log(
+        `[detectStance] frames=${closenessVals.length} closeness=${closeness.toFixed(3)} → ${decision}`,
+        { sigA: avg(sigAccum.A), sigB: avg(sigAccum.B), sigC: avg(sigAccum.C), sigD: avg(sigAccum.D) }
+      );
+      return decision;
+    }
+
+    // 한국어 스탠스 라벨
+    function stanceLabel(stance) {
+      if (stance === 'open') return '오픈';
+      if (stance === 'semi-open') return '세미오픈';
+      if (stance === 'closed') return '클로즈';
+      return '미상';
+    }
+
+    // 골반 회전 각도 (양 골반 keypoint 23, 24 잇는 선의 각도, deg)
+    function pelvisAngle(lm) {
+      if (!lm) return NaN;
+      const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
+      if (!lh || !rh) return NaN;
+      return Math.atan2(rh.y - lh.y, rh.x - lh.x) * 180 / Math.PI;
+    }
+
+    // c. 체중이동 — 스탠스별 다른 채점 기준 적용
+    // closed/semi-open: 골반 X 이동(선형) 위주
+    // open: 선형 40% + 골반 회전 정점 60%
+    function scoreWeightTransfer(frames, peakIdx, slowMoFactor = 1, stance = 'semi-open') {
+      const startIdx = findFrameIdxAt(frames, peakIdx, -400 * slowMoFactor);
+      const startLm = frames[startIdx]?.landmarks;
+      const peakLm = frames[peakIdx]?.landmarks;
+      if (!startLm || !peakLm) return 50;
+      const xs = pelvisCenterX(startLm);
+      const xp = pelvisCenterX(peakLm);
+      if (!Number.isFinite(xs) || !Number.isFinite(xp)) return 50;
+      const shift = Math.abs(xp - xs);
+
+      // 스탠스별 이상 X 이동 범위
+      // - closed: 0.07~0.13 이상적 (큰 선형 이동)
+      // - semi-open: 0.04~0.09
+      // - open: 0.02~0.05 (작은 선형 이동도 충분)
+      let linearScore;
+      if (stance === 'closed') {
+        if (shift >= 0.07 && shift <= 0.13) linearScore = clampScore(90 + (1 - Math.abs(shift - 0.10) / 0.03) * 10);
+        else if (shift < 0.07) linearScore = clampScore((shift / 0.07) * 80);
+        else linearScore = clampScore(Math.max(50, 90 - (shift - 0.13) * 200));
+      } else if (stance === 'open') {
+        if (shift >= 0.02 && shift <= 0.05) linearScore = clampScore(85 + (1 - Math.abs(shift - 0.035) / 0.015) * 10);
+        else if (shift < 0.02) linearScore = clampScore(50 + (shift / 0.02) * 35);
+        else linearScore = clampScore(Math.max(60, 90 - (shift - 0.05) * 150));
+      } else {
+        // semi-open (기본)
+        if (shift >= 0.04 && shift <= 0.09) linearScore = clampScore(88 + (1 - Math.abs(shift - 0.065) / 0.025) * 10);
+        else if (shift < 0.04) linearScore = clampScore((shift / 0.04) * 80);
+        else linearScore = clampScore(Math.max(55, 90 - (shift - 0.09) * 180));
+      }
+
+      // 오픈은 회전 보조 점수도 합산
+      if (stance === 'open') {
+        // swingStart → peak 사이 골반 회전 정점값 (각도 변화량의 max)
+        const a0 = pelvisAngle(startLm);
+        let maxRot = 0;
+        for (let i = startIdx; i <= peakIdx; i++) {
+          const ai = pelvisAngle(frames[i]?.landmarks);
+          if (Number.isFinite(a0) && Number.isFinite(ai)) {
+            let d = Math.abs(ai - a0);
+            if (d > 180) d = 360 - d;
+            if (d > maxRot) maxRot = d;
+          }
+        }
+        // 골반 회전 25도 이상 만점, 5도 이하 감점
+        let rotationScore;
+        if (maxRot >= 25) rotationScore = clampScore(90 + Math.min(10, (maxRot - 25) * 0.5));
+        else if (maxRot >= 5) rotationScore = clampScore(50 + ((maxRot - 5) / 20) * 40);
+        else rotationScore = clampScore((maxRot / 5) * 50);
+        return clampScore(linearScore * 0.4 + rotationScore * 0.6);
+      }
+
+      return linearScore;
+    }
+
+    // d. 회전 타이밍 (kinetic chain) — 골반 회전 정점 vs 어깨 회전 정점 시간차
+    function scoreKineticChain(frames, peakIdx, slowMoFactor = 1) {
+      // -400 ~ +100ms(실시간) 윈도우 → 영상시간으로 변환
+      const startT = frames[peakIdx].t - 400 * slowMoFactor;
+      const endT = frames[peakIdx].t + 100 * slowMoFactor;
+      const window = frames.filter(f => f.t >= startT && f.t <= endT);
+      if (window.length < 5) return 55;
+
+      // 회전 각도 = 양 어깨/양 골반의 dy/dx atan
+      const calcAngle = (lm, aIdx, bIdx) => {
+        const a = lm[aIdx], b = lm[bIdx];
+        if (!a || !b) return NaN;
+        return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      };
+      const shoulderAngles = window.map(f => calcAngle(f.landmarks, KP.LEFT_SHOULDER, KP.RIGHT_SHOULDER));
+      const hipAngles = window.map(f => calcAngle(f.landmarks, KP.LEFT_HIP, KP.RIGHT_HIP));
+
+      // 각 시계열의 변화율(미분)이 0을 가로지르는 시점 = 정점
+      const findPeakT = (vals, ts) => {
+        let bestT = ts[0], bestRange = -Infinity;
+        const valid = vals.filter(Number.isFinite);
+        if (!valid.length) return NaN;
+        const max = Math.max(...valid);
+        for (let i = 0; i < vals.length; i++) {
+          if (vals[i] === max) { bestT = ts[i]; break; }
+        }
+        return bestT;
+      };
+      const ts = window.map(f => f.t);
+      const shoulderPeakT = findPeakT(shoulderAngles, ts);
+      const hipPeakT = findPeakT(hipAngles, ts);
+      if (!Number.isFinite(shoulderPeakT) || !Number.isFinite(hipPeakT)) return 55;
+
+      // 골반이 어깨보다 먼저 정점이어야 (kinetic chain). 시간차 50~150ms(실시간) 이상적.
+      // diff는 영상시간 ms이므로 실시간으로 환산해서 비교 (= diff / slowMoFactor).
+      const diffVideo = shoulderPeakT - hipPeakT; // 영상시간 ms (양수면 골반이 먼저)
+      const diff = diffVideo / slowMoFactor;      // 실시간 ms 환산
+      const absDiff = Math.abs(diff);
+      let base;
+      if (diff < 0) {
+        // 어깨가 먼저 — 비정상적 sequence, 감점
+        base = 30;
+      } else if (absDiff >= 50 && absDiff <= 150) {
+        base = 95;
+      } else if (absDiff < 50) {
+        base = 50 + (absDiff / 50) * 45;
+      } else {
+        base = Math.max(40, 95 - (absDiff - 150) / 5);
+      }
+      return clampScore(base);
+    }
+
+    // e. 임팩트 자세
+    function scoreImpactPosture(frames, peakIdx, slowMoFactor = 1) {
+      const lm = frames[peakIdx]?.landmarks;
+      if (!lm) return 50;
+
+      // 무릎 굴곡 (계속 적당히 굽혀져 있어야)
+      const lk = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
+      const rk = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
+      const knees = [lk, rk].filter(Number.isFinite);
+      const kneeAvg = knees.length ? knees.reduce((a, b) => a + b) / knees.length : 175;
+      const kneeScore = Math.max(0, 100 - Math.abs(kneeAvg - 155) / 30 * 100);
+
+      // 척추 직립도 — 어깨중심-골반중심 선이 수직에 가까운지
+      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+      const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
+      let spineScore = 50;
+      if (ls && rs && lh && rh) {
+        const sx = (ls.x + rs.x) / 2, sy = (ls.y + rs.y) / 2;
+        const hx = (lh.x + rh.x) / 2, hy = (lh.y + rh.y) / 2;
+        const dx = Math.abs(hx - sx);
+        const dy = Math.abs(hy - sy);
+        const tilt = Math.atan2(dx, dy) * 180 / Math.PI; // 0이 완전 수직
+        spineScore = Math.max(0, 100 - (tilt / 30) * 100);
+      }
+
+      // 머리 안정성 — 임팩트 ±100ms(실시간) 사이 nose의 X 변동
+      const startIdx = findFrameIdxAt(frames, peakIdx, -100 * slowMoFactor);
+      const endIdx = findFrameIdxAt(frames, peakIdx, 100 * slowMoFactor);
+      let headScore = 70;
+      const noses = [];
+      for (let i = startIdx; i <= endIdx; i++) {
+        const n = frames[i]?.landmarks?.[KP.NOSE];
+        if (n) noses.push(n.x);
+      }
+      if (noses.length >= 2) {
+        const range = Math.max(...noses) - Math.min(...noses);
+        // 0.02 이내면 만점, 0.08 이상이면 0점
+        headScore = Math.max(0, Math.min(100, 100 - ((range - 0.02) / 0.06) * 100));
+      }
+
+      return clampScore((kneeScore + spineScore + headScore) / 3);
+    }
+
+    // f. 팔로우스루
+    function scoreFollowThrough(frames, peakIdx, hand, slowMoFactor = 1) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      // 임팩트 → +400ms(실시간)
+      const endIdx = findFrameIdxAt(frames, peakIdx, 400 * slowMoFactor);
+      if (endIdx <= peakIdx) return 50;
+
+      // 팔 궤적 길이 — 누적 이동 거리
+      let dist = 0;
+      for (let i = peakIdx + 1; i <= endIdx; i++) {
+        const a = frames[i - 1].landmarks?.[wristIdx];
+        const b = frames[i].landmarks?.[wristIdx];
+        if (!a || !b) continue;
+        dist += Math.hypot(b.x - a.x, b.y - a.y);
+      }
+      // 0.3 이상이면 만점
+      const distScore = Math.max(0, Math.min(100, (dist / 0.3) * 100));
+
+      // 마지막 프레임 손목이 반대편 어깨 위로 마무리됐는지
+      const last = frames[endIdx]?.landmarks;
+      let endScore = 50;
+      if (last) {
+        const wrist = last[wristIdx];
+        const oppShoulder = last[hand === "right" ? KP.LEFT_SHOULDER : KP.RIGHT_SHOULDER];
+        if (wrist && oppShoulder) {
+          // wrist.y < oppShoulder.y이면 손목이 위 (이미지 좌표 기준)
+          const above = oppShoulder.y - wrist.y;
+          endScore = Math.max(0, Math.min(100, 50 + (above / 0.15) * 50));
+        }
+      }
+
+      return clampScore((distScore + endScore) / 2);
+    }
+
+    // 한 스윙의 6축 점수 — stance에 따라 체중이동 채점 기준이 달라짐
+    function scoreSwing(frames, peakIdx, hand, slowMoFactor = 1, stance = 'semi-open') {
+      const ready = scoreReadyPosition(frames, peakIdx, slowMoFactor);
+      const back = scoreBackswing(frames, peakIdx, hand, slowMoFactor);
+      const weight = scoreWeightTransfer(frames, peakIdx, slowMoFactor, stance);
+      const chain = scoreKineticChain(frames, peakIdx, slowMoFactor);
+      const impact = scoreImpactPosture(frames, peakIdx, slowMoFactor);
+      const follow = scoreFollowThrough(frames, peakIdx, hand, slowMoFactor);
+      const total = clampScore((ready + back + weight + chain + impact + follow) / 6);
+      return { ready, back, weight, chain, impact, follow, total };
+    }
+
+    // ========================================
+    // 🎾 스윙 궤적 일관성 점수 (라켓 끝 시계열 기반)
+    // ========================================
+    // 평가 요소:
+    //   (a) 매끄러움 — 곡률 변화의 표준편차가 낮을수록 좋음 (jerk 낮음)
+    //   (b) 궤적 길이 — 정규화 좌표 기준 0.5 이상이면 좋은 백스윙 폭
+    // racketTip이 null인 프레임이 50% 넘으면 fallback 50점
+    function scoreTrailConsistency(swingFrames) {
+      if (!swingFrames || swingFrames.length < 5) return 50;
+
+      const tipFrames = swingFrames.filter(f => f.racketTip);
+      const validRatio = tipFrames.length / swingFrames.length;
+      if (validRatio < 0.5) return 50; // 손이 안 보이는 프레임이 너무 많음 → fallback
+
+      // (b) 궤적 길이 — 인접 점간 거리 합
+      let pathLength = 0;
+      for (let i = 1; i < tipFrames.length; i++) {
+        const a = tipFrames[i - 1].racketTip;
+        const b = tipFrames[i].racketTip;
+        pathLength += Math.hypot(b.x - a.x, b.y - a.y);
+      }
+      // 0.5 이상이면 만점, 0.2 미만이면 감점
+      let lengthScore;
+      if (pathLength >= 0.5) lengthScore = Math.min(100, 85 + (pathLength - 0.5) * 100);
+      else if (pathLength >= 0.2) lengthScore = 50 + ((pathLength - 0.2) / 0.3) * 35;
+      else lengthScore = (pathLength / 0.2) * 50;
+
+      // (a) 매끄러움 — 곡률 변화의 표준편차
+      // 3점 angle change: 각 i (1..n-2) 위치에서 (p_{i-1}, p_i, p_{i+1})의 각도
+      const angles = [];
+      for (let i = 1; i < tipFrames.length - 1; i++) {
+        const p1 = tipFrames[i - 1].racketTip;
+        const p2 = tipFrames[i].racketTip;
+        const p3 = tipFrames[i + 1].racketTip;
+        const ang = angleAt(p1, p2, p3);
+        if (Number.isFinite(ang)) angles.push(ang);
+      }
+      let smoothScore = 70;
+      if (angles.length >= 3) {
+        // 각도 변화량 시계열 (jerk-like)
+        const diffs = [];
+        for (let i = 1; i < angles.length; i++) {
+          diffs.push(Math.abs(angles[i] - angles[i - 1]));
+        }
+        const mean = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+        const variance = diffs.reduce((a, b) => a + (b - mean) ** 2, 0) / diffs.length;
+        const std = Math.sqrt(variance);
+        // std 작을수록 매끄러움. 5도 이하 만점, 30도 이상 0점.
+        if (std <= 5) smoothScore = 100;
+        else if (std >= 30) smoothScore = 0;
+        else smoothScore = 100 - ((std - 5) / 25) * 100;
+      }
+
+      // 결합 — 매끄러움 60% + 궤적 길이 40%
+      return clampScore(smoothScore * 0.6 + lengthScore * 0.4);
+    }
+
+    // 한 스윙(피크 ±0.4초 실시간)의 racketTip 시계열 frame 윈도우 추출
+    // 슬로모션이면 영상시간 윈도우를 factor 배 늘려 같은 실제 0.4초가 들어오게 함.
+    function extractSwingFrames(frames, peakIdx, slowMoFactor = 1) {
+      const peakT = frames[peakIdx]?.t;
+      if (!Number.isFinite(peakT)) return [];
+      const tStart = peakT - 400 * slowMoFactor;
+      const tEnd = peakT + 400 * slowMoFactor;
+      return frames.filter(f => f.t >= tStart && f.t <= tEnd);
+    }
+
+    // 6축 별점 라벨 (육각형 차트 vertex 순서: 12시→2시→4시→6시→8시→10시)
+    const AXIS_LABELS = [
+      { key: "ready",  label: "준비자세" },
+      { key: "back",   label: "백스윙" },
+      { key: "weight", label: "체중이동" },
+      { key: "chain",  label: "회전 타이밍" },
+      { key: "impact", label: "임팩트" },
+      { key: "follow", label: "팔로우스루" },
+    ];
+
+    // 점수 → 별 5개 문자열
+    function starsFor(score) {
+      const n = Math.max(0, Math.min(5, Math.round((score || 0) / 20)));
+      return "★".repeat(n) + "☆".repeat(5 - n);
+    }
+
+    // 점수 색상 (≥70 라임, 50~70 노랑, <50 빨강)
+    function scoreColorClass(score) {
+      if (score >= 70) return "text-lime-400";
+      if (score >= 50) return "text-amber-400";
+      return "text-rose-400";
+    }
+
+    // ========================================
+    // 📊 Components — 손목 속도 그래프 (Canvas)
+    // ========================================
+    function SpeedChart({ speeds, swings, width = 360, height = 140 }) {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, width, height);
+
+        // 배경 그리드
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+          const y = (height / 4) * i;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+        }
+
+        if (!speeds || speeds.length < 2) {
+          ctx.fillStyle = "#475569";
+          ctx.font = "12px sans-serif";
+          ctx.fillText("재생하면 손목 속도가 여기에 표시됩니다", 20, height / 2);
+          return;
+        }
+
+        // 정규화
+        const maxV = Math.max(...speeds.map(s => s.v), 0.01);
+        const t0 = speeds[0].t;
+        const tEnd = speeds[speeds.length - 1].t;
+        const tRange = Math.max(tEnd - t0, 1);
+
+        // 라인
+        ctx.strokeStyle = "#a3e635";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        speeds.forEach((s, i) => {
+          const x = ((s.t - t0) / tRange) * width;
+          const y = height - (s.v / maxV) * (height - 10) - 4;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // 피크 마킹
+        if (swings) {
+          swings.forEach(sw => {
+            const x = ((sw.time - t0) / tRange) * width;
+            const y = height - (sw.speed / maxV) * (height - 10) - 4;
+            ctx.fillStyle = sw.type === "forehand" ? "#ef4444" : "#22d3ee";
+            ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+          });
+        }
+      }, [speeds, swings, width, height]);
+
+      return (
+        <canvas
+          ref={canvasRef}
+          width={width}
+          height={height}
+          className="speed-chart w-full"
+        />
+      );
+    }
+
+    // ========================================
+    // 📊 HexagonChart — 6축 육각형 SVG 차트 (280x280)
+    // ========================================
+    function HexagonChart({ scores, size = 280 }) {
+      // scores = { ready, back, weight, chain, impact, follow }
+      const cx = size / 2;
+      const cy = size / 2;
+      const radius = size * 0.36;
+
+      // 12시부터 시계방향: 60도 간격, 시작 -90도 (위쪽)
+      const vertices = AXIS_LABELS.map((axis, i) => {
+        const angle = (-90 + i * 60) * Math.PI / 180;
+        return {
+          axis,
+          angle,
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radius,
+          // 라벨은 조금 더 바깥
+          lx: cx + Math.cos(angle) * (radius + 28),
+          ly: cy + Math.sin(angle) * (radius + 28),
+          score: scores ? scores[axis.key] : 0,
+        };
+      });
+
+      const buildPolygonPoints = (factor) => vertices.map(v => {
+        const x = cx + (v.x - cx) * factor;
+        const y = cy + (v.y - cy) * factor;
+        return `${x},${y}`;
+      }).join(" ");
+
+      // 5단계 그리드
+      const grids = [0.2, 0.4, 0.6, 0.8, 1.0].map((f, i) => (
+        <polygon
+          key={i}
+          points={buildPolygonPoints(f)}
+          fill="none"
+          stroke="#334155"
+          strokeWidth="1"
+        />
+      ));
+
+      // 점수 polygon
+      const scorePoints = vertices.map(v => {
+        const f = (v.score || 0) / 100;
+        const x = cx + (v.x - cx) * f;
+        const y = cy + (v.y - cy) * f;
+        return `${x},${y}`;
+      }).join(" ");
+
+      return (
+        <svg
+          viewBox={`0 0 ${size} ${size}`}
+          width={size}
+          height={size}
+          className="mx-auto block"
+          aria-label="6축 능력치 육각형 차트"
+        >
+          {/* 중심에서 vertex로 가는 보조선 */}
+          {vertices.map((v, i) => (
+            <line
+              key={`spoke-${i}`}
+              x1={cx} y1={cy}
+              x2={v.x} y2={v.y}
+              stroke="#1e293b"
+              strokeWidth="1"
+            />
+          ))}
+
+          {grids}
+
+          {/* 점수 polygon */}
+          <polygon
+            points={scorePoints}
+            fill="rgba(163, 230, 53, 0.3)"
+            stroke="#a3e635"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+
+          {/* 점 표시 */}
+          {vertices.map((v, i) => {
+            const f = (v.score || 0) / 100;
+            const x = cx + (v.x - cx) * f;
+            const y = cy + (v.y - cy) * f;
+            return <circle key={`pt-${i}`} cx={x} cy={y} r="3.5" fill="#a3e635" />;
+          })}
+
+          {/* 라벨 */}
+          {vertices.map((v, i) => {
+            // 텍스트 anchor 위치 보정
+            const dx = v.lx - cx;
+            const anchor = Math.abs(dx) < 5 ? "middle" : (dx > 0 ? "start" : "end");
+            const score = v.score || 0;
+            return (
+              <g key={`lbl-${i}`}>
+                <text
+                  x={v.lx}
+                  y={v.ly - 4}
+                  fill="#cbd5e1"
+                  fontSize="11"
+                  fontWeight="600"
+                  textAnchor={anchor}
+                >
+                  {v.axis.label}
+                </text>
+                <text
+                  x={v.lx}
+                  y={v.ly + 9}
+                  fill="#a3e635"
+                  fontSize="11"
+                  fontWeight="700"
+                  textAnchor={anchor}
+                >
+                  {score}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      );
+    }
+
+    // ========================================
+    // ⭐ Stars — 별점 5개 시각화
+    // ========================================
+    function Stars({ score }) {
+      const n = Math.max(0, Math.min(5, Math.round((score || 0) / 20)));
+      return (
+        <span className="font-mono text-base tracking-tight">
+          <span className="star-yellow">{"★".repeat(n)}</span>
+          <span className="star-dim">{"☆".repeat(5 - n)}</span>
+        </span>
+      );
+    }
+
+    // ========================================
+    // 📂 UploadArea — 드래그/드롭 + 클릭 업로드
+    // ========================================
+    function UploadArea({ onUpload, error }) {
+      const [dragOver, setDragOver] = useState(false);
+      const [loadingSample, setLoadingSample] = useState(false);
+      const inputRef = useRef(null);
+
+      const handleFile = (file) => {
+        if (!file) return;
+        if (!file.type.startsWith("video/")) {
+          alert("영상 파일만 업로드 가능합니다");
+          return;
+        }
+        onUpload(file);
+      };
+
+      const loadSample = async (e) => {
+        e.stopPropagation();
+        setLoadingSample(true);
+        try {
+          const res = await fetch("./sample-pro-forehand.mp4");
+          if (!res.ok) throw new Error(`샘플 로드 실패 (${res.status})`);
+          const blob = await res.blob();
+          const file = new File([blob], "sample-pro-forehand.mp4", { type: blob.type || "video/mp4" });
+          onUpload(file);
+        } catch (err) {
+          alert("샘플 영상 로드 실패: " + err.message + "\n\n정적 서버(http://localhost:8765)에서 실행 중인지 확인하세요.");
+        } finally {
+          setLoadingSample(false);
+        }
+      };
+
+      return (
+        <div className="space-y-4">
+          <div
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              handleFile(e.dataTransfer.files?.[0]);
+            }}
+            className={`cursor-pointer rounded-2xl border-2 border-dashed p-12 text-center transition-colors ${
+              dragOver
+                ? "border-lime-400 bg-lime-400/10"
+                : "border-slate-600 hover:border-slate-500 bg-slate-800/40"
+            }`}
+          >
+            <div className="text-5xl mb-4">📹</div>
+            <p className="text-lg font-medium mb-1">
+              드래그/드롭 또는 클릭해서 테니스 스윙 영상 업로드
+            </p>
+            <p className="text-sm text-slate-400">
+              · 30초 이내 권장 · 측면 촬영 · 사람 1명
+            </p>
+            {error && <p className="mt-4 text-sm text-rose-400">{error}</p>}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+          </div>
+          <div className="text-center">
+            <button
+              onClick={loadSample}
+              disabled={loadingSample}
+              className="inline-flex items-center gap-2 rounded-xl bg-lime-400/10 hover:bg-lime-400/20 border border-lime-400/40 px-5 py-3 text-sm font-medium text-lime-300 transition disabled:opacity-50"
+            >
+              <span className="text-lg">🎾</span>
+              {loadingSample ? "로딩 중..." : "조코비치 포핸드 샘플로 테스트"}
+            </button>
+            <p className="mt-2 text-xs text-slate-500">
+              17초 실시간 베이스라인 풋워크 영상 (Djokovic, 영상 속도 1x로 분석)
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🎬 VideoPanel — 영상 + 스켈레톤 오버레이
+    //   - video는 width:100%, height:auto → 자체 비율로 컨테이너 높이 결정
+    //   - canvas는 absolute로 video와 정확히 동일 위치+사이즈 (CSS가 stretch)
+    // ========================================
+    function VideoPanel({ videoRef, canvasRef, src }) {
+      return (
+        <div className="video-stack">
+          <video
+            ref={videoRef}
+            src={src}
+            controls={false}
+            playsInline
+            muted
+          />
+          <canvas ref={canvasRef} />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📊 DiagnosticsCard — 분석 진단 정보
+    // ----------------------------------------
+    // 영상 분석 끝나면 항상 표시. 카메라 각도, 검출률, 평균 신뢰도, 스윙 수.
+    // 정면/대각선 촬영 경고, 스윙 0개일 때 큰 카드로 명확한 안내.
+    // ========================================
+    function DiagnosticsCard({ diagnostics, swingCount, large = false }) {
+      if (!diagnostics) return null;
+
+      const {
+        totalFrames, detectedFrames, detectedRatio,
+        avgConfidence, wristVisibleFrames, wristVisibleRatio,
+        cameraView, cameraShoulderX,
+      } = diagnostics;
+
+      // 카메라 각도 배지 톤/라벨
+      const cameraInfo = {
+        side:    { tone: 'lime',  label: '측면 촬영',    icon: '✅', warn: false },
+        front:   { tone: 'amber', label: '정면 촬영',    icon: '⚠️', warn: true  },
+        oblique: { tone: 'amber', label: '대각선 촬영',  icon: '⚠️', warn: true  },
+        unknown: { tone: 'slate', label: '각도 미상',    icon: '❓', warn: true  },
+      }[cameraView] || { tone: 'slate', label: '각도 미상', icon: '❓', warn: true };
+
+      const noSwing = swingCount === 0;
+
+      // 스윙 0개 + 큰 카드 모드 → 명확한 안내 카드
+      if (noSwing && large) {
+        return (
+          <Card className="border border-amber-500/40 bg-amber-500/5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">⚠️</span>
+              <h2 className="text-base font-semibold text-amber-300">
+                스윙이 검출되지 않았습니다
+              </h2>
+            </div>
+
+            {/* 진단 요약 */}
+            <div className="mb-4 p-3 rounded-lg bg-slate-800/60 text-xs space-y-1.5">
+              <DiagRow label="카메라 각도">
+                <Badge tone={cameraInfo.tone}>
+                  {cameraInfo.icon} {cameraInfo.label}
+                </Badge>
+              </DiagRow>
+              <DiagRow label="분석 프레임">
+                <span className="text-slate-300">{totalFrames} 프레임</span>
+              </DiagRow>
+              <DiagRow label="사람 검출">
+                <span className="text-slate-300">
+                  {detectedFrames} ({(detectedRatio * 100).toFixed(0)}%)
+                </span>
+              </DiagRow>
+              <DiagRow label="손목 검출">
+                <span className="text-slate-300">
+                  {wristVisibleFrames} ({(wristVisibleRatio * 100).toFixed(0)}%)
+                </span>
+              </DiagRow>
+              <DiagRow label="평균 신뢰도">
+                <span className="text-slate-300">{avgConfidence.toFixed(2)}</span>
+              </DiagRow>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-medium text-slate-200 mb-1.5">가능한 원인</div>
+                <ul className="text-xs text-slate-400 space-y-1 pl-4 list-disc">
+                  <li>손목이 화면에 잘 보이지 않음</li>
+                  <li>영상이 정면 또는 후방 각도로 촬영됨</li>
+                  <li>스윙 동작이 너무 작거나 영상에 포함되지 않음</li>
+                  <li>사람이 멀리 작게 찍힘</li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-slate-200 mb-1.5">권장 촬영</div>
+                <ul className="text-xs text-slate-400 space-y-1 pl-4 list-disc">
+                  <li>측면(좌우 90°)에서 촬영</li>
+                  <li>사람이 화면에 충분히 크게</li>
+                  <li>30초 이내, 사람 1명만</li>
+                </ul>
+              </div>
+            </div>
+          </Card>
+        );
+      }
+
+      // 일반 진단 카드 — 스윙 1개 이상 또는 작은 모드
+      return (
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-slate-400">📊 분석 진단</h2>
+            <Badge tone={cameraInfo.tone}>
+              {cameraInfo.icon} {cameraInfo.label}
+            </Badge>
+          </div>
+
+          <ul className="text-xs space-y-1.5">
+            <DiagRow label="분석 프레임">
+              <span className="text-slate-300">{totalFrames}</span>
+            </DiagRow>
+            <DiagRow label="사람 검출">
+              <span className="text-slate-300">
+                {detectedFrames} <span className="text-slate-500">({(detectedRatio * 100).toFixed(0)}%)</span>
+              </span>
+            </DiagRow>
+            <DiagRow label="손목 검출">
+              <span className="text-slate-300">
+                {wristVisibleFrames} <span className="text-slate-500">({(wristVisibleRatio * 100).toFixed(0)}%)</span>
+              </span>
+            </DiagRow>
+            <DiagRow label="평균 신뢰도">
+              <span className="text-slate-300">{avgConfidence.toFixed(2)}</span>
+            </DiagRow>
+            <DiagRow label="검출 스윙">
+              <span className="text-slate-300 font-semibold">{swingCount}개</span>
+            </DiagRow>
+          </ul>
+
+          {cameraInfo.warn && cameraView === 'front' && (
+            <p className="mt-3 pt-3 border-t border-slate-700 text-xs text-amber-300">
+              ⚠️ 정면 촬영은 측면보다 정확도가 떨어집니다. 가능하면 측면(좌우 90°)에서 다시 촬영해보세요.
+            </p>
+          )}
+          {cameraInfo.warn && cameraView === 'oblique' && (
+            <p className="mt-3 pt-3 border-t border-slate-700 text-xs text-amber-300">
+              ⚠️ 정면과 측면 사이의 대각선 각도입니다. 측면에 가까운 각도가 권장됩니다.
+            </p>
+          )}
+          {cameraInfo.warn && cameraView === 'unknown' && (
+            <p className="mt-3 pt-3 border-t border-slate-700 text-xs text-slate-400">
+              ❓ 사람이 충분히 검출되지 않았습니다. 영상에 사람 전신이 보이는지 확인하세요.
+            </p>
+          )}
+        </Card>
+      );
+    }
+
+    // 진단 카드 한 줄 — 라벨 + 값
+    function DiagRow({ label, children }) {
+      return (
+        <li className="flex items-center justify-between">
+          <span className="text-slate-500">{label}</span>
+          <span>{children}</span>
+        </li>
+      );
+    }
+
+    // ========================================
+    // 🏆 BestShotCard — 베스트 스윙 슬로우모션 카드
+    // ----------------------------------------
+    // 결과 패널 맨 위에 표시. 가장 점수가 높은 스윙의 [-0.5s, +0.5s] 윈도우를
+    // 0.25x로 무한 루프 재생. 메인 video와 동일 src 재사용.
+    // 자체 video + canvas 오버레이로 스켈레톤+라켓 궤적도 그림 (캐시된
+    // framesData를 timestamp 기반으로 lookup → detectForVideo 재호출 안 함).
+    // ========================================
+    function BestShotCard({ bestSwing, framesData, videoUrl, hand, slowMoFactor = 1, onToggleType, onCycleStance }) {
+      const bestVideoRef = useRef(null);
+      const bestCanvasRef = useRef(null);
+      const rafRef = useRef(null);
+
+      // 베스트 윈도우(초) — 영상 시간 기준.
+      // 실시간 ±500ms 윈도우 → 영상시간으로는 ±500*factor ms.
+      // (4x 슬로면 영상시간 ±2초가 실제 ±0.5초에 해당)
+      const windowMs = 500 * slowMoFactor;
+      const startSec = (bestSwing.time - windowMs) / 1000;
+      const endSec = (bestSwing.time + windowMs) / 1000;
+
+      // --- video src 세팅 + 슬로우 루프 시작 ---
+      useEffect(() => {
+        const v = bestVideoRef.current;
+        if (!v) return;
+        v.playbackRate = 0.25;
+        v.muted = true;
+
+        // 영상 메타 로드 후 윈도우 안으로 시크 + 재생
+        const startLoop = () => {
+          // 영상 길이 안으로 clamp
+          const dur = v.duration || 0;
+          const s = Math.max(0, Math.min(dur, startSec));
+          v.currentTime = s;
+          const playPromise = v.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => { /* autoplay 정책 등 무시 */ });
+          }
+        };
+        // 메타 로드 안됐으면 이벤트 대기
+        if (v.readyState >= 1) startLoop();
+        else v.addEventListener("loadedmetadata", startLoop, { once: true });
+
+        // 윈도우 끝 넘어가면 시작점으로 점프
+        const onTimeUpdate = () => {
+          if (v.currentTime >= endSec) {
+            v.currentTime = Math.max(0, startSec);
+          }
+        };
+        v.addEventListener("timeupdate", onTimeUpdate);
+
+        return () => {
+          v.removeEventListener("timeupdate", onTimeUpdate);
+          v.removeEventListener("loadedmetadata", startLoop);
+          v.pause();
+        };
+      }, [videoUrl, startSec, endSec, bestSwing.time]);
+
+      // --- canvas 사이즈 동기화 ---
+      const syncCanvas = useCallback(() => {
+        const v = bestVideoRef.current;
+        const c = bestCanvasRef.current;
+        if (!v || !c) return;
+        if (v.videoWidth && (c.width !== v.videoWidth || c.height !== v.videoHeight)) {
+          c.width = v.videoWidth;
+          c.height = v.videoHeight;
+        }
+      }, []);
+
+      // --- 매 프레임 마다 framesData에서 최근접 프레임을 찾아 스켈레톤+궤적 그림 ---
+      useEffect(() => {
+        const v = bestVideoRef.current;
+        const c = bestCanvasRef.current;
+        if (!v || !c || !framesData || framesData.length === 0) return;
+
+        const tick = () => {
+          syncCanvas();
+          const ctx = c.getContext("2d");
+          ctx.clearRect(0, 0, c.width, c.height);
+
+          const tMs = v.currentTime * 1000;
+
+          // 가장 가까운 프레임 (이진/선형 — 데이터가 ordered)
+          let bestI = 0, bestD = Infinity;
+          for (let i = 0; i < framesData.length; i++) {
+            const d = Math.abs(framesData[i].t - tMs);
+            if (d < bestD) { bestD = d; bestI = i; }
+            else if (framesData[i].t > tMs && d > bestD) break; // ordered 가정 시 조기 종료
+          }
+          const f = framesData[bestI];
+
+          // 스켈레톤
+          if (f && f.landmarks && window.__MediaPipe?.POSE_CONNECTIONS) {
+            drawPoseSkeleton(ctx, f.landmarks, window.__MediaPipe.POSE_CONNECTIONS);
+          }
+
+          // 라켓 궤적 — 현재 시점까지의 trail [t-TRAIL_DURATION_MS, t]
+          const trail = [];
+          for (let i = 0; i < framesData.length; i++) {
+            const fi = framesData[i];
+            if (!fi.racketTip) continue;
+            if (fi.t > tMs) break;
+            if (tMs - fi.t > TRAIL_DURATION_MS) continue;
+            trail.push({ x: fi.racketTip.x, y: fi.racketTip.y, t: fi.t });
+          }
+          if (trail.length >= 2) {
+            drawRacketTrail(ctx, trail, tMs);
+          }
+
+          rafRef.current = requestAnimationFrame(tick);
+        };
+
+        rafRef.current = requestAnimationFrame(tick);
+        return () => {
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+      }, [framesData, syncCanvas]);
+
+      // 점수 / 라벨
+      const score = bestSwing.scores?.total ?? 0;
+      const conf = bestSwing.classifyConfidence ?? 1;
+      let typeLabel, typeBadgeTone;
+      if (bestSwing.type === "unknown") {
+        typeLabel = "분류불가";
+        typeBadgeTone = "slate";
+      } else if (bestSwing.userOverridden) {
+        // 사용자가 직접 지정 — confidence 무시
+        const baseLabel = bestSwing.type === "forehand" ? "포핸드" : "백핸드";
+        typeLabel = `${baseLabel} ✏️`;
+        typeBadgeTone = bestSwing.type === "forehand" ? "rose" : "cyan";
+      } else if (conf < 0.3) {
+        typeLabel = "분류 모호";
+        typeBadgeTone = "slate";
+      } else {
+        const baseLabel = bestSwing.type === "forehand" ? "포핸드" : "백핸드";
+        typeLabel = conf < 0.6 ? `${baseLabel} (불확실)` : baseLabel;
+        typeBadgeTone = conf < 0.6
+          ? "amber"
+          : (bestSwing.type === "forehand" ? "rose" : "cyan");
+      }
+
+      return (
+        <Card className="border border-lime-400/30 bg-gradient-to-br from-slate-800 to-slate-800/40">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-lime-300 flex items-center gap-1.5">
+              <span>🏆</span>
+              <span>베스트 샷</span>
+              <span className="text-xs text-slate-400 font-normal">(슬로우 0.25x · 자동 루프)</span>
+            </h2>
+          </div>
+
+          <div className="video-stack mb-3">
+            <video
+              ref={bestVideoRef}
+              src={videoUrl}
+              playsInline
+              muted
+              loop={false}
+              controls={false}
+            />
+            <canvas ref={bestCanvasRef} />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              <Badge tone={typeBadgeTone}>{typeLabel}</Badge>
+              {bestSwing.type !== "unknown" && onToggleType && (
+                <button
+                  onClick={() => onToggleType(bestSwing.index)}
+                  className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs leading-none"
+                  title="자동 분류가 틀렸다면 클릭해서 포/백 변경"
+                  aria-label="포핸드/백핸드 토글"
+                >
+                  ⇄
+                </button>
+              )}
+              {onCycleStance && (
+                <button
+                  onClick={() => onCycleStance(bestSwing.index)}
+                  className="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs leading-none inline-flex items-center gap-1"
+                  title="스탠스가 틀렸다면 클릭해서 변경 (자동 → 오픈 → 세미오픈 → 클로즈 → 자동)"
+                  aria-label="스탠스 사이클"
+                >
+                  <span>스탠스: {stanceLabel(bestSwing.stance)}</span>
+                  {bestSwing.stanceUserOverridden && <span>✏️</span>}
+                  <span>⇄</span>
+                </button>
+              )}
+              <span className="text-xs text-slate-400">
+                {(bestSwing.time / 1000).toFixed(1)}초 시점
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Stars score={score} />
+              <div className="flex items-baseline gap-1">
+                <span className={`text-2xl font-bold ${scoreColorClass(score)}`}>{score}</span>
+                <span className="text-xs text-slate-500">/100</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🚀 App — 메인 애플리케이션
+    // ========================================
+    function App() {
+      const mpReady = useMediaPipeReady();
+
+      // --- 상태 ---
+      const [videoFile, setVideoFile] = useState(null);
+      const [videoUrl, setVideoUrl] = useState("");
+      const [hand, setHand] = useState("right");
+      const [model, setModel] = useState("full");
+      // 영상 속도 배율 — 1=실시간, 2/4/8=슬로모션 영상 (원본 대비 배율)
+      // 모든 시간 임계치(피크 윈도우, 최소 간격 등)는 "실시간 ms" 기준이라
+      // 영상시간 ms로 변환할 때 factor를 곱해야 동일한 실제 시간 윈도우가 됨.
+      const [slowMoFactor, setSlowMoFactor] = useState(1);
+      const [framesData, setFramesData] = useState([]); // [{ t, landmarks }]
+      const [analysisResult, setAnalysisResult] = useState({ swings: [], speeds: [], diagnostics: null });
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [playbackRate, setPlaybackRate] = useState(1);
+      const [stats, setStats] = useState({ fps: 0, avgMs: 0, avgConf: 0 });
+      const [loadingModel, setLoadingModel] = useState(true);
+      const [errorMsg, setErrorMsg] = useState("");
+      const [warningMsg, setWarningMsg] = useState("");
+      const [videoDuration, setVideoDuration] = useState(0);
+
+      // --- refs ---
+      const videoRef = useRef(null);
+      const canvasRef = useRef(null);
+      const landmarkerRef = useRef(null);
+      const framesRef = useRef([]);          // 분석 중에 쌓이는 raw 시계열
+      const speedsLiveRef = useRef([]);      // 실시간 speed 누적
+      const lastFrameTimeRef = useRef(0);
+      const fpsCounterRef = useRef({ frames: 0, lastTick: performance.now() });
+      const processingTimesRef = useRef([]);
+      const confidencesRef = useRef([]);
+      const rafIdRef = useRef(null);
+      const noPersonStreakRef = useRef(0);
+      // VIDEO 모드는 timestamp가 strict monotonic이어야 함. 자체 카운터로 보장.
+      const videoTsRef = useRef(0);
+      // 라켓 끝 궤적 — 최근 1초간 시계열 [{ x, y, t }]
+      const racketTipTrailRef = useRef([]);
+
+      // --- 분석 상태 ---
+      const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [scoreData, setScoreData] = useState(null); // { perSwing, axes, total, fhAvg, bhAvg }
+      // 사용자 수동 오버라이드 — { [swing.index]: 'forehand' | 'backhand' }
+      // 자동 분류가 틀렸을 때 토글 버튼으로 강제 교정. 점수 useEffect의 deps라서
+      // 변경 즉시 FH/BH 평균 / 차트 마커 색이 모두 재계산됨.
+      const [swingOverrides, setSwingOverrides] = useState({});
+      // 스탠스 수동 오버라이드 — { [swing.index]: 'open' | 'semi-open' | 'closed' }
+      // 자동 스탠스 감지가 틀렸을 때 사이클 버튼으로 강제 교정. 체중이동 점수가
+      // 스탠스 의존이라 즉시 재계산됨.
+      const [stanceOverrides, setStanceOverrides] = useState({});
+
+      // --- MediaPipe 초기화 / 모델 변경 시 재초기화 ---
+      useEffect(() => {
+        if (!mpReady) return;
+        let cancelled = false;
+        setLoadingModel(true);
+        setErrorMsg("");
+
+        (async () => {
+          try {
+            // 기존 인스턴스 정리
+            if (landmarkerRef.current) {
+              landmarkerRef.current.close?.();
+              landmarkerRef.current = null;
+            }
+            // 새 인스턴스 = 새 timestamp 시퀀스 시작
+            videoTsRef.current = 0;
+            const lm = await window.__MediaPipe.createLandmarker(model);
+            if (cancelled) { lm.close?.(); return; }
+            landmarkerRef.current = lm;
+            setLoadingModel(false);
+
+            // 영상이 이미 로드된 상태라면 첫 프레임 다시 그려주기
+            const v = videoRef.current;
+            if (v && v.readyState >= 2 && v.paused) {
+              setTimeout(() => analyzeCurrentFrame(), 50);
+            }
+          } catch (err) {
+            console.error("[MediaPipe] 모델 로딩 실패:", err);
+            if (!cancelled) {
+              setErrorMsg("모델 로딩 실패. 인터넷 연결 확인");
+              setLoadingModel(false);
+            }
+          }
+        })();
+
+        return () => {
+          cancelled = true;
+        };
+      }, [mpReady, model, analyzeCurrentFrame]);
+
+      // --- 영상 파일 → object URL ---
+      useEffect(() => {
+        if (!videoFile) {
+          setVideoUrl("");
+          return;
+        }
+        const url = URL.createObjectURL(videoFile);
+        setVideoUrl(url);
+        // 시계열 초기화
+        framesRef.current = [];
+        speedsLiveRef.current = [];
+        confidencesRef.current = [];
+        racketTipTrailRef.current = [];
+        setFramesData([]);
+        setAnalysisResult({ swings: [], speeds: [], diagnostics: null });
+        setScoreData(null);
+        setSwingOverrides({});
+        setStanceOverrides({});
+        setWarningMsg("");
+        // 새 영상 = 새 timestamp 시퀀스 시작 (VIDEO 모드 monotonic 보장)
+        videoTsRef.current = 0;
+        return () => URL.revokeObjectURL(url);
+      }, [videoFile]);
+
+      // --- canvas 내부 해상도를 video 원본 해상도와 동기화 ---
+      // CSS 사이즈는 100%×100% stretch이므로 픽셀 비율만 video와 맞추면
+      // 정규화 좌표(0~1)로 그려도 video 표시 영역에 정확히 매핑됨.
+      const syncCanvasSize = useCallback(() => {
+        const v = videoRef.current;
+        const c = canvasRef.current;
+        if (!v || !c) return;
+        if (v.videoWidth && (c.width !== v.videoWidth || c.height !== v.videoHeight)) {
+          c.width = v.videoWidth;
+          c.height = v.videoHeight;
+        }
+      }, []);
+
+      // --- 비디오 메타로딩 후 길이 검증 + canvas 사이즈 동기화 ---
+      const onLoadedMetadata = () => {
+        const v = videoRef.current;
+        if (!v) return;
+        setVideoDuration(v.duration);
+        if (v.duration > 30) {
+          setWarningMsg(`영상 길이 ${v.duration.toFixed(1)}초 (30초 초과). 분석은 진행됩니다.`);
+        }
+        syncCanvasSize();
+      };
+
+      // --- 임의의 한 프레임 분석 + 그리기 (재생 안 할 때도 호출 가능) ---
+      // 시계열에는 저장하지 않는다 (재생 중 누적된 프레임만 분석에 사용).
+      const analyzeCurrentFrame = useCallback(() => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const lm = landmarkerRef.current;
+        if (!video || !canvas || !lm) return;
+        if (!video.videoWidth) return;
+        // 영상이 한 프레임도 그려지지 않았으면 스킵 (readyState >= 2)
+        if (video.readyState < 2) return;
+
+        syncCanvasSize();
+        // VIDEO 모드는 strict monotonic timestamp 필요
+        videoTsRef.current += 16;
+        const ts = videoTsRef.current;
+        let result = null;
+        try {
+          result = lm.detectForVideo(video, ts);
+        } catch (err) {
+          console.warn("[analyzeCurrentFrame]", err);
+        }
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (result?.landmarks?.length > 0) {
+          drawPoseSkeleton(ctx, result.landmarks[0], window.__MediaPipe.POSE_CONNECTIONS);
+          // 일시정지/시크 시점에도 누적된 trail이 있다면 보이게 그려줌
+          // (trail의 t 기준 nowMs는 최신 trail 점의 t로 사용 — 멈춰있어도 잔상이 사라지지 않게)
+          const trail = racketTipTrailRef.current;
+          if (trail.length > 0) {
+            const nowMs = trail[trail.length - 1].t;
+            drawRacketTrail(ctx, trail, nowMs);
+          }
+        }
+      }, [syncCanvasSize]);
+
+      // --- 프레임마다 pose 추정 + 스켈레톤 그리기 (재생 중) ---
+      const processFrame = useCallback(() => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const lm = landmarkerRef.current;
+        if (!video || !canvas || !lm) {
+          rafIdRef.current = requestAnimationFrame(processFrame);
+          return;
+        }
+        if (video.paused || video.ended) {
+          return;
+        }
+
+        const tsStart = performance.now();
+        // 같은 currentTime이면 스킵 (재생 중이 아니거나 프레임 멈춤)
+        if (video.currentTime === lastFrameTimeRef.current) {
+          rafIdRef.current = requestAnimationFrame(processFrame);
+          return;
+        }
+        lastFrameTimeRef.current = video.currentTime;
+
+        // VIDEO 모드 monotonic timestamp
+        videoTsRef.current += 16;
+        const ts = videoTsRef.current;
+
+        let result = null;
+        try {
+          result = lm.detectForVideo(video, ts);
+        } catch (err) {
+          console.warn("[detectForVideo]", err);
+        }
+        const procMs = performance.now() - tsStart;
+        processingTimesRef.current.push(procMs);
+        if (processingTimesRef.current.length > 60) processingTimesRef.current.shift();
+
+        // FPS 계산 (1초 단위)
+        fpsCounterRef.current.frames += 1;
+        const now = performance.now();
+        if (now - fpsCounterRef.current.lastTick >= 1000) {
+          const fps = fpsCounterRef.current.frames;
+          const avgMs = processingTimesRef.current.length
+            ? processingTimesRef.current.reduce((a, b) => a + b, 0) / processingTimesRef.current.length
+            : 0;
+          const avgConf = confidencesRef.current.length
+            ? confidencesRef.current.slice(-30).reduce((a, b) => a + b, 0) /
+              Math.min(confidencesRef.current.length, 30)
+            : 0;
+          setStats({ fps, avgMs: +avgMs.toFixed(1), avgConf: +avgConf.toFixed(2) });
+          fpsCounterRef.current.frames = 0;
+          fpsCounterRef.current.lastTick = now;
+        }
+
+        syncCanvasSize();
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (result?.landmarks?.length > 0) {
+          const landmarks = result.landmarks[0];
+          noPersonStreakRef.current = 0;
+
+          // 신뢰도 평균 (visibility는 0~1)
+          const confs = landmarks.map(p => p.visibility ?? 0).filter(v => v > 0);
+          if (confs.length) {
+            const avg = confs.reduce((a, b) => a + b, 0) / confs.length;
+            confidencesRef.current.push(avg);
+          }
+
+          // 라켓 끝 추정 (현재 손잡이 기준)
+          const tMs = video.currentTime * 1000;
+          const racketTip = estimateRacketTip(landmarks, hand);
+
+          // 시계열 저장 — 비디오의 currentTime을 ms로 + racketTip 같이 저장
+          framesRef.current.push({
+            t: tMs,
+            landmarks: landmarks.map(p => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility })),
+            racketTip, // null 가능
+          });
+
+          // 라켓 끝 궤적 갱신 — 1초 이전 점은 제거
+          if (racketTip) {
+            racketTipTrailRef.current.push({ x: racketTip.x, y: racketTip.y, t: tMs });
+          }
+          racketTipTrailRef.current = racketTipTrailRef.current.filter(p => tMs - p.t <= TRAIL_DURATION_MS);
+
+          // 직접 그리기 — 부위별 파스텔 색상 + 라켓 궤적 (포즈 위에)
+          drawPoseSkeleton(ctx, landmarks, window.__MediaPipe.POSE_CONNECTIONS);
+          drawRacketTrail(ctx, racketTipTrailRef.current, tMs);
+        } else {
+          noPersonStreakRef.current += 1;
+          if (noPersonStreakRef.current === 30) {
+            setWarningMsg("사람이 검출되지 않습니다. 측면 촬영인지 확인");
+          }
+        }
+
+        rafIdRef.current = requestAnimationFrame(processFrame);
+      }, [hand, syncCanvasSize]);
+
+      // --- 비디오 이벤트 hookup ---
+      useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+
+        const onPlay = () => {
+          setIsPlaying(true);
+          // 분석 시작 전 reset (사용자가 처음부터 재생할 때만)
+          if (v.currentTime === 0) {
+            framesRef.current = [];
+            confidencesRef.current = [];
+            racketTipTrailRef.current = [];
+            noPersonStreakRef.current = 0;
+            setWarningMsg("");
+            setAnalysisResult({ swings: [], speeds: [], diagnostics: null });
+            setScoreData(null);
+          }
+          fpsCounterRef.current = { frames: 0, lastTick: performance.now() };
+          rafIdRef.current = requestAnimationFrame(processFrame);
+        };
+
+        const onPause = () => {
+          setIsPlaying(false);
+          if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+          // 일시정지 시점 프레임 한 번 더 그려주기
+          analyzeCurrentFrame();
+        };
+
+        const onEnded = () => {
+          setIsPlaying(false);
+          if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+          // 끝났을 때 분석
+          if (framesRef.current.length > 0) {
+            setIsAnalyzing(true);
+            // 다음 tick에 분석 (UI 갱신 후)
+            setTimeout(() => {
+              const result = detectSwings(framesRef.current, hand, slowMoFactor);
+              setAnalysisResult(result);
+              setFramesData([...framesRef.current]);
+              setIsAnalyzing(false);
+            }, 0);
+          }
+        };
+
+        // 영상 첫 데이터 로드 — 첫 프레임 스켈레톤 그려주기
+        const onLoadedData = () => {
+          syncCanvasSize();
+          analyzeCurrentFrame();
+        };
+
+        // 영상 첫 paint 가능 — 한 번 더 안전하게
+        const onCanPlay = () => {
+          syncCanvasSize();
+          analyzeCurrentFrame();
+        };
+
+        // 사용자가 시크/일시정지 후 위치 변경 → 그 프레임 분석
+        const onSeeked = () => {
+          analyzeCurrentFrame();
+        };
+
+        v.addEventListener("play", onPlay);
+        v.addEventListener("pause", onPause);
+        v.addEventListener("ended", onEnded);
+        v.addEventListener("loadedmetadata", onLoadedMetadata);
+        v.addEventListener("loadeddata", onLoadedData);
+        v.addEventListener("canplay", onCanPlay);
+        v.addEventListener("seeked", onSeeked);
+        v.addEventListener("error", () => {
+          setErrorMsg("지원하지 않는 영상 형식 또는 디코딩 실패");
+        });
+
+        // 윈도우 resize / 비디오 박스 resize → canvas 사이즈 재동기화 + 다시 그리기
+        const onResize = () => {
+          syncCanvasSize();
+          // 재생 중이 아닐 때만 다시 그리기 (재생 중이면 곧 다음 프레임에서 처리)
+          if (v.paused || v.ended) analyzeCurrentFrame();
+        };
+        window.addEventListener("resize", onResize);
+        let ro = null;
+        if (typeof ResizeObserver !== "undefined") {
+          ro = new ResizeObserver(onResize);
+          ro.observe(v);
+        }
+
+        return () => {
+          v.removeEventListener("play", onPlay);
+          v.removeEventListener("pause", onPause);
+          v.removeEventListener("ended", onEnded);
+          v.removeEventListener("loadedmetadata", onLoadedMetadata);
+          v.removeEventListener("loadeddata", onLoadedData);
+          v.removeEventListener("canplay", onCanPlay);
+          v.removeEventListener("seeked", onSeeked);
+          window.removeEventListener("resize", onResize);
+          if (ro) ro.disconnect();
+          if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+        };
+      }, [videoUrl, processFrame, hand, slowMoFactor, analyzeCurrentFrame, syncCanvasSize]);
+
+      // --- playbackRate 동기화 ---
+      useEffect(() => {
+        if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+      }, [playbackRate, videoUrl]);
+
+      // --- 손잡이/슬로모션 배율 변경 시 이미 분석된 데이터에 대해 재분류 + 라켓 끝 재추정 ---
+      useEffect(() => {
+        if (framesRef.current.length > 0 && !isPlaying) {
+          // 모든 프레임의 racketTip을 새 hand 기준으로 다시 계산
+          framesRef.current = framesRef.current.map(f => ({
+            ...f,
+            racketTip: estimateRacketTip(f.landmarks, hand),
+          }));
+          const result = detectSwings(framesRef.current, hand, slowMoFactor);
+          setAnalysisResult(result);
+          // 손잡이/슬로모를 바꾸면 자동 분류 + 자동 스탠스 감지가 새로 돌아가니까
+          // 사용자 override는 의미가 없어짐
+          setSwingOverrides({});
+          setStanceOverrides({});
+          // framesData 갱신 → 6축 점수 useEffect도 재계산되어 BestShotCard도 새로 그려짐
+          setFramesData([...framesRef.current]);
+        }
+      }, [hand, slowMoFactor, isPlaying]);
+
+      // --- 분석 결과 변경 시 6축 점수 산출 ---
+      useEffect(() => {
+        const swings = analysisResult.swings;
+        const frames = framesRef.current;
+        if (!swings.length || !frames.length) {
+          setScoreData(null);
+          return;
+        }
+
+        // 각 스윙별 6축 점수 + 궤적 일관성 점수 + 스탠스 감지
+        const perSwing = swings.map(sw => {
+          // 스윙 시작 윈도우(피크 -600~-200ms × slowMoFactor) 다중 프레임에서 스탠스 감지
+          const autoStance = detectStance(frames, sw.peakIdx, slowMoFactor);
+          // 사용자 스탠스 오버라이드 — 자동값보다 우선
+          const stanceOverride = stanceOverrides[sw.index];
+          const finalStance = stanceOverride ?? (autoStance === 'unknown' ? 'semi-open' : autoStance);
+          const stanceUserOverridden = !!stanceOverride && stanceOverride !== autoStance;
+          const scored = scoreSwing(frames, sw.peakIdx, hand, slowMoFactor, finalStance);
+          const swingFrames = extractSwingFrames(frames, sw.peakIdx, slowMoFactor);
+          const trailScore = scoreTrailConsistency(swingFrames);
+          // 사용자 override가 있으면 type을 강제 교체. autoType은 보존.
+          const override = swingOverrides[sw.index];
+          const finalType = override ?? sw.autoType ?? sw.type;
+          const userOverridden = !!override && override !== sw.autoType;
+          return {
+            ...sw,
+            type: finalType,
+            userOverridden,
+            scores: scored,
+            trailScore,
+            // stance: 채점에 실제 사용된 값 (오버라이드 반영)
+            stance: finalStance,
+            // stanceDetected: 자동 감지 결과 (UI 라벨용 — override 시에도 보존)
+            stanceDetected: finalStance,
+            // autoStance: 원본 자동값 — 사이클 토글이 'auto'로 복귀할 때 참조
+            autoStance,
+            stanceUserOverridden,
+          };
+        });
+
+        // 6축 평균 (모든 스윙)
+        const axesKeys = ["ready", "back", "weight", "chain", "impact", "follow"];
+        const axes = {};
+        axesKeys.forEach(k => {
+          const vals = perSwing.map(s => s.scores[k]);
+          axes[k] = clampScore(vals.reduce((a, b) => a + b, 0) / vals.length);
+        });
+
+        const total = clampScore(
+          axesKeys.reduce((sum, k) => sum + axes[k], 0) / axesKeys.length
+        );
+
+        // 포핸드 / 백핸드 평균
+        const fhSwings = perSwing.filter(s => s.type === "forehand");
+        const bhSwings = perSwing.filter(s => s.type === "backhand");
+        const fhAvg = fhSwings.length
+          ? clampScore(fhSwings.reduce((a, s) => a + s.scores.total, 0) / fhSwings.length)
+          : null;
+        const bhAvg = bhSwings.length
+          ? clampScore(bhSwings.reduce((a, s) => a + s.scores.total, 0) / bhSwings.length)
+          : null;
+
+        // 궤적 일관성 평균 (전체 스윙)
+        const trailAvg = clampScore(
+          perSwing.reduce((a, s) => a + s.trailScore, 0) / perSwing.length
+        );
+
+        // 가장 빈번한 스탠스 (체중이동 라벨용) — 사용자 오버라이드가 있으면 그 값을, 없으면 자동값을 카운트.
+        // 모두 unknown이면 semi-open로 fallback.
+        const stanceCount = {};
+        perSwing.forEach(s => {
+          // 채점에 실제 적용된 stance를 카운트 — 오버라이드가 우선이라 사용자 의도와 일치
+          if (s.stance && s.stance !== 'unknown') {
+            stanceCount[s.stance] = (stanceCount[s.stance] || 0) + 1;
+          }
+        });
+        let majorityStance = 'semi-open';
+        let maxC = 0;
+        Object.entries(stanceCount).forEach(([k, v]) => {
+          if (v > maxC) { maxC = v; majorityStance = k; }
+        });
+
+        setScoreData({ perSwing, axes, total, fhAvg, bhAvg, trailAvg, majorityStance });
+      }, [analysisResult, hand, slowMoFactor, swingOverrides, stanceOverrides]);
+
+      // 사용자가 자동 분류 결과를 수동 토글
+      // - 현재 type과 반대로 강제 (override가 이미 있으면 그것의 반대, 없으면 autoType의 반대)
+      // - 같은 토글을 다시 누르면 autoType과 같아지므로 override 자체를 제거 (= 자동값으로 복귀)
+      const toggleSwingType = useCallback((swingIndex) => {
+        setSwingOverrides(prev => {
+          const swing = (analysisResult.swings || []).find(s => s.index === swingIndex);
+          if (!swing) return prev;
+          const auto = swing.autoType;
+          const current = prev[swingIndex] ?? auto;
+          const next = current === "forehand" ? "backhand" : "forehand";
+          const updated = { ...prev };
+          if (next === auto) {
+            delete updated[swingIndex]; // 자동값과 같아지면 override 제거 (clean state)
+          } else {
+            updated[swingIndex] = next;
+          }
+          return updated;
+        });
+      }, [analysisResult.swings]);
+
+      // 사용자가 자동 스탠스를 수동 사이클
+      // 사이클 순서: 자동 → open → semi-open → closed → 자동(=override 제거)
+      // perSwing은 ScoreData에 있으므로 거기서 autoStance를 찾는다.
+      const cycleStance = useCallback((swingIndex) => {
+        setStanceOverrides(prev => {
+          const sw = (scoreData?.perSwing || []).find(s => s.index === swingIndex);
+          // autoStance가 unknown이면 'auto' 상태에서 채점은 'semi-open'으로 fallback 중. 사이클은 동일하게 진행.
+          const auto = sw?.autoStance ?? 'unknown';
+          const current = prev[swingIndex]; // undefined면 'auto' 상태
+          const order = ['open', 'semi-open', 'closed'];
+          let next;
+          if (current === undefined) {
+            next = 'open';
+          } else if (current === 'open') {
+            next = 'semi-open';
+          } else if (current === 'semi-open') {
+            next = 'closed';
+          } else {
+            // closed → 자동으로 복귀 (override 제거)
+            next = null;
+          }
+          const updated = { ...prev };
+          if (next === null || next === auto) {
+            delete updated[swingIndex];
+          } else {
+            updated[swingIndex] = next;
+          }
+          return updated;
+        });
+      }, [scoreData]);
+
+      // --- 컨트롤 핸들러 ---
+      const handlePlayPause = () => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (v.paused) v.play();
+        else v.pause();
+      };
+
+      const handleReset = () => {
+        setVideoFile(null);
+        setVideoUrl("");
+        framesRef.current = [];
+        speedsLiveRef.current = [];
+        confidencesRef.current = [];
+        racketTipTrailRef.current = [];
+        setFramesData([]);
+        setAnalysisResult({ swings: [], speeds: [], diagnostics: null });
+        setWarningMsg("");
+        setErrorMsg("");
+        setScoreData(null);
+        setSwingOverrides({});
+        setStanceOverrides({});
+        setIsAnalyzing(false);
+        videoTsRef.current = 0;
+      };
+
+      // 스윙 카드 클릭 → 그 시점으로 시크
+      const seekToSwing = (timeMs) => {
+        const v = videoRef.current;
+        if (!v) return;
+        v.currentTime = Math.max(0, timeMs / 1000 - 0.3);
+      };
+
+      // --- 결과 카운트 (override 반영) ---
+      const counts = useMemo(() => {
+        // perSwing이 있으면 override 반영된 type 사용, 아니면 raw swings로 fallback
+        const list = (scoreData && scoreData.perSwing) || analysisResult.swings;
+        const fh = list.filter(s => s.type === "forehand").length;
+        const bh = list.filter(s => s.type === "backhand").length;
+        const unk = list.filter(s => s.type === "unknown").length;
+        return { total: list.length, fh, bh, unk };
+      }, [scoreData, analysisResult]);
+
+      // --- 베스트 스윙 (가장 점수 높은 1개) ---
+      // 분석 완료 + perSwing 존재할 때만 산출. 동점이면 더 빠른 시점 우선.
+      const bestSwing = useMemo(() => {
+        if (!scoreData || !scoreData.perSwing || scoreData.perSwing.length === 0) return null;
+        return scoreData.perSwing.reduce((best, sw) => {
+          const v = sw.scores?.total ?? -1;
+          const bv = best?.scores?.total ?? -1;
+          return v > bv ? sw : best;
+        }, null);
+      }, [scoreData]);
+
+      // --- 렌더 ---
+      return (
+        <div className="max-w-7xl mx-auto p-6">
+          {/* 헤더 */}
+          <header className="mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                <span className="accent-lime">데일리테니스</span> 자세분석 데모
+                <span className="ml-2 text-sm text-slate-400 font-normal">(PoC)</span>
+              </h1>
+              <p className="text-sm text-slate-400 mt-1">
+                MediaPipe 포즈 추정 · 스윙 분리 · 포/백 자동 분류
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {!mpReady && <Badge tone="slate">MediaPipe 로딩 중…</Badge>}
+              {mpReady && loadingModel && <Badge tone="slate">모델({model}) 로딩 중…</Badge>}
+              {mpReady && !loadingModel && <Badge tone="lime">모델 준비됨 ({model})</Badge>}
+            </div>
+          </header>
+
+          {errorMsg && (
+            <div className="mb-4 p-4 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 text-sm">
+              {errorMsg}
+            </div>
+          )}
+
+          {/* 업로드 화면 */}
+          {!videoUrl && (
+            <UploadArea
+              onUpload={(file) => setVideoFile(file)}
+              error={null}
+            />
+          )}
+
+          {/* 분석 화면 */}
+          {videoUrl && (
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* 좌측 (3열): 비디오 + 컨트롤 */}
+              <div className="lg:col-span-3 space-y-4">
+                <Card className="p-3 sm:p-4">
+                  <VideoPanel
+                    videoRef={videoRef}
+                    canvasRef={canvasRef}
+                    src={videoUrl}
+                  />
+                </Card>
+
+                {warningMsg && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-300 text-sm">
+                    {warningMsg}
+                  </div>
+                )}
+
+                {/* 컨트롤 */}
+                <Card>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <PrimaryButton onClick={handlePlayPause} disabled={loadingModel}>
+                      {isPlaying ? "⏸ 일시정지" : "▶ 재생"}
+                    </PrimaryButton>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-slate-400 mr-2">속도:</span>
+                      {[1, 0.5, 0.25].map(rate => (
+                        <Button
+                          key={rate}
+                          onClick={() => setPlaybackRate(rate)}
+                          className={`text-xs ${
+                            playbackRate === rate
+                              ? "bg-lime-400 text-slate-900"
+                              : "bg-slate-700 hover:bg-slate-600 text-slate-200"
+                          }`}
+                        >
+                          {rate}x
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="flex-1" />
+                    <GhostButton onClick={handleReset}>영상 새로 올리기</GhostButton>
+                  </div>
+
+                  <div className="flex flex-wrap gap-x-6 gap-y-3 pt-3 border-t border-slate-700">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-slate-400">손잡이:</span>
+                      <Radio
+                        name="hand" value="right" label="오른손"
+                        checked={hand === "right"}
+                        onChange={() => setHand("right")}
+                      />
+                      <Radio
+                        name="hand" value="left" label="왼손"
+                        checked={hand === "left"}
+                        onChange={() => setHand("left")}
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-slate-400">모델:</span>
+                      <Radio
+                        name="model" value="lite" label="Lite"
+                        checked={model === "lite"}
+                        onChange={() => setModel("lite")}
+                      />
+                      <Radio
+                        name="model" value="full" label="Full"
+                        checked={model === "full"}
+                        onChange={() => setModel("full")}
+                      />
+                      <Radio
+                        name="model" value="heavy" label="Heavy"
+                        checked={model === "heavy"}
+                        onChange={() => setModel("heavy")}
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="text-sm text-slate-400"
+                        title="슬로모션 영상이면 원본 대비 배율 선택. 일반 실시간 영상은 1x"
+                      >
+                        영상 속도:
+                      </span>
+                      {[1, 2, 4, 8].map(f => (
+                        <Radio
+                          key={f}
+                          name="slowMo"
+                          value={String(f)}
+                          label={`${f}x`}
+                          checked={slowMoFactor === f}
+                          onChange={() => setSlowMoFactor(f)}
+                        />
+                      ))}
+                      <span className="text-xs text-slate-500 hidden sm:inline">
+                        (슬로모션 영상이면 그 배율, 일반은 1x)
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* 성능 정보 */}
+                <Card>
+                  <div className="text-xs text-slate-400 mb-2">성능 정보</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <Stat label="FPS" value={stats.fps} />
+                    <Stat label="평균 처리시간" value={stats.avgMs} suffix="ms/frame" />
+                    <Stat label="평균 신뢰도" value={stats.avgConf} />
+                    <Stat label="영상 길이" value={videoDuration.toFixed(1)} suffix="초" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* 우측 (2열): 결과 */}
+              <div className="lg:col-span-2 space-y-4">
+                {/* 분석 진행 중 */}
+                {isAnalyzing && (
+                  <Card>
+                    <div className="flex items-center gap-3 text-slate-300">
+                      <div className="w-4 h-4 rounded-full border-2 border-lime-400 border-t-transparent animate-spin" />
+                      <span className="text-sm">분석 중...</span>
+                    </div>
+                  </Card>
+                )}
+
+                {/* 📊 분석 진단 — 영상 분석 끝나면 항상 맨 위에 표시.
+                    스윙 0개면 큰 안내 카드 모드, 1개 이상이면 콤팩트 카드. */}
+                {!isAnalyzing && analysisResult.diagnostics && (
+                  <DiagnosticsCard
+                    diagnostics={analysisResult.diagnostics}
+                    swingCount={analysisResult.swings.length}
+                    large={analysisResult.swings.length === 0}
+                  />
+                )}
+
+                {/* 🏆 베스트 샷 — 진단 다음 (분석 완료 + 스윙 1개 이상일 때만) */}
+                {!isAnalyzing && bestSwing && videoUrl && (
+                  <BestShotCard
+                    bestSwing={bestSwing}
+                    framesData={framesData}
+                    videoUrl={videoUrl}
+                    hand={hand}
+                    slowMoFactor={slowMoFactor}
+                    onToggleType={toggleSwingType}
+                    onCycleStance={cycleStance}
+                  />
+                )}
+
+                {/* 분석 전 안내 — 아직 분석 결과 자체가 없을 때만 (diagnostics도 없을 때) */}
+                {!isAnalyzing && !scoreData && !analysisResult.diagnostics && (
+                  <Card>
+                    <h2 className="text-sm font-medium text-slate-400 mb-2">분석 결과</h2>
+                    <p className="text-sm text-slate-500">
+                      ▶ 재생 버튼을 눌러 영상을 끝까지 재생하면 6축 점수가 여기에 표시됩니다.
+                    </p>
+                  </Card>
+                )}
+
+                {/* 분석 결과 — 점수 요약 */}
+                {!isAnalyzing && scoreData && (
+                  <Card>
+                    <h2 className="text-sm font-medium text-slate-400 mb-3">분석 결과</h2>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">검출 스윙</span>
+                        <span className="font-semibold text-slate-100">{counts.total}개</span>
+                      </div>
+                      {scoreData.fhAvg !== null && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">포핸드 평균</span>
+                          <span className="font-semibold">
+                            <span className={scoreColorClass(scoreData.fhAvg)}>{scoreData.fhAvg}</span>
+                            <span className="text-slate-500"> / 100</span>
+                          </span>
+                        </div>
+                      )}
+                      {scoreData.bhAvg !== null && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">백핸드 평균</span>
+                          <span className="font-semibold">
+                            <span className={scoreColorClass(scoreData.bhAvg)}>{scoreData.bhAvg}</span>
+                            <span className="text-slate-500"> / 100</span>
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 mt-2 border-t border-slate-700">
+                        <span className="text-slate-300">종합 점수</span>
+                        <div className="flex items-baseline gap-3">
+                          <span className={`text-2xl font-bold ${scoreColorClass(scoreData.total)}`}>
+                            {scoreData.total}
+                          </span>
+                          <span className="text-slate-500 text-sm">/ 100</span>
+                          <Stars score={scoreData.total} />
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* 육각형 차트 */}
+                {!isAnalyzing && scoreData && (
+                  <Card>
+                    <h2 className="text-sm font-medium text-slate-400 mb-2">6축 능력치</h2>
+                    <p className="text-xs text-slate-500 mb-2">전체 스윙 평균</p>
+                    <HexagonChart scores={scoreData.axes} />
+                  </Card>
+                )}
+
+                {/* 6축 별점 상세 */}
+                {!isAnalyzing && scoreData && (
+                  <Card>
+                    <h2 className="text-sm font-medium text-slate-400 mb-3">6축 별점 상세</h2>
+                    <ul className="space-y-1.5">
+                      {AXIS_LABELS.map(({ key, label }) => {
+                        const v = scoreData.axes[key];
+                        const isWeight = key === 'weight';
+                        return (
+                          <li
+                            key={key}
+                            className="flex items-center justify-between p-2 rounded bg-slate-700/40"
+                          >
+                            <span className="text-sm text-slate-300">
+                              {label}
+                              {isWeight && scoreData.majorityStance && (
+                                <span className="ml-2 text-xs text-slate-500">
+                                  ({stanceLabel(scoreData.majorityStance)} 스탠스 기준)
+                                </span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <Stars score={v} />
+                              <span className={`text-sm font-semibold w-8 text-right ${scoreColorClass(v)}`}>
+                                {v}
+                              </span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Card>
+                )}
+
+                {/* 스윙 궤적 일관성 — 7번째 메트릭 (별도 카드) */}
+                {!isAnalyzing && scoreData && (
+                  <Card>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
+                        <h2 className="text-sm font-medium text-slate-300">스윙 궤적 일관성</h2>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Stars score={scoreData.trailAvg} />
+                        <span className={`text-base font-bold ${scoreColorClass(scoreData.trailAvg)}`}>
+                          {scoreData.trailAvg}
+                        </span>
+                        <span className="text-slate-500 text-xs">/ 100</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      라켓 끝 경로 매끄러움 + 백스윙 폭
+                    </p>
+                  </Card>
+                )}
+
+                {/* 손목 속도 그래프 (override 반영된 perSwing 사용) */}
+                <Card>
+                  <h2 className="text-sm font-medium text-slate-400 mb-2">손목 속도</h2>
+                  <p className="text-xs text-slate-500 mb-3">
+                    피크 = 스윙. <span className="text-rose-400">●</span> 포핸드 / <span className="text-cyan-400">●</span> 백핸드
+                  </p>
+                  <SpeedChart
+                    speeds={analysisResult.speeds}
+                    swings={(scoreData && scoreData.perSwing) || analysisResult.swings}
+                  />
+                </Card>
+
+                {/* 스윙별 카드 (스코어 포함) */}
+                {!isAnalyzing && scoreData && scoreData.perSwing.length > 0 && (
+                  <Card>
+                    <h2 className="text-sm font-medium text-slate-400 mb-3">스윙별 분석 ({scoreData.perSwing.length})</h2>
+                    <ul className="space-y-2 max-h-96 overflow-auto pr-1">
+                      {scoreData.perSwing.map(sw => (
+                        <li
+                          key={sw.index}
+                          onClick={() => seekToSwing(sw.time)}
+                          className="p-3 rounded-lg bg-slate-700/40 hover:bg-slate-700/70 cursor-pointer transition-colors"
+                          title="클릭해서 그 시점으로 이동"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                              <span className="text-sm text-slate-200 font-medium">스윙 {sw.index}</span>
+                              <span className="text-xs text-slate-500">({(sw.time / 1000).toFixed(1)}초)</span>
+                              {(() => {
+                                if (sw.type === "unknown") return <Badge tone="slate">분류불가</Badge>;
+                                const label = sw.type === "forehand" ? "포핸드" : "백핸드";
+                                if (sw.userOverridden) {
+                                  // 사용자가 직접 지정 — confidence 무시, 단정적으로 표시
+                                  const tone = sw.type === "forehand" ? "rose" : "cyan";
+                                  return <Badge tone={tone}>{label} ✏️</Badge>;
+                                }
+                                const conf = sw.classifyConfidence ?? 1;
+                                if (conf < 0.3) return <Badge tone="slate">분류 모호</Badge>;
+                                const tone = conf < 0.6 ? "amber" : (sw.type === "forehand" ? "rose" : "cyan");
+                                const suffix = conf < 0.6 ? " (불확실)" : "";
+                                return <Badge tone={tone}>{label}{suffix}</Badge>;
+                              })()}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleSwingType(sw.index); }}
+                                className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs leading-none"
+                                title="자동 분류가 틀렸다면 클릭해서 포/백 변경"
+                                aria-label="포핸드/백핸드 토글"
+                              >
+                                ⇄
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); cycleStance(sw.index); }}
+                                className="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs leading-none inline-flex items-center gap-1"
+                                title="스탠스가 틀렸다면 클릭해서 변경 (자동 → 오픈 → 세미오픈 → 클로즈 → 자동)"
+                                aria-label="스탠스 사이클"
+                              >
+                                <span>스탠스: {stanceLabel(sw.stance)}</span>
+                                {sw.stanceUserOverridden && <span>✏️</span>}
+                                <span>⇄</span>
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Stars score={sw.scores.total} />
+                              <span className={`text-sm font-bold w-8 text-right ${scoreColorClass(sw.scores.total)}`}>
+                                {sw.scores.total}
+                              </span>
+                            </div>
+                          </div>
+                          {/* 궤적 일관성 한 줄 — 트리 가지 표현 */}
+                          <div className="flex items-center justify-between mt-1.5 pl-2">
+                            <span className="text-xs text-slate-400">
+                              <span className="text-slate-600">└</span> 궤적 일관성
+                            </span>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Stars score={sw.trailScore} />
+                              <span className={`text-xs font-semibold w-8 text-right ${scoreColorClass(sw.trailScore)}`}>
+                                {sw.trailScore}
+                              </span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
+
+          <footer className="mt-10 text-center text-xs text-slate-500">
+            데일리테니스 자세분석 PoC · MediaPipe Tasks Vision · 클라이언트 사이드 처리
+          </footer>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

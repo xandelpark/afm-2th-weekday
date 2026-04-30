@@ -1,0 +1,22 @@
+{
+  "name": "daily-tennis-coach",
+  "version": "1.0.0",
+  "private": true,
+  "description": "데일리테니스 자세분석 앱 — 매장 PC 로컬 운영판 (모바일 QR 업로드 + ffmpeg 변환)",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.1.1",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

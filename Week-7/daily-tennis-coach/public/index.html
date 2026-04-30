@@ -1,0 +1,3943 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>데일리테니스 자세분석</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!--
+    MediaPipe Tasks Vision은 ESM 전용 → type="module"로 로드 후 window 전역에 노출.
+    React/Babel 영역에서는 window.__MediaPipe + 'mediapipe-ready' 이벤트로 감지.
+  -->
+  <script type="module">
+    import { PoseLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+    const MODEL_URLS = {
+      lite:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+      full:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task",
+      heavy: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task",
+    };
+
+    async function createLandmarker(modelKey = "full") {
+      const filesetResolver = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      return await PoseLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: MODEL_URLS[modelKey],
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+    }
+
+    window.__MediaPipe = {
+      createLandmarker,
+      DrawingUtils,
+      POSE_CONNECTIONS: PoseLandmarker.POSE_CONNECTIONS,
+      ready: true,
+    };
+    window.dispatchEvent(new Event("mediapipe-ready"));
+  </script>
+
+  <style>
+    /* video와 canvas 정확한 겹침 — demo.html 와 동일 전략 */
+    .video-stack {
+      position: relative;
+      line-height: 0;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .video-stack > video {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .video-stack > canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* 9:16 인스타 카드 — 다크 그라디언트 + 라임 글로우 */
+    .insta-card {
+      width: 540px;
+      height: 960px;
+      aspect-ratio: 9 / 16;
+      background:
+        radial-gradient(ellipse at 30% 0%, rgba(163, 230, 53, 0.18), transparent 55%),
+        radial-gradient(ellipse at 70% 100%, rgba(132, 204, 22, 0.14), transparent 55%),
+        linear-gradient(160deg, #020617 0%, #0c1a14 50%, #0a0f08 100%);
+      color: #f8fafc;
+      border-radius: 24px;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        0 30px 80px -20px rgba(0, 0, 0, 0.7),
+        0 0 60px rgba(163, 230, 53, 0.18);
+    }
+    /* 카드 외곽 라임 보더(테두리 안쪽) */
+    .insta-card::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 18px;
+      border: 1px solid rgba(163, 230, 53, 0.25);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .insta-card > * { position: relative; z-index: 2; }
+
+    /* 다운로드 시 html2canvas는 1080x1920 픽셀로 렌더링 */
+    .insta-card.capture-mode {
+      width: 1080px !important;
+      height: 1920px !important;
+      transform: none !important;
+      font-size: 200%; /* 모든 em/rem 단위 콘텐츠 비례 확대 */
+    }
+    .insta-card .insta-video-stack {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    .insta-card .insta-video-stack > video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      /* contain: 박스 안에 비율 유지로 fit (전신 보장, 좌우/상하 letterbox) */
+      object-fit: contain;
+      background: #000;
+    }
+    .insta-card .insta-video-stack > canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      /* canvas도 contain으로 — video와 동일한 letterbox 영역에 그려져 정규화 좌표 정렬 유지 */
+      object-fit: contain;
+      pointer-events: none;
+    }
+    /* 베스트 샷 컨테이너 — 카드 가로의 100%, 1:1, 큰 영상 우위 레이아웃 */
+    .insta-card .best-shot {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+    }
+
+    .accent-lime { color: #a3e635; }
+    .bg-accent-lime { background-color: #a3e635; }
+    .star-yellow { color: #fbbf24; }
+    .star-dim { color: #475569; }
+
+    /* 결과 카드 점수 강조 — 라임 글로우 */
+    .score-mega {
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 0.9;
+      text-shadow:
+        0 0 22px rgba(163, 230, 53, 0.45),
+        0 0 6px rgba(163, 230, 53, 0.6);
+    }
+
+    /* QR 컨테이너 박스 */
+    .qr-shell {
+      background: #f8fafc;
+      padding: 18px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px -8px rgba(0,0,0,0.5);
+    }
+
+    /* 모바일 업로드 페이지 — 큰 버튼 */
+    .mobile-pick {
+      border: 3px dashed #475569;
+      border-radius: 20px;
+      padding: 36px 16px;
+      text-align: center;
+      transition: border-color 0.15s, background-color 0.15s;
+    }
+    .mobile-pick:active { border-color: #a3e635; background: rgba(163, 230, 53, 0.08); }
+
+    /* 펄스 애니메이션 (대기/업로드 진행) */
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+    .pulse-soft { animation: pulse-soft 1.6s ease-in-out infinite; }
+
+    /* 진행률 바 */
+    .progress-track { background: #1e293b; border-radius: 999px; overflow: hidden; height: 10px; }
+    .progress-fill { background: linear-gradient(90deg, #a3e635, #84cc16); height: 100%; transition: width 0.2s; }
+
+    /* 인스타 안전 영역 오버레이 — 디자인 검수용 */
+    .insta-safe-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 30;
+    }
+    .insta-safe-overlay::before,
+    .insta-safe-overlay::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      background: rgba(244, 63, 94, 0.10);
+      border-color: rgba(244, 63, 94, 0.7);
+      border-style: dashed;
+    }
+    .insta-safe-overlay::before {
+      top: 0;
+      height: 11.5%; /* 약 220px / 1920 */
+      border-bottom-width: 1.5px;
+    }
+    .insta-safe-overlay::after {
+      bottom: 0;
+      height: 13%; /* 약 250px / 1920 */
+      border-top-width: 1.5px;
+    }
+
+    /* 카운트업 애니메이션 */
+    @keyframes score-pop {
+      0% { transform: scale(0.7); opacity: 0; }
+      60% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .score-pop { animation: score-pop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+    /* 헥사곤 fade-in */
+    @keyframes hex-fade {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .hex-fade { animation: hex-fade 0.9s ease-out 0.4s both; }
+
+    /* 렌더링 오버레이 */
+    .render-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.78);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 50;
+      border-radius: 24px;
+    }
+
+    /* ──────────────────────────────────────────
+       디버그 콘솔 박스 (모바일 진단용)
+       /upload 페이지에서만 표시. 토글로 펼침/접힘.
+       모든 console.log/warn/error를 캡처해서 사용자가 폰에서 직접 읽음.
+       ────────────────────────────────────────── */
+    #debug-box {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      max-width: 720px;
+      margin: 0 auto;
+      background: rgba(2, 6, 23, 0.96);
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 11px;
+      color: #e2e8f0;
+      z-index: 9999;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      backdrop-filter: blur(6px);
+    }
+    #debug-box.hidden { display: none; }
+    #debug-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #1e293b;
+      cursor: pointer;
+      user-select: none;
+    }
+    #debug-header .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #a3e635;
+      box-shadow: 0 0 6px #a3e635;
+      flex-shrink: 0;
+    }
+    #debug-header .title {
+      flex: 1; font-weight: 700; color: #a3e635;
+      letter-spacing: 0.05em;
+    }
+    #debug-header .count {
+      color: #94a3b8;
+      font-size: 10px;
+    }
+    #debug-header .arrow {
+      color: #94a3b8;
+      transition: transform 0.15s;
+    }
+    #debug-box.collapsed #debug-header .arrow { transform: rotate(-90deg); }
+    #debug-body { display: flex; flex-direction: column; }
+    #debug-box.collapsed #debug-body { display: none; }
+    #debug-log {
+      max-height: 38vh;
+      overflow-y: auto;
+      padding: 6px 10px;
+      line-height: 1.45;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    #debug-log .line { padding: 2px 0; }
+    #debug-log .line .ts { color: #64748b; margin-right: 6px; }
+    #debug-log .line.log   { color: #f1f5f9; }
+    #debug-log .line.warn  { color: #facc15; }
+    #debug-log .line.error { color: #f87171; }
+    #debug-log .line.info  { color: #60a5fa; }
+    #debug-actions {
+      display: flex; gap: 6px;
+      padding: 6px 10px 8px;
+      border-top: 1px solid #1e293b;
+    }
+    #debug-actions button {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      font-size: 11px;
+      font-family: inherit;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #debug-actions button:active { background: #334155; }
+    #debug-actions button.primary {
+      background: #a3e635;
+      color: #0f172a;
+      border-color: #a3e635;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+  <!-- 디버그 콘솔 박스 — /upload 페이지에서만 활성화 -->
+  <div id="debug-box" class="hidden">
+    <div id="debug-header">
+      <span class="dot"></span>
+      <span class="title">DEBUG LOG</span>
+      <span class="count" id="debug-count">0</span>
+      <span class="arrow">▾</span>
+    </div>
+    <div id="debug-body">
+      <div id="debug-log"></div>
+      <div id="debug-actions">
+        <button id="debug-copy">📋 복사</button>
+        <button id="debug-clear">🗑 지우기</button>
+        <button id="debug-toggle-pin" class="primary">📌 항상 보기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ────────────────────────────────────────────────────────────────
+    // 디버그 로그 캡처 — console.log/warn/error/info를 후킹해서 화면에 표시
+    // /upload 페이지에서만 박스를 보이게 한다 (PC 본 화면에는 숨김).
+    // ────────────────────────────────────────────────────────────────
+    (function setupDebugBox() {
+      var box = document.getElementById("debug-box");
+      var logEl = document.getElementById("debug-log");
+      var countEl = document.getElementById("debug-count");
+      var headerEl = document.getElementById("debug-header");
+      var copyBtn = document.getElementById("debug-copy");
+      var clearBtn = document.getElementById("debug-clear");
+
+      // ?debug=1 또는 ?debug=true 쿼리스트링이 있을 때만 표시 (운영 화면은 깔끔하게)
+      var qs = new URLSearchParams(window.location.search);
+      var debugQs = (qs.get("debug") || "").toLowerCase();
+      var forceDebug = debugQs === "1" || debugQs === "true";
+      if (!forceDebug) return;
+      box.classList.remove("hidden");
+
+      var entries = [];
+      var maxEntries = 500;
+
+      function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+      function pad3(n) { return n < 10 ? "00" + n : n < 100 ? "0" + n : "" + n; }
+      function nowStamp() {
+        var d = new Date();
+        return pad2(d.getMinutes()) + ":" + pad2(d.getSeconds()) + "." + pad3(d.getMilliseconds());
+      }
+      function fmt(arg) {
+        if (arg === null) return "null";
+        if (arg === undefined) return "undefined";
+        if (typeof arg === "string") return arg;
+        if (arg instanceof Error) {
+          return arg.name + ": " + arg.message + (arg.stack ? "\n" + arg.stack : "");
+        }
+        try {
+          return JSON.stringify(arg, function (k, v) {
+            if (v instanceof Error) return v.name + ": " + v.message;
+            if (typeof v === "function") return "[fn]";
+            return v;
+          });
+        } catch (e) {
+          return String(arg);
+        }
+      }
+
+      function appendLine(level, args) {
+        var ts = nowStamp();
+        var msg = Array.prototype.slice.call(args).map(fmt).join(" ");
+        entries.push({ ts: ts, level: level, msg: msg });
+        if (entries.length > maxEntries) entries.shift();
+
+        var line = document.createElement("div");
+        line.className = "line " + level;
+        var tsSpan = document.createElement("span");
+        tsSpan.className = "ts";
+        tsSpan.textContent = ts;
+        line.appendChild(tsSpan);
+        line.appendChild(document.createTextNode(msg));
+        logEl.appendChild(line);
+
+        // 너무 많으면 앞에서 잘라냄
+        while (logEl.childNodes.length > maxEntries) {
+          logEl.removeChild(logEl.firstChild);
+        }
+        countEl.textContent = entries.length;
+        // 자동 스크롤
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      // console 메서드 후킹 (원본 보존 + 박스에도 출력)
+      ["log", "warn", "error", "info"].forEach(function (level) {
+        var orig = console[level] ? console[level].bind(console) : function () {};
+        console[level] = function () {
+          try { appendLine(level, arguments); } catch (e) { /* never throw from console */ }
+          orig.apply(null, arguments);
+        };
+      });
+
+      // 전역 에러도 캡처
+      window.addEventListener("error", function (e) {
+        appendLine("error", ["[window.error]", e.message, e.filename + ":" + e.lineno + ":" + e.colno]);
+      });
+      window.addEventListener("unhandledrejection", function (e) {
+        var reason = e.reason && (e.reason.stack || e.reason.message) ? (e.reason.stack || e.reason.message) : String(e.reason);
+        appendLine("error", ["[unhandledrejection]", reason]);
+      });
+
+      // 토글
+      headerEl.addEventListener("click", function () {
+        box.classList.toggle("collapsed");
+      });
+
+      // 복사
+      copyBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var text = entries.map(function (en) {
+          return "[" + en.ts + "] " + en.level.toUpperCase() + " " + en.msg;
+        }).join("\n");
+        var ua = navigator.userAgent || "";
+        var meta = "ua=" + ua + "\nurl=" + window.location.href + "\n";
+        var full = meta + "\n" + text;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(full).then(function () {
+            copyBtn.textContent = "✅ 복사됨";
+            setTimeout(function () { copyBtn.textContent = "📋 복사"; }, 1500);
+          }).catch(function () {
+            fallbackCopy(full);
+          });
+        } else {
+          fallbackCopy(full);
+        }
+      });
+      function fallbackCopy(text) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); copyBtn.textContent = "✅ 복사됨"; }
+        catch (e) { copyBtn.textContent = "❌ 복사실패"; }
+        document.body.removeChild(ta);
+        setTimeout(function () { copyBtn.textContent = "📋 복사"; }, 1500);
+      }
+
+      // 지우기
+      clearBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        entries.length = 0;
+        logEl.innerHTML = "";
+        countEl.textContent = "0";
+      });
+
+      // 초기 진단 정보
+      appendLine("info", ["[debug] 박스 시작", "ua=" + (navigator.userAgent || "?")]);
+      appendLine("info", ["[debug] url=" + window.location.href]);
+    })();
+  </script>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========================================
+    // 🏷️ 매장 브랜드 상수 (placeholder — 운영 시 환경설정으로 분리 예정)
+    // ========================================
+    const BRAND = {
+      name: "DAILY TENNIS",
+      storeName: "데일리테니스 본점",
+      instagramHandle: "@daily.tennis",
+      domain: "dailytennis.kr",
+      instagramUrl: "https://instagram.com/daily.tennis",
+    };
+
+    // 한국어 날짜 — "2026.04.29"
+    function formatToday() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}.${m}.${day}`;
+    }
+
+    // ========================================
+    // 📡 API
+    // ========================================
+    // 상대 경로 — server.js가 같은 origin에서 서빙
+    const API_BASE_URL = "/api";
+
+    // 매장 모니터의 지속 토큰 조회 (PC가 QR 만들 때 + 30초마다 회전 감지)
+    async function apiGetStoreToken() {
+      const res = await fetch(`${API_BASE_URL}/store-token`);
+      if (!res.ok) throw new Error(`토큰 조회 실패 (${res.status})`);
+      return res.json(); // { token, qrUrl, issuedAt, expiresAt }
+    }
+
+    // 모바일이 토큰으로 새 세션 생성
+    async function apiCreateSessionWithToken(token) {
+      const res = await fetch(`${API_BASE_URL}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(body?.error || `세션 생성 실패 (${res.status})`);
+        err.status = res.status;
+        throw err;
+      }
+      return body; // { sessionId, uploadUrl, qrUrl, expiresAt }
+    }
+
+    async function apiSessionStatus(sessionId) {
+      const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}/status`);
+      if (!res.ok) throw new Error(`상태 조회 실패 (${res.status})`);
+      return res.json();
+    }
+
+    // PC 큐 폴링 — 새 업로드 픽업
+    async function apiQueueNext() {
+      const res = await fetch(`${API_BASE_URL}/queue/next`);
+      if (res.status === 204) return null; // 큐 비어있음
+      if (!res.ok) throw new Error(`큐 조회 실패 (${res.status})`);
+      return res.json(); // { sessionId, videoUrl, status, uploadedAt }
+    }
+
+    // 분석 완료 보고
+    async function apiSessionComplete(sessionId) {
+      const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(`완료 보고 실패 (${res.status})`);
+      return res.json();
+    }
+
+    // 분석 실패/스킵 보고
+    async function apiSessionSkip(sessionId, reason = "pc_skipped") {
+      const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}/skip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) throw new Error(`스킵 보고 실패 (${res.status})`);
+      return res.json();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 업로드 — 매장 PC 로컬 서버로 multipart/form-data POST
+    // 모바일 영상도, PC 합성 영상도 동일하게 XHR + FormData를 쓴다.
+    // 같은 LAN이라 속도 제약이 거의 없고, 함수 페이로드 한도 같은 것도 없다.
+    // ─────────────────────────────────────────────────────────────
+    function xhrUploadMultipart({ url, file, fieldName = "video", onProgress }) {
+      return new Promise((resolve, reject) => {
+        const fd = new FormData();
+        fd.append(fieldName, file, file.name || `${fieldName}.bin`);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url, true);
+
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable && onProgress) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            onProgress(pct, e.loaded, e.total);
+          }
+        });
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject(new Error("응답 파싱 실패: " + xhr.responseText.slice(0, 200)));
+            }
+          } else {
+            let detail = xhr.responseText || xhr.statusText;
+            try {
+              const j = JSON.parse(xhr.responseText);
+              detail = j.error || detail;
+            } catch (_) { /* not json */ }
+            reject(new Error(`업로드 실패 (${xhr.status}): ${detail}`));
+          }
+        });
+        xhr.addEventListener("error", () => reject(new Error("네트워크 오류 — 매장 와이파이/PC 연결 확인")));
+        xhr.addEventListener("abort", () => reject(new Error("업로드 취소됨")));
+        xhr.addEventListener("timeout", () => reject(new Error("업로드 타임아웃")));
+
+        xhr.send(fd);
+      });
+    }
+
+    // 모바일 raw 영상 업로드 → /api/sessions/:id/upload
+    async function apiUploadVideo(sessionId, file, onProgress) {
+      const result = await xhrUploadMultipart({
+        url: `${API_BASE_URL}/sessions/${sessionId}/upload`,
+        file,
+        fieldName: "video",
+        onProgress,
+      });
+      return result; // { ok: true, sessionId, videoUrl }
+    }
+
+    // PC 합성 결과 영상 업로드 → /api/sessions/:id/result-video
+    // 서버에서 ffmpeg로 webm → mp4 + mov 변환됨 (시간이 좀 걸릴 수 있음)
+    async function apiUploadResultVideo(sessionId, blob, ext, onProgress) {
+      const finalExt = ext || (blob.type ? blob.type.split("/")[1] : null) || "webm";
+      // multer는 file.originalname을 보지만 우리는 mimetype + sessionId 기반으로 파일명을 정하므로
+      // originalname은 단순 힌트용. ext만 들어가 있으면 충분.
+      const namedFile = new File([blob], `result.${finalExt}`, {
+        type: blob.type || `video/${finalExt}`,
+      });
+      const result = await xhrUploadMultipart({
+        url: `${API_BASE_URL}/sessions/${sessionId}/result-video`,
+        file: namedFile,
+        fieldName: "video",
+        onProgress,
+      });
+      return result; // { ok: true, sessionId, resultVideoUrl, downloadUrl, publicDownloadUrl }
+    }
+
+    // 운영 상수
+    const PC_TOKEN_REFRESH_MS = 30 * 1000;     // 30초마다 토큰 회전 체크
+    const PC_QUEUE_POLL_MS = 1000;              // 1초마다 큐 폴링
+    const RESULT_AUTO_TIMEOUT_MS = 5 * 60 * 1000; // 결과 화면 5분 자동 타임아웃
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+    function Card({ className = "", children }) {
+      return (
+        <div className={`rounded-xl bg-slate-800 p-6 shadow-lg ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function PrimaryButton({ className = "", children, ...props }) {
+      return (
+        <button
+          {...props}
+          className={`px-5 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-lime-400 hover:bg-lime-300 text-slate-900 ${className}`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function GhostButton({ className = "", children, ...props }) {
+      return (
+        <button
+          {...props}
+          className={`px-5 py-3 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-slate-700 hover:bg-slate-600 text-slate-100 ${className}`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Badge({ tone = "slate", children, className = "" }) {
+      const tones = {
+        slate: "bg-slate-700 text-slate-200",
+        lime:  "bg-lime-400/20 text-lime-300 border border-lime-400/40",
+        rose:  "bg-rose-500/20 text-rose-300 border border-rose-500/40",
+        cyan:  "bg-cyan-400/20 text-cyan-300 border border-cyan-400/40",
+        amber: "bg-amber-400/20 text-amber-300 border border-amber-400/40",
+      };
+      return (
+        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${tones[tone]} ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    function Spinner({ size = 4 }) {
+      return (
+        <div
+          className={`rounded-full border-2 border-lime-400 border-t-transparent animate-spin`}
+          style={{ width: size * 4, height: size * 4 }}
+        />
+      );
+    }
+
+    // ========================================
+    // 🧩 Pose Engine — MediaPipe ready 감지
+    // ========================================
+    function useMediaPipeReady() {
+      const [ready, setReady] = useState(!!window.__MediaPipe?.ready);
+      useEffect(() => {
+        if (ready) return;
+        const onReady = () => setReady(true);
+        window.addEventListener("mediapipe-ready", onReady);
+        if (window.__MediaPipe?.ready) setReady(true);
+        return () => window.removeEventListener("mediapipe-ready", onReady);
+      }, [ready]);
+      return ready;
+    }
+
+    // ========================================
+    // 🦴 Pose Constants — 33 키포인트 + 부위별 색상
+    // ========================================
+    const KP = {
+      NOSE: 0,
+      LEFT_SHOULDER: 11, RIGHT_SHOULDER: 12,
+      LEFT_ELBOW: 13, RIGHT_ELBOW: 14,
+      LEFT_WRIST: 15, RIGHT_WRIST: 16,
+      LEFT_HIP: 23, RIGHT_HIP: 24,
+      LEFT_KNEE: 25, RIGHT_KNEE: 26,
+      LEFT_ANKLE: 27, RIGHT_ANKLE: 28,
+      LEFT_HEEL: 29, RIGHT_HEEL: 30,
+      LEFT_FOOT_INDEX: 31, RIGHT_FOOT_INDEX: 32,
+    };
+
+    const KP_COLORS = (() => {
+      const map = new Array(33);
+      for (let i = 0; i <= 10; i++) map[i] = "#fbcfe8";
+      map[11] = "#bfdbfe"; map[12] = "#bfdbfe";
+      for (let i = 13; i <= 22; i++) map[i] = "#bef264";
+      map[23] = "#fde68a"; map[24] = "#fde68a";
+      for (let i = 25; i <= 32; i++) map[i] = "#ddd6fe";
+      return map;
+    })();
+
+    // 스켈레톤 직접 그리기
+    function drawPoseSkeleton(ctx, landmarks, connections) {
+      const w = ctx.canvas.width;
+      const h = ctx.canvas.height;
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const conn of connections) {
+        if (conn.start <= 10 || conn.end <= 10) continue;
+        const a = landmarks[conn.start];
+        const b = landmarks[conn.end];
+        if (!a || !b) continue;
+        if ((a.visibility ?? 1) < 0.3 || (b.visibility ?? 1) < 0.3) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.x * w, a.y * h);
+        ctx.lineTo(b.x * w, b.y * h);
+        ctx.stroke();
+      }
+      for (let i = 0; i < landmarks.length; i++) {
+        if (i <= 10) continue;
+        const p = landmarks[i];
+        if (!p) continue;
+        if ((p.visibility ?? 1) < 0.3) continue;
+        const x = p.x * w;
+        const y = p.y * h;
+        const color = KP_COLORS[i] || "#ffffff";
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.85)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // ========================================
+    // 🎾 Racket Tip Estimation + Trail Drawing
+    // ========================================
+    const RACKET_LENGTH_MULTIPLIER = 4.0;
+    const TRAIL_DURATION_MS = 1300;
+    const TRAIL_SUBSTEPS = 8;
+    const TRAIL_SMOOTH_WINDOW = 3;
+
+    function estimateRacketTip(landmarks, hand) {
+      if (!landmarks) return null;
+      const wristIdx = hand === "right" ? 16 : 15;
+      const pinkyIdx = hand === "right" ? 18 : 17;
+      const indexIdx = hand === "right" ? 20 : 19;
+      const wrist = landmarks[wristIdx];
+      const pinky = landmarks[pinkyIdx];
+      const index = landmarks[indexIdx];
+      if (!wrist || !pinky || !index) return null;
+      const visMin = Math.min(
+        wrist.visibility ?? 0,
+        pinky.visibility ?? 0,
+        index.visibility ?? 0
+      );
+      if (visMin < 0.3) return null;
+      const handCx = (pinky.x + index.x) / 2;
+      const handCy = (pinky.y + index.y) / 2;
+      const dirX = handCx - wrist.x;
+      const dirY = handCy - wrist.y;
+      let tipX = wrist.x + dirX * RACKET_LENGTH_MULTIPLIER;
+      let tipY = wrist.y + dirY * RACKET_LENGTH_MULTIPLIER;
+      tipX = Math.max(-0.1, Math.min(1.1, tipX));
+      tipY = Math.max(-0.1, Math.min(1.1, tipY));
+      return { x: tipX, y: tipY };
+    }
+
+    function smoothTrail(points, windowSize = TRAIL_SMOOTH_WINDOW) {
+      if (!points || points.length < 3) return points || [];
+      const half = Math.floor(windowSize / 2);
+      const n = points.length;
+      const out = new Array(n);
+      out[0] = points[0];
+      out[n - 1] = points[n - 1];
+      for (let i = 1; i < n - 1; i++) {
+        let sx = 0, sy = 0, c = 0;
+        for (let j = -half; j <= half; j++) {
+          const k = i + j;
+          if (k < 0 || k >= n) continue;
+          sx += points[k].x;
+          sy += points[k].y;
+          c += 1;
+        }
+        out[i] = { x: sx / c, y: sy / c, t: points[i].t };
+      }
+      return out;
+    }
+
+    function catmullRomPoint(p0, p1, p2, p3, t) {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const x = 0.5 * (
+        2 * p1.x +
+        (-p0.x + p2.x) * t +
+        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+      );
+      const y = 0.5 * (
+        2 * p1.y +
+        (-p0.y + p2.y) * t +
+        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+      );
+      return { x, y };
+    }
+
+    function drawRacketTrail(ctx, trail, nowMs) {
+      if (!trail || trail.length < 2) return;
+      const w = ctx.canvas.width;
+      const h = ctx.canvas.height;
+      const FADE_MS = TRAIL_DURATION_MS;
+      const sm = smoothTrail(trail, TRAIL_SMOOTH_WINDOW);
+      const n = sm.length;
+      if (n < 2) return;
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 5.5;
+      ctx.shadowColor = "rgba(103, 232, 249, 0.4)";
+      ctx.shadowBlur = 8;
+
+      for (let i = 0; i < n - 1; i++) {
+        const p1 = sm[i];
+        const p2 = sm[i + 1];
+        const p0 = i === 0 ? p1 : sm[i - 1];
+        const p3 = i + 2 < n ? sm[i + 2] : p2;
+        const ageA = nowMs - p1.t;
+        const ageB = nowMs - p2.t;
+        if (ageA > FADE_MS && ageB > FADE_MS) continue;
+
+        const P0 = { x: p0.x * w, y: p0.y * h };
+        const P1 = { x: p1.x * w, y: p1.y * h };
+        const P2 = { x: p2.x * w, y: p2.y * h };
+        const P3 = { x: p3.x * w, y: p3.y * h };
+
+        let prev = P1;
+        let prevAlpha = Math.max(0, 1 - ageA / FADE_MS);
+        for (let s = 1; s <= TRAIL_SUBSTEPS; s++) {
+          const t = s / TRAIL_SUBSTEPS;
+          const cur = catmullRomPoint(P0, P1, P2, P3, t);
+          const ageT = ageA * (1 - t) + ageB * t;
+          const curAlpha = Math.max(0, 1 - ageT / FADE_MS);
+          const segAlpha = (prevAlpha + curAlpha) * 0.5;
+          if (segAlpha > 0.01) {
+            ctx.strokeStyle = `rgba(103, 232, 249, ${segAlpha.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(cur.x, cur.y);
+            ctx.stroke();
+          }
+          prev = cur;
+          prevAlpha = curAlpha;
+        }
+      }
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+
+      const last = sm[n - 1];
+      const lastAge = nowMs - last.t;
+      if (lastAge <= FADE_MS) {
+        const x = last.x * w;
+        const y = last.y * h;
+        ctx.shadowColor = "#67e8f9";
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = "#67e8f9";
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ========================================
+    // 🧮 Geometry helpers
+    // ========================================
+    function angleAt(p1, p2, p3) {
+      if (!p1 || !p2 || !p3) return NaN;
+      const v1x = p1.x - p2.x, v1y = p1.y - p2.y;
+      const v2x = p3.x - p2.x, v2y = p3.y - p2.y;
+      const dot = v1x * v2x + v1y * v2y;
+      const m1 = Math.hypot(v1x, v1y);
+      const m2 = Math.hypot(v2x, v2y);
+      if (m1 === 0 || m2 === 0) return NaN;
+      const c = Math.max(-1, Math.min(1, dot / (m1 * m2)));
+      return Math.acos(c) * 180 / Math.PI;
+    }
+
+    function clampScore(v, fallback = 50) {
+      if (!Number.isFinite(v)) return fallback;
+      return Math.max(0, Math.min(100, Math.round(v)));
+    }
+
+    // ========================================
+    // 🏃 Swing Detection — 손목 속도 → 피크 → 포/백 분류
+    // ========================================
+    function computeWristSpeeds(frames, hand) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const speeds = [];
+      for (let i = 0; i < frames.length; i++) {
+        if (i === 0) {
+          speeds.push({ t: frames[i].t, v: 0 });
+          continue;
+        }
+        const a = frames[i - 1].landmarks?.[wristIdx];
+        const b = frames[i].landmarks?.[wristIdx];
+        const dt = (frames[i].t - frames[i - 1].t) / 1000;
+        if (!a || !b || dt <= 0) {
+          speeds.push({ t: frames[i].t, v: 0 });
+          continue;
+        }
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        speeds.push({ t: frames[i].t, v: dist / dt });
+      }
+      return speeds;
+    }
+
+    function smooth(values, windowSize = 3) {
+      const out = [];
+      for (let i = 0; i < values.length; i++) {
+        let sum = 0, n = 0;
+        for (let j = Math.max(0, i - windowSize); j <= Math.min(values.length - 1, i + windowSize); j++) {
+          sum += values[j].v; n++;
+        }
+        out.push({ t: values[i].t, v: sum / n });
+      }
+      return out;
+    }
+
+    function detectPeaks(speeds, { minGapMs = 500, kStd = 1.5 } = {}) {
+      if (speeds.length < 3) return [];
+      const vs = speeds.map(s => s.v);
+      const mean = vs.reduce((a, b) => a + b, 0) / vs.length;
+      const variance = vs.reduce((a, b) => a + (b - mean) ** 2, 0) / vs.length;
+      const std = Math.sqrt(variance);
+      const threshold = mean + kStd * std;
+      const candidates = [];
+      for (let i = 1; i < speeds.length - 1; i++) {
+        if (
+          speeds[i].v >= threshold &&
+          speeds[i].v >= speeds[i - 1].v &&
+          speeds[i].v >= speeds[i + 1].v
+        ) {
+          candidates.push({ idx: i, t: speeds[i].t, v: speeds[i].v });
+        }
+      }
+      candidates.sort((a, b) => b.v - a.v);
+      const kept = [];
+      for (const c of candidates) {
+        if (kept.every(k => Math.abs(k.t - c.t) >= minGapMs)) kept.push(c);
+      }
+      kept.sort((a, b) => a.t - b.t);
+      return kept;
+    }
+
+    // 포/백 분류 (어깨 벡터 투영 기반 다중 신호 가중 투표)
+    function classifySwing(frames, peakIdx, hand, slowMoFactor = 1) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const peakFrame = frames[peakIdx];
+      if (!peakFrame?.landmarks) return { type: "unknown", confidence: 0 };
+
+      const windowMs = 400 * slowMoFactor;
+      const tStart = peakFrame.t - windowMs;
+      let startIdx = peakIdx;
+      for (let i = peakIdx; i >= 0; i--) {
+        if (frames[i].t <= tStart) { startIdx = i; break; }
+        if (i === 0) startIdx = 0;
+      }
+      const tEnd = peakFrame.t + windowMs;
+      let endIdx = peakIdx;
+      for (let i = peakIdx; i < frames.length; i++) {
+        if (frames[i].t >= tEnd) { endIdx = i; break; }
+        if (i === frames.length - 1) endIdx = i;
+      }
+
+      function projectOnPlayerRight(frame) {
+        if (!frame?.landmarks) return null;
+        const lm = frame.landmarks;
+        const ls = lm[KP.LEFT_SHOULDER];
+        const rs = lm[KP.RIGHT_SHOULDER];
+        const lh = lm[KP.LEFT_HIP];
+        const rh = lm[KP.RIGHT_HIP];
+        const w = lm[wristIdx];
+        if (!ls || !rs || !lh || !rh || !w) return null;
+        const minVis = 0.4;
+        if ((ls.visibility ?? 1) < minVis || (rs.visibility ?? 1) < minVis ||
+            (lh.visibility ?? 1) < minVis || (rh.visibility ?? 1) < minVis ||
+            (w.visibility  ?? 1) < minVis) return null;
+        const hipMid = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
+        const playerRight = { x: rs.x - ls.x, y: rs.y - ls.y };
+        const prLen = Math.hypot(playerRight.x, playerRight.y) || 1;
+        if (prLen < 0.05) return null;
+        const offset = { x: w.x - hipMid.x, y: w.y - hipMid.y };
+        const proj = (offset.x * playerRight.x + offset.y * playerRight.y) / prLen;
+        return { proj, prLen };
+      }
+
+      function avgProj(from, to) {
+        const projs = [];
+        let prSum = 0, prN = 0;
+        for (let i = from; i <= to; i++) {
+          const r = projectOnPlayerRight(frames[i]);
+          if (r) { projs.push(r.proj); prSum += r.prLen; prN++; }
+        }
+        if (projs.length === 0) return null;
+        return {
+          proj: projs.reduce((a, b) => a + b, 0) / projs.length,
+          prLen: prN > 0 ? prSum / prN : 0,
+          n: projs.length,
+        };
+      }
+
+      const FRAME_AVG = 3;
+      const startAvg = avgProj(startIdx, Math.min(startIdx + FRAME_AVG, peakIdx));
+      const endAvg = avgProj(Math.max(endIdx - FRAME_AVG, peakIdx), endIdx);
+      const peakInfo = projectOnPlayerRight(frames[peakIdx]);
+
+      // image-X fallback
+      if (!startAvg && !endAvg && !peakInfo) {
+        const w0 = frames[startIdx]?.landmarks?.[wristIdx];
+        const w1 = frames[endIdx]?.landmarks?.[wristIdx];
+        if (!w0 || !w1) return { type: "unknown", confidence: 0 };
+        const dx = w1.x - w0.x;
+        const type = (hand === "right")
+          ? (dx < 0 ? "forehand" : "backhand")
+          : (dx > 0 ? "forehand" : "backhand");
+        const confidence = Math.min(0.5, Math.abs(dx) / 0.15);
+        return { type, confidence };
+      }
+
+      const sign = (hand === "right") ? 1 : -1;
+      const signals = [];
+      if (startAvg) signals.push({ name: "start", value: startAvg.proj * sign, weight: 1.0 });
+      if (endAvg) signals.push({ name: "end", value: -endAvg.proj * sign, weight: 1.0 });
+      if (startAvg && endAvg) {
+        const dProj = endAvg.proj - startAvg.proj;
+        signals.push({ name: "displacement", value: -dProj * sign, weight: 1.5 });
+      }
+
+      if (signals.length === 0) {
+        const w0 = frames[startIdx]?.landmarks?.[wristIdx];
+        const w1 = frames[endIdx]?.landmarks?.[wristIdx];
+        if (!w0 || !w1) return { type: "unknown", confidence: 0 };
+        const dx = w1.x - w0.x;
+        const type = (hand === "right")
+          ? (dx < 0 ? "forehand" : "backhand")
+          : (dx > 0 ? "forehand" : "backhand");
+        const confidence = Math.min(0.5, Math.abs(dx) / 0.15);
+        return { type, confidence };
+      }
+
+      let weighted = 0, totalWeight = 0;
+      for (const s of signals) {
+        weighted += s.value * s.weight;
+        totalWeight += s.weight;
+      }
+      const score = weighted / totalWeight;
+      const type = score > 0 ? "forehand" : "backhand";
+      const shoulderWidth = peakInfo?.prLen ?? startAvg?.prLen ?? endAvg?.prLen ?? 0.3;
+      const confidence = Math.min(1, Math.abs(score) / Math.max(0.05, shoulderWidth * 0.6));
+      return { type, confidence };
+    }
+
+    // 카메라 각도 추정 (어깨 X거리 기반)
+    function detectCameraView(frames) {
+      const valid = (frames || []).filter(f => {
+        if (!f.landmarks) return false;
+        const ls = f.landmarks[KP.LEFT_SHOULDER];
+        const rs = f.landmarks[KP.RIGHT_SHOULDER];
+        if (!ls || !rs) return false;
+        return (ls.visibility ?? 1) >= 0.5 && (rs.visibility ?? 1) >= 0.5;
+      });
+      if (valid.length < 5) return { view: 'unknown', avgShoulderX: 0, validCount: valid.length };
+      const dists = valid.map(f =>
+        Math.abs(f.landmarks[KP.RIGHT_SHOULDER].x - f.landmarks[KP.LEFT_SHOULDER].x)
+      );
+      const avg = dists.reduce((a, b) => a + b, 0) / dists.length;
+      let view;
+      if (avg <= 0.08) view = 'side';
+      else if (avg >= 0.15) view = 'front';
+      else view = 'oblique';
+      return { view, avgShoulderX: avg, validCount: valid.length };
+    }
+
+    function buildDiagnostics(frames, speeds, swings, hand) {
+      const totalFrames = frames.length;
+      const wristIdx = hand === 'right' ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      let detected = 0;
+      let confSum = 0, confCount = 0;
+      let wristVisFrames = 0;
+      for (const f of frames) {
+        if (!f.landmarks) continue;
+        let visSum = 0, visN = 0;
+        for (const lm of f.landmarks) {
+          const v = lm.visibility;
+          if (typeof v === 'number') {
+            visSum += v; visN++;
+            confSum += v; confCount++;
+          }
+        }
+        const visAvg = visN > 0 ? visSum / visN : 0;
+        if (visAvg >= 0.3) detected++;
+        const wrist = f.landmarks[wristIdx];
+        if (wrist && (wrist.visibility ?? 1) >= 0.5) wristVisFrames++;
+      }
+      const avgConf = confCount > 0 ? confSum / confCount : 0;
+      const speedVals = (speeds || []).map(s => s.v).filter(Number.isFinite);
+      const speedMax = speedVals.length ? Math.max(...speedVals) : 0;
+      const speedMean = speedVals.length ? speedVals.reduce((a, b) => a + b, 0) / speedVals.length : 0;
+      const variance = speedVals.length
+        ? speedVals.reduce((a, b) => a + (b - speedMean) ** 2, 0) / speedVals.length
+        : 0;
+      const speedStd = Math.sqrt(variance);
+      const peakThreshold = speedMean + 1.5 * speedStd;
+      const camera = detectCameraView(frames);
+      return {
+        totalFrames,
+        detectedFrames: detected,
+        detectedRatio: totalFrames > 0 ? detected / totalFrames : 0,
+        avgConfidence: avgConf,
+        wristVisibleFrames: wristVisFrames,
+        wristVisibleRatio: totalFrames > 0 ? wristVisFrames / totalFrames : 0,
+        swingCount: swings.length,
+        speedMax, speedMean, speedStd, peakThreshold,
+        cameraView: camera.view,
+        cameraShoulderX: camera.avgShoulderX,
+      };
+    }
+
+    function detectSwings(frames, hand, slowMoFactor = 1) {
+      if (frames.length < 5) {
+        const diag = buildDiagnostics(frames, [], [], hand);
+        return { swings: [], speeds: [], diagnostics: diag };
+      }
+      const rawSpeeds = computeWristSpeeds(frames, hand);
+      const speeds = smooth(rawSpeeds, 2);
+      const peaks = detectPeaks(speeds, { minGapMs: 500 * slowMoFactor, kStd: 1.5 });
+      const swings = peaks.map((p, i) => {
+        const cls = classifySwing(frames, p.idx, hand, slowMoFactor);
+        return {
+          index: i + 1,
+          peakIdx: p.idx,
+          time: p.t,
+          speed: p.v,
+          autoType: cls.type,
+          type: cls.type,
+          classifyConfidence: cls.confidence,
+        };
+      });
+      const diagnostics = buildDiagnostics(frames, speeds, swings, hand);
+      return { swings, speeds, diagnostics };
+    }
+
+    // ========================================
+    // 🦶 Stance Detection (다중 프레임 + 다중 신호 가중평균)
+    // ========================================
+    const visOf = (p) => (p ? (p.visibility ?? p.score ?? 1) : 0);
+
+    function sigShoulderAnkleAngleDiff(lm) {
+      const lA = lm[KP.LEFT_ANKLE], rA = lm[KP.RIGHT_ANKLE];
+      const lS = lm[KP.LEFT_SHOULDER], rS = lm[KP.RIGHT_SHOULDER];
+      if (visOf(lA) < 0.5 || visOf(rA) < 0.5 || visOf(lS) < 0.5 || visOf(rS) < 0.5) return null;
+      const shoulderAngle = Math.atan2(rS.y - lS.y, rS.x - lS.x);
+      const ankleAngle = Math.atan2(rA.y - lA.y, rA.x - lA.x);
+      let diff = Math.abs(shoulderAngle - ankleAngle) * 180 / Math.PI;
+      if (diff > 90) diff = 180 - diff;
+      if (diff <= 15) return 0;
+      if (diff >= 40) return 1;
+      return (diff - 15) / 25;
+    }
+
+    function sigAnkleShoulderXRatio(lm) {
+      const lA = lm[KP.LEFT_ANKLE], rA = lm[KP.RIGHT_ANKLE];
+      const lS = lm[KP.LEFT_SHOULDER], rS = lm[KP.RIGHT_SHOULDER];
+      if (visOf(lA) < 0.5 || visOf(rA) < 0.5 || visOf(lS) < 0.5 || visOf(rS) < 0.5) return null;
+      const ankleXDist = Math.abs(rA.x - lA.x);
+      const shoulderXDist = Math.max(0.05, Math.abs(rS.x - lS.x));
+      const ratio = ankleXDist / shoulderXDist;
+      if (ratio >= 1.0) return 0;
+      if (ratio <= 0.4) return 1;
+      return (1.0 - ratio) / 0.6;
+    }
+
+    function sigAnkleYDist(lm) {
+      const lA = lm[KP.LEFT_ANKLE], rA = lm[KP.RIGHT_ANKLE];
+      if (visOf(lA) < 0.5 || visOf(rA) < 0.5) return null;
+      const dy = Math.abs(rA.y - lA.y);
+      if (dy <= 0.02) return 0;
+      if (dy >= 0.10) return 1;
+      return (dy - 0.02) / 0.08;
+    }
+
+    function sigFootDirectionAngle(lm) {
+      const lH = lm[KP.LEFT_HEEL], lF = lm[KP.LEFT_FOOT_INDEX];
+      const rH = lm[KP.RIGHT_HEEL], rF = lm[KP.RIGHT_FOOT_INDEX];
+      if (!lH || !lF || !rH || !rF) return null;
+      if (visOf(lH) < 0.5 || visOf(lF) < 0.5 || visOf(rH) < 0.5 || visOf(rF) < 0.5) return null;
+      const lvx = lF.x - lH.x, lvy = lF.y - lH.y;
+      const rvx = rF.x - rH.x, rvy = rF.y - rH.y;
+      const lLen = Math.hypot(lvx, lvy);
+      const rLen = Math.hypot(rvx, rvy);
+      if (lLen < 1e-4 || rLen < 1e-4) return null;
+      const cos = (lvx * rvx + lvy * rvy) / (lLen * rLen);
+      const clamped = Math.max(-1, Math.min(1, cos));
+      const angleDeg = Math.acos(clamped) * 180 / Math.PI;
+      if (angleDeg <= 10) return 0;
+      if (angleDeg >= 50) return 1;
+      return (angleDeg - 10) / 40;
+    }
+
+    function frameStanceCloseness(lm) {
+      if (!lm) return null;
+      const sigA = sigShoulderAnkleAngleDiff(lm);
+      const sigB = sigAnkleShoulderXRatio(lm);
+      const sigC = sigAnkleYDist(lm);
+      const sigD = sigFootDirectionAngle(lm);
+      const weights = { A: 1.0, B: 1.0, C: 0.8, D: 1.2 };
+      const signals = [
+        { v: sigA, w: weights.A },
+        { v: sigB, w: weights.B },
+        { v: sigC, w: weights.C },
+        { v: sigD, w: weights.D },
+      ].filter(s => s.v !== null && Number.isFinite(s.v));
+      if (signals.length === 0) return { closeness: null };
+      const sum = signals.reduce((acc, s) => acc + s.v * s.w, 0);
+      const totalW = signals.reduce((acc, s) => acc + s.w, 0);
+      return { closeness: sum / totalW };
+    }
+
+    function findFrameIdxAt(frames, peakIdx, offsetMs) {
+      const target = frames[peakIdx].t + offsetMs;
+      let bestI = peakIdx, bestD = Infinity;
+      for (let i = 0; i < frames.length; i++) {
+        const d = Math.abs(frames[i].t - target);
+        if (d < bestD) { bestD = d; bestI = i; }
+      }
+      return bestI;
+    }
+
+    function detectStance(frames, peakIdx, slowMoFactor = 1) {
+      if (!Array.isArray(frames) || frames.length === 0 || peakIdx == null) return 'unknown';
+      const startIdx = findFrameIdxAt(frames, peakIdx, -600 * slowMoFactor);
+      const endIdx = findFrameIdxAt(frames, peakIdx, -200 * slowMoFactor);
+      const lo = Math.min(startIdx, endIdx);
+      const hi = Math.max(startIdx, endIdx);
+      const closenessVals = [];
+      for (let i = lo; i <= hi; i++) {
+        const lm = frames[i]?.landmarks;
+        if (!lm) continue;
+        const r = frameStanceCloseness(lm);
+        if (!r) continue;
+        if (Number.isFinite(r.closeness)) closenessVals.push(r.closeness);
+      }
+      if (closenessVals.length < 3) return 'unknown';
+      const closeness = closenessVals.reduce((a, b) => a + b, 0) / closenessVals.length;
+      return closeness < 0.30 ? 'open' : closeness < 0.60 ? 'semi-open' : 'closed';
+    }
+
+    function stanceLabel(stance) {
+      if (stance === 'open') return '오픈';
+      if (stance === 'semi-open') return '세미오픈';
+      if (stance === 'closed') return '클로즈';
+      return '미상';
+    }
+
+    function pelvisCenterX(lm) {
+      const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
+      if (!lh || !rh) return NaN;
+      return (lh.x + rh.x) / 2;
+    }
+
+    function pelvisAngle(lm) {
+      if (!lm) return NaN;
+      const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
+      if (!lh || !rh) return NaN;
+      return Math.atan2(rh.y - lh.y, rh.x - lh.x) * 180 / Math.PI;
+    }
+
+    // ========================================
+    // 🎯 6축 점수 (룰베이스 휴리스틱)
+    // ========================================
+    function scoreReadyPosition(frames, peakIdx, slowMoFactor = 1) {
+      const idx = findFrameIdxAt(frames, peakIdx, -500 * slowMoFactor);
+      const lm = frames[idx]?.landmarks;
+      if (!lm) return 50;
+      const leftKnee = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
+      const rightKnee = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
+      const knees = [leftKnee, rightKnee].filter(Number.isFinite);
+      const kneeAvg = knees.length ? knees.reduce((a, b) => a + b) / knees.length : 175;
+      const kneeDiff = Math.abs(kneeAvg - 150);
+      const kneeScore = Math.max(0, 100 - (kneeDiff / 30) * 100);
+      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+      const dy = ls && rs ? Math.abs(ls.y - rs.y) : 0.05;
+      const shoulderScore = Math.max(0, 100 - (dy / 0.08) * 100);
+      return clampScore((kneeScore + shoulderScore) / 2);
+    }
+
+    function scoreBackswing(frames, peakIdx, hand, slowMoFactor = 1) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const shoulderIdx = hand === "right" ? KP.RIGHT_SHOULDER : KP.LEFT_SHOULDER;
+      const elbowIdx = hand === "right" ? KP.RIGHT_ELBOW : KP.LEFT_ELBOW;
+      const idx = findFrameIdxAt(frames, peakIdx, -300 * slowMoFactor);
+      const lm = frames[idx]?.landmarks;
+      if (!lm) return 50;
+      const wrist = lm[wristIdx];
+      const shoulder = lm[shoulderIdx];
+      const above = wrist && shoulder ? (shoulder.y - wrist.y) : 0;
+      const wristAboveScore = Math.max(0, Math.min(100, (above / 0.1) * 100 + 50));
+      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+      let rot = 0;
+      if (ls && rs) {
+        const dx = rs.x - ls.x;
+        const dy = rs.y - ls.y;
+        rot = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+      }
+      const rotScore = rot >= 30 ? Math.min(100, 60 + (rot - 30) * 1.5)
+                                  : Math.max(0, 60 - (30 - rot) * 2);
+      const armAng = angleAt(lm[shoulderIdx], lm[elbowIdx], lm[wristIdx]);
+      const armScore = Number.isFinite(armAng)
+        ? Math.max(0, 100 - Math.abs(armAng - 120) * 1.5)
+        : 50;
+      return clampScore((wristAboveScore + rotScore + armScore) / 3);
+    }
+
+    function scoreWeightTransfer(frames, peakIdx, slowMoFactor = 1, stance = 'semi-open') {
+      const startIdx = findFrameIdxAt(frames, peakIdx, -400 * slowMoFactor);
+      const startLm = frames[startIdx]?.landmarks;
+      const peakLm = frames[peakIdx]?.landmarks;
+      if (!startLm || !peakLm) return 50;
+      const xs = pelvisCenterX(startLm);
+      const xp = pelvisCenterX(peakLm);
+      if (!Number.isFinite(xs) || !Number.isFinite(xp)) return 50;
+      const shift = Math.abs(xp - xs);
+      let linearScore;
+      if (stance === 'closed') {
+        if (shift >= 0.07 && shift <= 0.13) linearScore = clampScore(90 + (1 - Math.abs(shift - 0.10) / 0.03) * 10);
+        else if (shift < 0.07) linearScore = clampScore((shift / 0.07) * 80);
+        else linearScore = clampScore(Math.max(50, 90 - (shift - 0.13) * 200));
+      } else if (stance === 'open') {
+        if (shift >= 0.02 && shift <= 0.05) linearScore = clampScore(85 + (1 - Math.abs(shift - 0.035) / 0.015) * 10);
+        else if (shift < 0.02) linearScore = clampScore(50 + (shift / 0.02) * 35);
+        else linearScore = clampScore(Math.max(60, 90 - (shift - 0.05) * 150));
+      } else {
+        if (shift >= 0.04 && shift <= 0.09) linearScore = clampScore(88 + (1 - Math.abs(shift - 0.065) / 0.025) * 10);
+        else if (shift < 0.04) linearScore = clampScore((shift / 0.04) * 80);
+        else linearScore = clampScore(Math.max(55, 90 - (shift - 0.09) * 180));
+      }
+      if (stance === 'open') {
+        const a0 = pelvisAngle(startLm);
+        let maxRot = 0;
+        for (let i = startIdx; i <= peakIdx; i++) {
+          const ai = pelvisAngle(frames[i]?.landmarks);
+          if (Number.isFinite(a0) && Number.isFinite(ai)) {
+            let d = Math.abs(ai - a0);
+            if (d > 180) d = 360 - d;
+            if (d > maxRot) maxRot = d;
+          }
+        }
+        let rotationScore;
+        if (maxRot >= 25) rotationScore = clampScore(90 + Math.min(10, (maxRot - 25) * 0.5));
+        else if (maxRot >= 5) rotationScore = clampScore(50 + ((maxRot - 5) / 20) * 40);
+        else rotationScore = clampScore((maxRot / 5) * 50);
+        return clampScore(linearScore * 0.4 + rotationScore * 0.6);
+      }
+      return linearScore;
+    }
+
+    function scoreKineticChain(frames, peakIdx, slowMoFactor = 1) {
+      const startT = frames[peakIdx].t - 400 * slowMoFactor;
+      const endT = frames[peakIdx].t + 100 * slowMoFactor;
+      const window = frames.filter(f => f.t >= startT && f.t <= endT);
+      if (window.length < 5) return 55;
+      const calcAngle = (lm, aIdx, bIdx) => {
+        const a = lm[aIdx], b = lm[bIdx];
+        if (!a || !b) return NaN;
+        return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      };
+      const shoulderAngles = window.map(f => calcAngle(f.landmarks, KP.LEFT_SHOULDER, KP.RIGHT_SHOULDER));
+      const hipAngles = window.map(f => calcAngle(f.landmarks, KP.LEFT_HIP, KP.RIGHT_HIP));
+      const findPeakT = (vals, ts) => {
+        let bestT = ts[0];
+        const valid = vals.filter(Number.isFinite);
+        if (!valid.length) return NaN;
+        const max = Math.max(...valid);
+        for (let i = 0; i < vals.length; i++) {
+          if (vals[i] === max) { bestT = ts[i]; break; }
+        }
+        return bestT;
+      };
+      const ts = window.map(f => f.t);
+      const shoulderPeakT = findPeakT(shoulderAngles, ts);
+      const hipPeakT = findPeakT(hipAngles, ts);
+      if (!Number.isFinite(shoulderPeakT) || !Number.isFinite(hipPeakT)) return 55;
+      const diffVideo = shoulderPeakT - hipPeakT;
+      const diff = diffVideo / slowMoFactor;
+      const absDiff = Math.abs(diff);
+      let base;
+      if (diff < 0) base = 30;
+      else if (absDiff >= 50 && absDiff <= 150) base = 95;
+      else if (absDiff < 50) base = 50 + (absDiff / 50) * 45;
+      else base = Math.max(40, 95 - (absDiff - 150) / 5);
+      return clampScore(base);
+    }
+
+    function scoreImpactPosture(frames, peakIdx, slowMoFactor = 1) {
+      const lm = frames[peakIdx]?.landmarks;
+      if (!lm) return 50;
+      const lk = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
+      const rk = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
+      const knees = [lk, rk].filter(Number.isFinite);
+      const kneeAvg = knees.length ? knees.reduce((a, b) => a + b) / knees.length : 175;
+      const kneeScore = Math.max(0, 100 - Math.abs(kneeAvg - 155) / 30 * 100);
+      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+      const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
+      let spineScore = 50;
+      if (ls && rs && lh && rh) {
+        const sx = (ls.x + rs.x) / 2, sy = (ls.y + rs.y) / 2;
+        const hx = (lh.x + rh.x) / 2, hy = (lh.y + rh.y) / 2;
+        const dx = Math.abs(hx - sx);
+        const dy = Math.abs(hy - sy);
+        const tilt = Math.atan2(dx, dy) * 180 / Math.PI;
+        spineScore = Math.max(0, 100 - (tilt / 30) * 100);
+      }
+      const startIdx = findFrameIdxAt(frames, peakIdx, -100 * slowMoFactor);
+      const endIdx = findFrameIdxAt(frames, peakIdx, 100 * slowMoFactor);
+      let headScore = 70;
+      const noses = [];
+      for (let i = startIdx; i <= endIdx; i++) {
+        const n = frames[i]?.landmarks?.[KP.NOSE];
+        if (n) noses.push(n.x);
+      }
+      if (noses.length >= 2) {
+        const range = Math.max(...noses) - Math.min(...noses);
+        headScore = Math.max(0, Math.min(100, 100 - ((range - 0.02) / 0.06) * 100));
+      }
+      return clampScore((kneeScore + spineScore + headScore) / 3);
+    }
+
+    function scoreFollowThrough(frames, peakIdx, hand, slowMoFactor = 1) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const endIdx = findFrameIdxAt(frames, peakIdx, 400 * slowMoFactor);
+      if (endIdx <= peakIdx) return 50;
+      let dist = 0;
+      for (let i = peakIdx + 1; i <= endIdx; i++) {
+        const a = frames[i - 1].landmarks?.[wristIdx];
+        const b = frames[i].landmarks?.[wristIdx];
+        if (!a || !b) continue;
+        dist += Math.hypot(b.x - a.x, b.y - a.y);
+      }
+      const distScore = Math.max(0, Math.min(100, (dist / 0.3) * 100));
+      const last = frames[endIdx]?.landmarks;
+      let endScore = 50;
+      if (last) {
+        const wrist = last[wristIdx];
+        const oppShoulder = last[hand === "right" ? KP.LEFT_SHOULDER : KP.RIGHT_SHOULDER];
+        if (wrist && oppShoulder) {
+          const above = oppShoulder.y - wrist.y;
+          endScore = Math.max(0, Math.min(100, 50 + (above / 0.15) * 50));
+        }
+      }
+      return clampScore((distScore + endScore) / 2);
+    }
+
+    function scoreSwing(frames, peakIdx, hand, slowMoFactor = 1, stance = 'semi-open') {
+      const ready = scoreReadyPosition(frames, peakIdx, slowMoFactor);
+      const back = scoreBackswing(frames, peakIdx, hand, slowMoFactor);
+      const weight = scoreWeightTransfer(frames, peakIdx, slowMoFactor, stance);
+      const chain = scoreKineticChain(frames, peakIdx, slowMoFactor);
+      const impact = scoreImpactPosture(frames, peakIdx, slowMoFactor);
+      const follow = scoreFollowThrough(frames, peakIdx, hand, slowMoFactor);
+      const total = clampScore((ready + back + weight + chain + impact + follow) / 6);
+      return { ready, back, weight, chain, impact, follow, total };
+    }
+
+    // 6축 라벨 + 별점/색상 헬퍼
+    const AXIS_LABELS = [
+      { key: "ready",  label: "준비자세" },
+      { key: "back",   label: "백스윙" },
+      { key: "weight", label: "체중이동" },
+      { key: "chain",  label: "회전 타이밍" },
+      { key: "impact", label: "임팩트" },
+      { key: "follow", label: "팔로우스루" },
+    ];
+
+    function scoreColorClass(score) {
+      if (score >= 70) return "text-lime-400";
+      if (score >= 50) return "text-amber-400";
+      return "text-rose-400";
+    }
+
+    function Stars({ score, large = false }) {
+      const n = Math.max(0, Math.min(5, Math.round((score || 0) / 20)));
+      return (
+        <span className={`font-mono ${large ? 'text-2xl' : 'text-base'} tracking-tight`}>
+          <span className="star-yellow">{"★".repeat(n)}</span>
+          <span className="star-dim">{"☆".repeat(5 - n)}</span>
+        </span>
+      );
+    }
+
+    // ========================================
+    // 📊 HexagonChart — 6축 SVG 육각형
+    // ========================================
+    function HexagonChart({ scores, size = 240 }) {
+      const cx = size / 2;
+      const cy = size / 2;
+      const radius = size * 0.36;
+      const vertices = AXIS_LABELS.map((axis, i) => {
+        const angle = (-90 + i * 60) * Math.PI / 180;
+        return {
+          axis,
+          angle,
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radius,
+          lx: cx + Math.cos(angle) * (radius + 26),
+          ly: cy + Math.sin(angle) * (radius + 26),
+          score: scores ? scores[axis.key] : 0,
+        };
+      });
+      const buildPolygonPoints = (factor) => vertices.map(v => {
+        const x = cx + (v.x - cx) * factor;
+        const y = cy + (v.y - cy) * factor;
+        return `${x},${y}`;
+      }).join(" ");
+      const grids = [0.2, 0.4, 0.6, 0.8, 1.0].map((f, i) => (
+        <polygon key={i} points={buildPolygonPoints(f)} fill="none" stroke="#334155" strokeWidth="1" />
+      ));
+      const scorePoints = vertices.map(v => {
+        const f = (v.score || 0) / 100;
+        const x = cx + (v.x - cx) * f;
+        const y = cy + (v.y - cy) * f;
+        return `${x},${y}`;
+      }).join(" ");
+      return (
+        <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="mx-auto block">
+          {vertices.map((v, i) => (
+            <line key={`spoke-${i}`} x1={cx} y1={cy} x2={v.x} y2={v.y} stroke="#1e293b" strokeWidth="1" />
+          ))}
+          {grids}
+          <polygon points={scorePoints} fill="rgba(163, 230, 53, 0.3)" stroke="#a3e635" strokeWidth="2" strokeLinejoin="round" />
+          {vertices.map((v, i) => {
+            const f = (v.score || 0) / 100;
+            const x = cx + (v.x - cx) * f;
+            const y = cy + (v.y - cy) * f;
+            return <circle key={`pt-${i}`} cx={x} cy={y} r="3.5" fill="#a3e635" />;
+          })}
+          {vertices.map((v, i) => {
+            const dx = v.lx - cx;
+            const anchor = Math.abs(dx) < 5 ? "middle" : (dx > 0 ? "start" : "end");
+            return (
+              <text key={`lbl-${i}`} x={v.lx} y={v.ly + 4} fill="#cbd5e1" fontSize="10" fontWeight="600" textAnchor={anchor}>
+                {v.axis.label}
+              </text>
+            );
+          })}
+        </svg>
+      );
+    }
+
+    // ========================================
+    // 🔳 QrCode — qrcode-generator로 SVG 출력
+    // ========================================
+    function QrCode({ value, size = 280, dark = "#0f172a", light = "#ffffff" }) {
+      // qrcode-generator가 로드 안됐으면 placeholder
+      if (!value || typeof window.qrcode === "undefined") {
+        return (
+          <div className="qr-shell flex items-center justify-center" style={{ width: size + 36, height: size + 36 }}>
+            <div className="text-slate-500 text-sm">QR 준비 중...</div>
+          </div>
+        );
+      }
+      // 자동 type/level — type 0 = 자동, level L
+      const qr = window.qrcode(0, "M");
+      qr.addData(value);
+      qr.make();
+      const moduleCount = qr.getModuleCount();
+      const cell = size / moduleCount;
+      const cells = [];
+      for (let r = 0; r < moduleCount; r++) {
+        for (let c = 0; c < moduleCount; c++) {
+          if (qr.isDark(r, c)) {
+            cells.push(
+              <rect key={`${r}-${c}`} x={c * cell} y={r * cell} width={cell} height={cell} fill={dark} />
+            );
+          }
+        }
+      }
+      return (
+        <div className="qr-shell" style={{ background: light }}>
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+            <rect width={size} height={size} fill={light} />
+            {cells}
+          </svg>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🎬 BestShotInline — 결과 카드 안의 슬로모션 베스트 샷
+    //   결과 카드 비디오 영역에 들어감. video + canvas 오버레이 구조.
+    // ========================================
+    function BestShotInline({ bestSwing, framesData, videoUrl, slowMoFactor = 1 }) {
+      const videoRef = useRef(null);
+      const canvasRef = useRef(null);
+      const rafRef = useRef(null);
+
+      const windowMs = 500 * slowMoFactor;
+      const startSec = (bestSwing.time - windowMs) / 1000;
+      const endSec = (bestSwing.time + windowMs) / 1000;
+
+      useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        v.playbackRate = 0.25;
+        v.muted = true;
+        const startLoop = () => {
+          const dur = v.duration || 0;
+          const s = Math.max(0, Math.min(dur, startSec));
+          v.currentTime = s;
+          const playPromise = v.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {});
+          }
+        };
+        if (v.readyState >= 1) startLoop();
+        else v.addEventListener("loadedmetadata", startLoop, { once: true });
+        const onTimeUpdate = () => {
+          if (v.currentTime >= endSec) v.currentTime = Math.max(0, startSec);
+        };
+        v.addEventListener("timeupdate", onTimeUpdate);
+        return () => {
+          v.removeEventListener("timeupdate", onTimeUpdate);
+          v.removeEventListener("loadedmetadata", startLoop);
+          v.pause();
+        };
+      }, [videoUrl, startSec, endSec, bestSwing.time]);
+
+      const syncCanvas = useCallback(() => {
+        const v = videoRef.current;
+        const c = canvasRef.current;
+        if (!v || !c) return;
+        if (v.videoWidth && (c.width !== v.videoWidth || c.height !== v.videoHeight)) {
+          c.width = v.videoWidth;
+          c.height = v.videoHeight;
+        }
+      }, []);
+
+      useEffect(() => {
+        const v = videoRef.current;
+        const c = canvasRef.current;
+        if (!v || !c || !framesData || framesData.length === 0) return;
+        const tick = () => {
+          syncCanvas();
+          const ctx = c.getContext("2d");
+          ctx.clearRect(0, 0, c.width, c.height);
+          const tMs = v.currentTime * 1000;
+          const f = findFrameAtTimeMs(framesData, tMs);
+          if (f && f.landmarks && window.__MediaPipe?.POSE_CONNECTIONS) {
+            drawPoseSkeleton(ctx, f.landmarks, window.__MediaPipe.POSE_CONNECTIONS);
+          }
+          const trail = [];
+          for (let i = 0; i < framesData.length; i++) {
+            const fi = framesData[i];
+            if (!fi.racketTip) continue;
+            if (fi.t > tMs) break;
+            if (tMs - fi.t > TRAIL_DURATION_MS) continue;
+            trail.push({ x: fi.racketTip.x, y: fi.racketTip.y, t: fi.t });
+          }
+          if (trail.length >= 2) drawRacketTrail(ctx, trail, tMs);
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+        return () => {
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+      }, [framesData, syncCanvas]);
+
+      return (
+        <div className="insta-video-stack" style={{ width: "100%", height: "100%", aspectRatio: "1 / 1" }}>
+          <video ref={videoRef} src={videoUrl} playsInline muted loop controls={false} crossOrigin="anonymous" />
+          <canvas ref={canvasRef} />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🎞️ Canvas 헬퍼들 — MediaRecorder로 합성 영상 만들 때 쓴다
+    // ========================================
+
+    // 점수 색상 (canvas용)
+    function scoreColorHex(score) {
+      if (score >= 70) return "#a3e635"; // lime-400
+      if (score >= 50) return "#fbbf24"; // amber-400
+      return "#fb7185"; // rose-400
+    }
+
+    // 라운드 사각형
+    function roundRect(ctx, x, y, w, h, r) {
+      const rr = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.lineTo(x + w - rr, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+      ctx.lineTo(x + w, y + h - rr);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+      ctx.lineTo(x + rr, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+      ctx.lineTo(x, y + rr);
+      ctx.quadraticCurveTo(x, y, x + rr, y);
+      ctx.closePath();
+    }
+
+    // ── object-fit: cover 좌표 계산 ──
+    // 원본(srcW × srcH)을 대상(dstW × dstH)에 cover로 배치할 때
+    // 잘릴 src 영역 (sx, sy, sw, sh)을 반환. 아래의 drawImage(...)와 동일 매핑.
+    //   ctx.drawImage(srcImg, sx, sy, sw, sh, dstX, dstY, dstW, dstH);
+    function coverCropRect(srcW, srcH, dstW, dstH) {
+      if (!srcW || !srcH || !dstW || !dstH) {
+        return { sx: 0, sy: 0, sw: srcW || 1, sh: srcH || 1 };
+      }
+      const srcAR = srcW / srcH;
+      const dstAR = dstW / dstH;
+      let sx = 0, sy = 0, sw = srcW, sh = srcH;
+      if (srcAR > dstAR) {
+        // src가 더 넓음 → 좌우 잘림
+        sw = srcH * dstAR;
+        sx = (srcW - sw) / 2;
+      } else if (srcAR < dstAR) {
+        // src가 더 높음 → 상하 잘림
+        sh = srcW / dstAR;
+        sy = (srcH - sh) / 2;
+      }
+      return { sx, sy, sw, sh };
+    }
+
+    // 정규화 landmark (0~1, src 좌표계) → 대상 캔버스 픽셀 좌표
+    // crop: { sx, sy, sw, sh } — coverCropRect 반환값 (src 픽셀 단위)
+    // dst: { x, y, w, h } — 대상 사각형
+    function projectNormalizedToDst(nx, ny, srcW, srcH, crop, dst) {
+      const px = nx * srcW;
+      const py = ny * srcH;
+      return {
+        x: dst.x + ((px - crop.sx) / crop.sw) * dst.w,
+        y: dst.y + ((py - crop.sy) / crop.sh) * dst.h,
+      };
+    }
+
+    // ── object-fit: contain 좌표 계산 ──
+    // 영상 (srcW × srcH)을 (dstW × dstH) 박스 안에 비율 유지로 fit (전신 보장).
+    // 결과: 박스 내부에서 영상이 그려질 사각형 { dx, dy, dw, dh } — 박스 기준 상대 좌표.
+    // 그 외 영역은 letterbox (호출자가 black fill).
+    function containFitRect(srcW, srcH, dstW, dstH) {
+      if (!srcW || !srcH || !dstW || !dstH) {
+        return { dx: 0, dy: 0, dw: dstW || 1, dh: dstH || 1 };
+      }
+      const srcAR = srcW / srcH;
+      const dstAR = dstW / dstH;
+      let dw, dh;
+      if (srcAR > dstAR) {
+        // src가 더 넓음 → 가로 풀, 상하 letterbox
+        dw = dstW;
+        dh = dstW / srcAR;
+      } else {
+        // src가 더 높거나 같음 → 세로 풀, 좌우 letterbox
+        dh = dstH;
+        dw = dstH * srcAR;
+      }
+      const dx = (dstW - dw) / 2;
+      const dy = (dstH - dh) / 2;
+      return { dx, dy, dw, dh };
+    }
+
+    // 정규화 (nx, ny) ∈ [0,1]을 contain fit 박스 안의 픽셀 좌표로 매핑.
+    // fitBox: { x, y, w, h } — 영상이 실제로 그려진 영역 (letterbox 제외).
+    // contain은 src 전체가 보이므로 cover보다 단순 — 정규화 좌표가 fitBox에 직접 매핑됨.
+    function projectNormalizedToFit(nx, ny, fitBox) {
+      return {
+        x: fitBox.x + nx * fitBox.w,
+        y: fitBox.y + ny * fitBox.h,
+      };
+    }
+
+    // framesData에서 targetMs에 가장 가까운 프레임 찾기 (시간순 정렬 가정)
+    function findFrameAtTimeMs(framesData, targetMs) {
+      if (!framesData || framesData.length === 0) return null;
+      let bestI = 0;
+      let bestD = Math.abs(framesData[0].t - targetMs);
+      for (let i = 1; i < framesData.length; i++) {
+        const d = Math.abs(framesData[i].t - targetMs);
+        if (d < bestD) { bestD = d; bestI = i; }
+        else if (framesData[i].t > targetMs && d > bestD) break;
+      }
+      return framesData[bestI];
+    }
+
+    // 스켈레톤을 대상 캔버스에 직접 그리기 (cover crop 매핑 적용)
+    function drawSkeletonProjected(ctx, landmarks, connections, srcW, srcH, crop, dst) {
+      if (!landmarks || !connections) return;
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const conn of connections) {
+        if (conn.start <= 10 || conn.end <= 10) continue;
+        const a = landmarks[conn.start];
+        const b = landmarks[conn.end];
+        if (!a || !b) continue;
+        if ((a.visibility ?? 1) < 0.3 || (b.visibility ?? 1) < 0.3) continue;
+        const A = projectNormalizedToDst(a.x, a.y, srcW, srcH, crop, dst);
+        const B = projectNormalizedToDst(b.x, b.y, srcW, srcH, crop, dst);
+        ctx.beginPath();
+        ctx.moveTo(A.x, A.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.stroke();
+      }
+      for (let i = 0; i < landmarks.length; i++) {
+        if (i <= 10) continue;
+        const p = landmarks[i];
+        if (!p) continue;
+        if ((p.visibility ?? 1) < 0.3) continue;
+        const P = projectNormalizedToDst(p.x, p.y, srcW, srcH, crop, dst);
+        const color = KP_COLORS[i] || "#ffffff";
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.85)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 5.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 스켈레톤을 contain fit 박스에 직접 그리기 (letterbox 안의 영역만 사용)
+    function drawSkeletonProjectedFit(ctx, landmarks, connections, fitBox) {
+      if (!landmarks || !connections) return;
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const conn of connections) {
+        if (conn.start <= 10 || conn.end <= 10) continue;
+        const a = landmarks[conn.start];
+        const b = landmarks[conn.end];
+        if (!a || !b) continue;
+        if ((a.visibility ?? 1) < 0.3 || (b.visibility ?? 1) < 0.3) continue;
+        const A = projectNormalizedToFit(a.x, a.y, fitBox);
+        const B = projectNormalizedToFit(b.x, b.y, fitBox);
+        ctx.beginPath();
+        ctx.moveTo(A.x, A.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.stroke();
+      }
+      for (let i = 0; i < landmarks.length; i++) {
+        if (i <= 10) continue;
+        const p = landmarks[i];
+        if (!p) continue;
+        if ((p.visibility ?? 1) < 0.3) continue;
+        const P = projectNormalizedToFit(p.x, p.y, fitBox);
+        const color = KP_COLORS[i] || "#ffffff";
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.85)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, 5.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 라켓 궤적을 contain fit 박스에 직접 그리기
+    function drawRacketTrailProjectedFit(ctx, trail, nowMs, fitBox) {
+      if (!trail || trail.length < 2) return;
+      const FADE_MS = TRAIL_DURATION_MS;
+      const sm = smoothTrail(trail, TRAIL_SMOOTH_WINDOW);
+      const n = sm.length;
+      if (n < 2) return;
+
+      const proj = sm.map(p => {
+        const P = projectNormalizedToFit(p.x, p.y, fitBox);
+        return { x: P.x, y: P.y, t: p.t };
+      });
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 5.5;
+      ctx.shadowColor = "rgba(103, 232, 249, 0.4)";
+      ctx.shadowBlur = 8;
+
+      for (let i = 0; i < n - 1; i++) {
+        const p1 = proj[i];
+        const p2 = proj[i + 1];
+        const p0 = i === 0 ? p1 : proj[i - 1];
+        const p3 = i + 2 < n ? proj[i + 2] : p2;
+        const ageA = nowMs - p1.t;
+        const ageB = nowMs - p2.t;
+        if (ageA > FADE_MS && ageB > FADE_MS) continue;
+
+        let prev = p1;
+        let prevAlpha = Math.max(0, 1 - ageA / FADE_MS);
+        for (let s = 1; s <= TRAIL_SUBSTEPS; s++) {
+          const t = s / TRAIL_SUBSTEPS;
+          const cur = catmullRomPoint(p0, p1, p2, p3, t);
+          const ageT = ageA * (1 - t) + ageB * t;
+          const curAlpha = Math.max(0, 1 - ageT / FADE_MS);
+          const segAlpha = (prevAlpha + curAlpha) * 0.5;
+          if (segAlpha > 0.01) {
+            ctx.strokeStyle = `rgba(103, 232, 249, ${segAlpha.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(cur.x, cur.y);
+            ctx.stroke();
+          }
+          prev = cur;
+          prevAlpha = curAlpha;
+        }
+      }
+      ctx.restore();
+    }
+
+    // 라켓 궤적을 대상 캔버스에 직접 그리기 (cover crop 매핑 적용)
+    function drawRacketTrailProjected(ctx, trail, nowMs, srcW, srcH, crop, dst) {
+      if (!trail || trail.length < 2) return;
+      const FADE_MS = TRAIL_DURATION_MS;
+      const sm = smoothTrail(trail, TRAIL_SMOOTH_WINDOW);
+      const n = sm.length;
+      if (n < 2) return;
+
+      // 정규화 좌표를 대상 픽셀로 미리 투영
+      const proj = sm.map(p => {
+        const P = projectNormalizedToDst(p.x, p.y, srcW, srcH, crop, dst);
+        return { x: P.x, y: P.y, t: p.t };
+      });
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 5.5;
+      ctx.shadowColor = "rgba(103, 232, 249, 0.4)";
+      ctx.shadowBlur = 8;
+
+      for (let i = 0; i < n - 1; i++) {
+        const p1 = proj[i];
+        const p2 = proj[i + 1];
+        const p0 = i === 0 ? p1 : proj[i - 1];
+        const p3 = i + 2 < n ? proj[i + 2] : p2;
+        const ageA = nowMs - p1.t;
+        const ageB = nowMs - p2.t;
+        if (ageA > FADE_MS && ageB > FADE_MS) continue;
+
+        let prev = p1;
+        let prevAlpha = Math.max(0, 1 - ageA / FADE_MS);
+        for (let s = 1; s <= TRAIL_SUBSTEPS; s++) {
+          const t = s / TRAIL_SUBSTEPS;
+          const cur = catmullRomPoint(p0, p1, p2, p3, t);
+          const ageT = ageA * (1 - t) + ageB * t;
+          const curAlpha = Math.max(0, 1 - ageT / FADE_MS);
+          const segAlpha = (prevAlpha + curAlpha) * 0.5;
+          if (segAlpha > 0.01) {
+            ctx.strokeStyle = `rgba(103, 232, 249, ${segAlpha.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(cur.x, cur.y);
+            ctx.stroke();
+          }
+          prev = cur;
+          prevAlpha = curAlpha;
+        }
+      }
+      ctx.restore();
+    }
+
+    // 헥사곤 차트를 캔버스에 직접
+    function drawHexagonChart(ctx, scores, cx, cy, radius) {
+      const labels = AXIS_LABELS;
+      const verts = labels.map((axis, i) => {
+        const ang = (-90 + i * 60) * Math.PI / 180;
+        return {
+          axis,
+          ang,
+          x: cx + Math.cos(ang) * radius,
+          y: cy + Math.sin(ang) * radius,
+          score: scores[axis.key] ?? 0,
+        };
+      });
+      // 그리드 (5단계)
+      ctx.save();
+      for (const f of [0.2, 0.4, 0.6, 0.8, 1.0]) {
+        ctx.beginPath();
+        for (let i = 0; i < verts.length; i++) {
+          const x = cx + (verts[i].x - cx) * f;
+          const y = cy + (verts[i].y - cy) * f;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "rgba(100, 116, 139, 0.35)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+      // 스포크
+      for (const v of verts) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(v.x, v.y);
+        ctx.strokeStyle = "rgba(71, 85, 105, 0.6)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      // 점수 폴리곤
+      ctx.beginPath();
+      verts.forEach((v, i) => {
+        const f = (v.score || 0) / 100;
+        const x = cx + (v.x - cx) * f;
+        const y = cy + (v.y - cy) * f;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = "rgba(163, 230, 53, 0.32)";
+      ctx.fill();
+      ctx.strokeStyle = "#a3e635";
+      ctx.lineWidth = 2.4;
+      ctx.shadowColor = "rgba(163, 230, 53, 0.6)";
+      ctx.shadowBlur = 14;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // 점
+      for (const v of verts) {
+        const f = (v.score || 0) / 100;
+        const x = cx + (v.x - cx) * f;
+        const y = cy + (v.y - cy) * f;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#a3e635";
+        ctx.fill();
+      }
+      // 라벨
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "600 18px system-ui, sans-serif";
+      ctx.textBaseline = "middle";
+      for (const v of verts) {
+        const lx = cx + Math.cos(v.ang) * (radius + 30);
+        const ly = cy + Math.sin(v.ang) * (radius + 30);
+        const dx = lx - cx;
+        ctx.textAlign = Math.abs(dx) < 10 ? "center" : (dx > 0 ? "left" : "right");
+        ctx.fillText(v.axis.label, lx, ly);
+      }
+      ctx.restore();
+    }
+
+    // 인스타 카드 1080x1920 캔버스에 한 프레임 그리기
+    // ctx — 1080x1920 컨텍스트
+    // params: { videoEl, framesData, bestSwing, scoreData, hand, currentVideoTimeMs, scoreAnimT (0~1) }
+    function drawInstaCardFrame(ctx, params) {
+      const W = 1080;
+      const H = 1920;
+      const {
+        videoEl,
+        framesData,
+        bestSwing,
+        scoreData,
+        currentVideoTimeMs,
+        scoreAnimT = 1,
+      } = params;
+
+      // ── 배경 그라디언트 ──
+      const bgRadial1 = ctx.createRadialGradient(W * 0.3, 0, 0, W * 0.3, 0, W * 0.9);
+      bgRadial1.addColorStop(0, "rgba(163, 230, 53, 0.18)");
+      bgRadial1.addColorStop(1, "rgba(163, 230, 53, 0)");
+      const bgLinear = ctx.createLinearGradient(0, 0, W * 0.6, H);
+      bgLinear.addColorStop(0, "#020617");
+      bgLinear.addColorStop(0.5, "#0c1a14");
+      bgLinear.addColorStop(1, "#0a0f08");
+      ctx.fillStyle = bgLinear;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = bgRadial1;
+      ctx.fillRect(0, 0, W, H);
+      const bgRadial2 = ctx.createRadialGradient(W * 0.7, H, 0, W * 0.7, H, W);
+      bgRadial2.addColorStop(0, "rgba(132, 204, 22, 0.12)");
+      bgRadial2.addColorStop(1, "rgba(132, 204, 22, 0)");
+      ctx.fillStyle = bgRadial2;
+      ctx.fillRect(0, 0, W, H);
+
+      // ── 카드 외곽 라임 보더 ──
+      ctx.save();
+      roundRect(ctx, 16, 16, W - 32, H - 32, 32);
+      ctx.strokeStyle = "rgba(163, 230, 53, 0.25)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      const PAD = 70; // 6.5% — 카드 좌우 패딩
+
+      // ── 헤더 (컴팩트) ──
+      ctx.save();
+      ctx.shadowColor = "rgba(163, 230, 53, 0.45)";
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = "#a3e635";
+      ctx.font = "900 50px system-ui, sans-serif";
+      ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left";
+      // 글자 사이 여백 + tracking
+      const brandText = "DAILY  TENNIS";
+      ctx.fillText(brandText, PAD, 105);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "500 20px system-ui, sans-serif";
+      ctx.fillText("AI 자세 분석 리포트", PAD, 138);
+
+      // 우측: 매장명/날짜
+      ctx.textAlign = "right";
+      ctx.font = "700 22px system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText("📍 " + BRAND.storeName, W - PAD, 105);
+      ctx.font = "500 18px system-ui, sans-serif";
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText(formatToday(), W - PAD, 135);
+      ctx.restore();
+
+      // 헤더 구분선 (그라디언트)
+      const lineGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
+      lineGrad.addColorStop(0, "rgba(163, 230, 53, 0)");
+      lineGrad.addColorStop(0.5, "rgba(163, 230, 53, 0.5)");
+      lineGrad.addColorStop(1, "rgba(163, 230, 53, 0)");
+      ctx.strokeStyle = lineGrad;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(PAD, 165);
+      ctx.lineTo(W - PAD, 165);
+      ctx.stroke();
+
+      // ── 베스트 샷 영상 박스 (1:1, 940x940 — 카드 가로의 ~87%) ──
+      const VID_W = 940;
+      const VID_H = 940;
+      const VID_X = (W - VID_W) / 2; // 중앙 정렬 (= 70)
+      const VID_Y = 195;
+      ctx.save();
+      // 글로우
+      ctx.shadowColor = "rgba(163, 230, 53, 0.4)";
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = "#000";
+      roundRect(ctx, VID_X, VID_Y, VID_W, VID_H, 32);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // 영상 그리기 (object-fit: contain — 전신 보장, 좌우/상하 letterbox)
+      if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        const vw = videoEl.videoWidth;
+        const vh = videoEl.videoHeight;
+        const fit = containFitRect(vw, vh, VID_W, VID_H);
+        // letterbox 제외, 영상이 실제로 그려지는 절대 좌표 박스
+        const fitBox = { x: VID_X + fit.dx, y: VID_Y + fit.dy, w: fit.dw, h: fit.dh };
+
+        ctx.save();
+        roundRect(ctx, VID_X, VID_Y, VID_W, VID_H, 32);
+        ctx.clip();
+
+        // 1) 베스트 샷 박스 전체를 검은색으로 fill (letterbox 배경)
+        ctx.fillStyle = "#000";
+        ctx.fillRect(VID_X, VID_Y, VID_W, VID_H);
+
+        // 2) 영상은 fitBox 안에 비율 유지로 그리기 (전신 보장)
+        try {
+          ctx.drawImage(videoEl, fitBox.x, fitBox.y, fitBox.w, fitBox.h);
+        } catch (e) { /* CORS / not ready */ }
+
+        // 3) 스켈레톤 + 라켓 궤적 오버레이 (fitBox 영역에 정렬)
+        if (framesData && framesData.length > 0 && fitBox.w > 0 && fitBox.h > 0) {
+          const f = findFrameAtTimeMs(framesData, currentVideoTimeMs);
+          if (f && f.landmarks && window.__MediaPipe?.POSE_CONNECTIONS) {
+            drawSkeletonProjectedFit(
+              ctx, f.landmarks, window.__MediaPipe.POSE_CONNECTIONS, fitBox
+            );
+          }
+          // 라켓 궤적: 현재 시점 이전 1.3초 분량의 racketTip
+          const trail = [];
+          for (let i = 0; i < framesData.length; i++) {
+            const fi = framesData[i];
+            if (!fi.racketTip) continue;
+            if (fi.t > currentVideoTimeMs) break;
+            if (currentVideoTimeMs - fi.t > TRAIL_DURATION_MS) continue;
+            trail.push({ x: fi.racketTip.x, y: fi.racketTip.y, t: fi.t });
+          }
+          if (trail.length >= 2) {
+            drawRacketTrailProjectedFit(ctx, trail, currentVideoTimeMs, fitBox);
+          }
+        }
+        ctx.restore();
+      }
+
+      // BEST SHOT 라벨 (좌하단)
+      ctx.save();
+      const labelY = VID_Y + VID_H - 56;
+      ctx.fillStyle = "rgba(163, 230, 53, 0.92)";
+      roundRect(ctx, VID_X + 24, labelY, 220, 44, 22);
+      ctx.shadowColor = "rgba(163, 230, 53, 0.6)";
+      ctx.shadowBlur = 16;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#0a0f08";
+      ctx.font = "800 18px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🏆 BEST SHOT", VID_X + 24 + 110, labelY + 22);
+
+      // 종목 라벨
+      const swingTypeLabel = bestSwing
+        ? (bestSwing.type === "forehand" ? "포핸드"
+          : bestSwing.type === "backhand" ? "백핸드"
+          : "분류불가")
+        : "";
+      const stanceTxt = bestSwing?.stance && bestSwing.stance !== 'unknown'
+        ? " · " + stanceLabel(bestSwing.stance) + " 스탠스"
+        : "";
+      const fullLabel = swingTypeLabel + stanceTxt;
+      ctx.font = "600 18px system-ui, sans-serif";
+      const tw = ctx.measureText(fullLabel).width + 36;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+      roundRect(ctx, VID_X + 256, labelY, tw, 44, 22);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.fillStyle = "#f8fafc";
+      ctx.fillText(fullLabel, VID_X + 256 + tw / 2, labelY + 22);
+      ctx.restore();
+
+      // ── 메가 점수 ── (영상 바로 아래, 컴팩트)
+      const SCORE_Y = VID_Y + VID_H + 30; // 영상 아래 30px
+      const SCORE_FONT = 150;
+      const animatedScore = Math.round((scoreData?.total ?? 0) * scoreAnimT);
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.shadowColor = "rgba(163, 230, 53, 0.6)";
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = scoreColorHex(scoreData?.total ?? 0);
+      ctx.font = `900 ${SCORE_FONT}px system-ui, sans-serif`;
+      const totalText = String(animatedScore);
+      const totalMeasure = ctx.measureText(totalText);
+      // baseline 기준 점수 그리기 (점수 영역 높이 ≈ SCORE_FONT)
+      const scoreBaseline = SCORE_Y + SCORE_FONT * 0.85;
+      ctx.fillText(totalText, W / 2 - 70, scoreBaseline);
+      ctx.shadowBlur = 0;
+
+      // / 100
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "700 32px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      const scoreRight = W / 2 - 70 + totalMeasure.width / 2 + 14;
+      ctx.fillText("/ 100", scoreRight, scoreBaseline - 60);
+
+      // 별점
+      const stars = Math.max(0, Math.min(5, Math.round(((scoreData?.total ?? 0) * scoreAnimT) / 20)));
+      ctx.font = "700 36px system-ui, sans-serif";
+      ctx.fillStyle = "#fbbf24";
+      ctx.fillText("★".repeat(stars), scoreRight, scoreBaseline);
+      const filledWidth = ctx.measureText("★".repeat(stars)).width;
+      ctx.fillStyle = "#475569";
+      ctx.fillText("☆".repeat(5 - stars), scoreRight + filledWidth, scoreBaseline);
+      ctx.restore();
+
+      // ── 헥사곤 차트 + 6축 그리드 가로 배치 ──
+      // 헥사곤은 좌측 (반지름 115, 라벨 포함 ~290 영역), 6축 그리드는 우측
+      const HEX_BLOCK_Y = SCORE_Y + SCORE_FONT + 30; // 점수 아래 30px
+      const HEX_R = 115;
+      const HEX_CX = PAD + HEX_R + 30; // 라벨 공간(왼쪽) 확보
+      const HEX_CY = HEX_BLOCK_Y + HEX_R + 20; // 라벨 공간(위쪽) 확보
+      drawHexagonChart(ctx, scoreData?.axes ?? {}, HEX_CX, HEX_CY, HEX_R);
+
+      // ── 6축 점수 리스트 (헥사곤 우측, 1열 6행) ──
+      const LIST_X = HEX_CX + HEX_R + 90; // 헥사곤 우측 라벨 영역(반지름+90) 이후
+      const LIST_W = W - PAD - LIST_X;
+      const LIST_TOP = HEX_BLOCK_Y;
+      const ROW_H = 44;
+      ctx.save();
+      AXIS_LABELS.forEach(({ key, label }, i) => {
+        const y = LIST_TOP + i * ROW_H;
+        const v = (scoreData?.axes ?? {})[key] ?? 0;
+        const stN = Math.max(0, Math.min(5, Math.round(v / 20)));
+        // 라벨
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "600 20px system-ui, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(label, LIST_X, y + 22);
+        // 별 (라벨 아래)
+        ctx.font = "700 14px system-ui, sans-serif";
+        ctx.fillStyle = "#fbbf24";
+        ctx.fillText("★".repeat(stN), LIST_X, y + 42);
+        const sw2 = ctx.measureText("★".repeat(stN)).width;
+        ctx.fillStyle = "#475569";
+        ctx.fillText("☆".repeat(5 - stN), LIST_X + sw2, y + 42);
+        // 점수 (우측 정렬)
+        ctx.textAlign = "right";
+        ctx.font = "800 28px system-ui, sans-serif";
+        ctx.fillStyle = scoreColorHex(v);
+        ctx.fillText(String(v), W - PAD, y + 30);
+      });
+      ctx.restore();
+
+      // ── 푸터 (안전 영역 안) ──
+      const FOOTER_Y = H - 230; // 하단 250px 안전영역 안
+      // 구분선
+      const footerLineGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
+      footerLineGrad.addColorStop(0, "rgba(163, 230, 53, 0)");
+      footerLineGrad.addColorStop(0.5, "rgba(163, 230, 53, 0.4)");
+      footerLineGrad.addColorStop(1, "rgba(163, 230, 53, 0)");
+      ctx.strokeStyle = footerLineGrad;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(PAD, FOOTER_Y);
+      ctx.lineTo(W - PAD, FOOTER_Y);
+      ctx.stroke();
+
+      // 푸터 좌측 — QR + 핸들
+      ctx.save();
+      const QR_SIZE = 110;
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, PAD, FOOTER_Y + 30, QR_SIZE, QR_SIZE, 12);
+      ctx.fill();
+      drawQrToCtx(ctx, BRAND.instagramUrl, PAD + 8, FOOTER_Y + 38, QR_SIZE - 16, "#0a0f08");
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "700 26px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(BRAND.instagramHandle, PAD + QR_SIZE + 18, FOOTER_Y + 70);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "500 20px system-ui, sans-serif";
+      ctx.fillText(BRAND.domain, PAD + QR_SIZE + 18, FOOTER_Y + 100);
+      // 푸터 우측 — powered by
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#64748b";
+      ctx.font = "500 16px system-ui, sans-serif";
+      ctx.fillText("POWERED BY", W - PAD, FOOTER_Y + 60);
+      ctx.fillStyle = "#a3e635";
+      ctx.font = "900 24px system-ui, sans-serif";
+      ctx.fillText("DAILY TENNIS", W - PAD, FOOTER_Y + 92);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "500 16px system-ui, sans-serif";
+      ctx.fillText("AI 자세분석", W - PAD, FOOTER_Y + 114);
+      ctx.restore();
+    }
+
+    // (구) drawSkeletonOverlay / drawTrailOverlay (vw×vh 임시 캔버스 + 두 번 drawImage)는
+    //   drawSkeletonProjected / drawRacketTrailProjected (직접 픽셀 투영)로 대체됨.
+
+    // QR을 ctx의 (x, y, size) 영역에 직접 그림 (qrcode-generator 모듈 사용)
+    function drawQrToCtx(ctx, value, x, y, size, dark = "#000") {
+      if (typeof window.qrcode === "undefined") return;
+      const qr = window.qrcode(0, "M");
+      qr.addData(value);
+      qr.make();
+      const moduleCount = qr.getModuleCount();
+      const cell = size / moduleCount;
+      ctx.save();
+      ctx.fillStyle = dark;
+      for (let r = 0; r < moduleCount; r++) {
+        for (let c = 0; c < moduleCount; c++) {
+          if (qr.isDark(r, c)) {
+            ctx.fillRect(x + c * cell, y + r * cell, cell + 0.5, cell + 0.5);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    // ========================================
+    // 🟢 ResultInstaCard — 9:16 인스타 릴스 결과 카드
+    //   안전 영역(상단/하단 ~12%)을 의식한 레이아웃
+    //   다크 그라디언트 + 라임 글로우 + 메가 점수
+    // ========================================
+    function ResultInstaCard({
+      scoreData,
+      bestSwing,
+      framesData,
+      videoUrl,
+      slowMoFactor,
+      cardRef,
+      captureMode = false,
+      showSafeArea = false,
+      composeStatus = "idle",      // idle | rendering | uploading | ready | error
+      composeProgress = 0,         // 0 ~ 100 (rendering 중)
+      downloadUrl = "",            // composeStatus === "ready" 일 때 publicDownloadUrl
+    }) {
+      const total = scoreData?.total ?? 0;
+      const axes = scoreData?.axes ?? {};
+      const stanceText = bestSwing?.stance && bestSwing.stance !== 'unknown'
+        ? stanceLabel(bestSwing.stance) + " 스탠스"
+        : null;
+      const swingTypeLabel = bestSwing
+        ? (bestSwing.type === "forehand" ? "포핸드"
+          : bestSwing.type === "backhand" ? "백핸드"
+          : "분류불가")
+        : "";
+
+      return (
+        <div ref={cardRef} className={`insta-card ${captureMode ? 'capture-mode' : ''}`}>
+          <div className="absolute inset-0 flex flex-col" style={{ padding: "3.2% 3.5%" }}>
+            {/* ========== 헤더 (안전 영역 안) — 컴팩트 ========== */}
+            <div className="flex items-end justify-between">
+              <div>
+                <div
+                  className="font-black accent-lime"
+                  style={{
+                    fontSize: "1.35rem",
+                    letterSpacing: "0.18em",
+                    textShadow: "0 0 16px rgba(163, 230, 53, 0.45)",
+                    lineHeight: 1,
+                  }}
+                >
+                  {BRAND.name}
+                </div>
+                <div className="text-[10px] text-slate-300 mt-1 tracking-wide">
+                  AI 자세 분석 리포트
+                </div>
+              </div>
+              <div className="text-right text-[10px] leading-tight">
+                <div className="text-slate-300 font-semibold">📍 {BRAND.storeName}</div>
+                <div className="text-slate-400">{formatToday()}</div>
+              </div>
+            </div>
+
+            <div className="h-px bg-gradient-to-r from-transparent via-lime-400/40 to-transparent my-2" />
+
+            {/* ========== 베스트 샷 (1:1 영상) — 카드 가로의 ~92%, 영상 우위 ========== */}
+            <div
+              className="best-shot rounded-2xl overflow-hidden relative bg-black mx-auto"
+              style={{
+                width: "100%",
+                aspectRatio: "1 / 1",
+                boxShadow: "0 0 0 1px rgba(163,230,53,0.35), 0 12px 30px -10px rgba(0,0,0,0.7)",
+              }}
+            >
+              {bestSwing && videoUrl ? (
+                <BestShotInline
+                  bestSwing={bestSwing}
+                  framesData={framesData}
+                  videoUrl={videoUrl}
+                  slowMoFactor={slowMoFactor}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-slate-500 text-sm">베스트 샷 미선정</span>
+                </div>
+              )}
+              {/* 좌하단 라벨 */}
+              <div className="absolute left-3 bottom-3 flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide"
+                      style={{
+                        background: "rgba(163, 230, 53, 0.92)",
+                        color: "#0a0f08",
+                        boxShadow: "0 0 12px rgba(163, 230, 53, 0.55)",
+                      }}>
+                  🏆 BEST SHOT
+                </span>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/30 backdrop-blur-sm bg-black/40 text-slate-100">
+                  {swingTypeLabel}
+                  {stanceText && <span className="text-slate-300 font-normal"> · {stanceText}</span>}
+                </span>
+              </div>
+            </div>
+
+            {/* ========== 메가 점수 — 영상 바로 아래 큰 라임 한 줄 ========== */}
+            <div className="flex items-baseline justify-center gap-3 mt-3 mb-1">
+              <div className={`score-mega score-pop ${scoreColorClass(total)}`} style={{ fontSize: "4.2rem" }}>
+                {total}
+              </div>
+              <div className="flex flex-col items-start" style={{ paddingBottom: "0.4rem" }}>
+                <span className="text-slate-300 text-sm font-semibold">/ 100</span>
+                <div className="text-xl mt-0.5 leading-none">
+                  <span className="star-yellow">{"★".repeat(Math.max(0, Math.min(5, Math.round((total || 0) / 20))))}</span>
+                  <span className="star-dim">{"☆".repeat(5 - Math.max(0, Math.min(5, Math.round((total || 0) / 20))))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ========== 헥사곤 + 6축 그리드 가로 배치 — 헥사곤 작아진 만큼 옆으로 ========== */}
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-shrink-0 hex-fade">
+                <HexagonChart scores={axes} size={150} />
+              </div>
+              <div className="flex-1 grid grid-cols-1 gap-y-1">
+                {AXIS_LABELS.map(({ key, label }) => {
+                  const v = axes[key] ?? 0;
+                  const stars = Math.max(0, Math.min(5, Math.round(v / 20)));
+                  return (
+                    <div key={key} className="flex items-center justify-between gap-1.5">
+                      <span className="text-[10px] text-slate-300 font-medium flex-shrink-0">{label}</span>
+                      <span className="font-mono text-[9px] leading-none flex-shrink-0">
+                        <span className="star-yellow">{"★".repeat(stars)}</span>
+                        <span className="star-dim">{"☆".repeat(5 - stars)}</span>
+                      </span>
+                      <span className={`text-sm font-extrabold ${scoreColorClass(v)}`}>{v}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ========== 푸터 (안전 영역 안) — 분석 영상 다운로드 QR ========== */}
+            <div className="mt-auto pt-2">
+              <div className="h-px bg-gradient-to-r from-transparent via-lime-400/30 to-transparent mb-2" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {/* QR 슬롯 — 상태별 표시 */}
+                  <div
+                    className="flex items-center justify-center rounded-lg"
+                    style={{
+                      width: 92,
+                      height: 92,
+                      background: composeStatus === "ready" ? "transparent" : "rgba(255,255,255,0.04)",
+                      border: composeStatus === "ready" ? "none" : "1px dashed rgba(163,230,53,0.35)",
+                    }}
+                  >
+                    {composeStatus === "ready" && downloadUrl ? (
+                      <div style={{ transform: "scale(0.46)", transformOrigin: "center", margin: -34 }}>
+                        <QrCode value={downloadUrl} size={200} dark="#0a0f08" light="#ffffff" />
+                      </div>
+                    ) : composeStatus === "rendering" ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <Spinner size={4} />
+                        <span className="text-[9px] text-lime-300 font-bold leading-none">{composeProgress}%</span>
+                      </div>
+                    ) : composeStatus === "uploading" ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <Spinner size={4} />
+                        <span className="text-[9px] text-lime-300 font-bold leading-none">업로드</span>
+                      </div>
+                    ) : composeStatus === "error" ? (
+                      <span className="text-[10px] text-rose-300 font-semibold">실패</span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500 font-medium">준비중</span>
+                    )}
+                  </div>
+
+                  {/* 안내 텍스트 — 상태별 */}
+                  <div className="leading-tight max-w-[180px]">
+                    {composeStatus === "ready" ? (
+                      <>
+                        <div className="text-xs font-bold text-lime-300">📱 폰으로 스캔</div>
+                        <div className="text-[10px] text-slate-300 mt-0.5">갤러리에 저장</div>
+                      </>
+                    ) : composeStatus === "rendering" ? (
+                      <>
+                        <div className="text-xs font-bold text-slate-100">📹 영상 만드는 중</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{composeProgress}% · 잠시만요</div>
+                      </>
+                    ) : composeStatus === "uploading" ? (
+                      <>
+                        <div className="text-xs font-bold text-slate-100">📤 업로드 중</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">곧 QR이 생성돼요</div>
+                      </>
+                    ) : composeStatus === "error" ? (
+                      <>
+                        <div className="text-xs font-bold text-rose-300">❌ 준비 실패</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">PC에서 직접 받으세요</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs font-bold text-slate-100">📱 QR 준비중</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">분석 영상 합성 시작</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* 우측 매장 정보 */}
+                <div className="text-right leading-tight">
+                  <div className="text-[9px] text-slate-500 uppercase tracking-wider">powered by</div>
+                  <div className="text-[11px] font-extrabold accent-lime tracking-wide">DAILY TENNIS</div>
+                  <div className="text-[9px] text-slate-400">{BRAND.storeName}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 인스타 안전 영역 오버레이 (디자인 검수용) */}
+          {showSafeArea && <div className="insta-safe-overlay" />}
+        </div>
+      );
+    }
+
+    // QrCode가 svg를 받지 못하는 작은 사이즈에서도 동작하도록 위에서 size를 직접 전달.
+    // (qrcode-generator는 module 수가 많으면 size/cell 비율 문제가 생길 수 있어 padding 1.5로 보강)
+
+    // ========================================
+    // 🖥️ PC State 1 — WaitingScreen
+    //   지속형 QR 모드 (store-token):
+    //     - 페이지 로드 시 GET /api/store-token → QR 표시
+    //     - 30초마다 토큰 회전 체크 (값이 바뀌면 QR 새로 그림)
+    //     - 1초마다 GET /api/queue/next → 200이면 onPickup, 204면 계속 대기
+    // ========================================
+    function WaitingScreen({ onPickup }) {
+      const [tokenInfo, setTokenInfo] = useState(null); // { token, qrUrl, expiresAt }
+      const [error, setError] = useState("");
+      const [stats, setStats] = useState({ rotations: 0, lastCheckedAt: null });
+      const tokenRef = useRef(null);
+      const pickupHandledRef = useRef(false);
+
+      // 1) 초기 토큰 조회
+      useEffect(() => {
+        let cancelled = false;
+        (async () => {
+          try {
+            const t = await apiGetStoreToken();
+            if (cancelled) return;
+            setTokenInfo(t);
+            tokenRef.current = t.token;
+          } catch (err) {
+            if (!cancelled) setError(err.message);
+          }
+        })();
+        return () => { cancelled = true; };
+      }, []);
+
+      // 2) 토큰 회전 감지 — 30초 간격
+      useEffect(() => {
+        if (!tokenInfo) return;
+        const id = setInterval(async () => {
+          try {
+            const t = await apiGetStoreToken();
+            setStats(s => ({ ...s, lastCheckedAt: new Date().toISOString() }));
+            if (t.token !== tokenRef.current) {
+              console.log("[token] 회전 감지 — QR 갱신");
+              tokenRef.current = t.token;
+              setTokenInfo(t);
+              setStats(s => ({ ...s, rotations: s.rotations + 1 }));
+            }
+          } catch (err) {
+            console.warn("[token] 회전 체크 실패", err);
+          }
+        }, PC_TOKEN_REFRESH_MS);
+        return () => clearInterval(id);
+      }, [tokenInfo]);
+
+      // 3) 큐 폴링 — 1초 간격. 새 업로드 감지되면 onPickup
+      useEffect(() => {
+        if (!tokenInfo) return;
+        let stopped = false;
+        const tick = async () => {
+          if (stopped || pickupHandledRef.current) return;
+          try {
+            const next = await apiQueueNext();
+            if (stopped || pickupHandledRef.current) return;
+            if (next && next.sessionId && next.videoUrl) {
+              pickupHandledRef.current = true;
+              onPickup({
+                sessionId: next.sessionId,
+                videoUrl: next.videoUrl,
+              });
+            }
+          } catch (err) {
+            console.warn("[queue] 폴링 실패", err);
+          }
+        };
+        const id = setInterval(tick, PC_QUEUE_POLL_MS);
+        // 즉시 1회
+        tick();
+        return () => { stopped = true; clearInterval(id); };
+      }, [tokenInfo, onPickup]);
+
+      if (error) {
+        return (
+          <div className="min-h-screen flex items-center justify-center px-6">
+            <Card className="max-w-md w-full text-center">
+              <div className="text-rose-300 text-base mb-2">서버 연결 실패</div>
+              <div className="text-sm text-slate-400 mb-4">{error}</div>
+              <PrimaryButton onClick={() => window.location.reload()}>다시 시도</PrimaryButton>
+            </Card>
+          </div>
+        );
+      }
+
+      if (!tokenInfo) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="flex items-center gap-3 text-slate-300">
+              <Spinner /> <span>매장 QR 준비 중...</span>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center px-6 py-10">
+          {/* 헤더 */}
+          <div className="text-center mb-10">
+            <div className="text-3xl font-extrabold tracking-widest accent-lime mb-1">
+              {BRAND.name}
+            </div>
+            <div className="text-sm text-slate-400">{BRAND.storeName} · 자세 분석</div>
+          </div>
+
+          {/* QR + 안내 */}
+          <div className="flex flex-col items-center gap-6">
+            <QrCode value={tokenInfo.qrUrl} size={320} dark="#0f172a" light="#f8fafc" />
+            <div className="text-center max-w-md">
+              <h2 className="text-2xl font-bold mb-3">📱 휴대폰으로 QR을 스캔하세요</h2>
+              <div className="grid grid-cols-3 gap-2 mt-4 mb-3">
+                <div className="rounded-xl bg-slate-800/60 border border-slate-700 px-3 py-3">
+                  <div className="text-lime-400 text-xl mb-1">⏱️</div>
+                  <div className="text-xs font-semibold text-white">30초 이내</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">잘 친 스윙만</div>
+                </div>
+                <div className="rounded-xl bg-slate-800/60 border border-slate-700 px-3 py-3">
+                  <div className="text-lime-400 text-xl mb-1">🎥</div>
+                  <div className="text-xs font-semibold text-white">FHD 권장</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">1080p · 4K X</div>
+                </div>
+                <div className="rounded-xl bg-slate-800/60 border border-slate-700 px-3 py-3">
+                  <div className="text-lime-400 text-xl mb-1">📐</div>
+                  <div className="text-xs font-semibold text-white">측면 촬영</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">전신 · 1명</div>
+                </div>
+              </div>
+              <p className="text-slate-500 text-xs mt-3">
+                업로드가 완료되면 자동으로 분석이 시작됩니다.
+              </p>
+            </div>
+            <div className="pulse-soft text-xs text-slate-500 mt-2 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-lime-400" />
+              <span>업로드 대기 중...</span>
+            </div>
+          </div>
+
+          {/* 디버그/운영 정보 */}
+          <div className="mt-10 text-center text-[11px] text-slate-600 leading-relaxed">
+            <div>
+              매장 QR ·{" "}
+              <a
+                href={tokenInfo.qrUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-slate-400 underline"
+              >
+                {tokenInfo.qrUrl}
+              </a>
+            </div>
+            <div className="mt-1">
+              만료: {new Date(tokenInfo.expiresAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+              {stats.rotations > 0 && (
+                <span className="ml-2 text-slate-500">· 자동 갱신 {stats.rotations}회</span>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🔬 PC State 2 — AnalyzingScreen (영상 업로드됨 → MediaPipe 분석)
+    // ========================================
+    // 입력: { sessionId, videoUrl }
+    // 동작:
+    //   1) 모델 로드 (full)
+    //   2) <video> 자동 재생 (음소거)
+    //   3) requestAnimationFrame 루프로 매 프레임 detectForVideo + framesRef 누적
+    //   4) ended 이벤트 시 detectSwings + scoreSwing 실행
+    //   5) onComplete({ scoreData, bestSwing, framesData, videoUrl, slowMoFactor })
+    function AnalyzingScreen({ session, onComplete, onError }) {
+      const mpReady = useMediaPipeReady();
+      const [progress, setProgress] = useState(0);
+      const [stage, setStage] = useState("loading"); // loading | playing | scoring | done
+      const [warning, setWarning] = useState("");
+      const videoRef = useRef(null);
+      const canvasRef = useRef(null);
+      const landmarkerRef = useRef(null);
+      const framesRef = useRef([]);
+      const racketTrailRef = useRef([]);
+      const rafIdRef = useRef(null);
+      const videoTsRef = useRef(0);
+      const lastFrameTimeRef = useRef(0);
+
+      // 기본값 — V2에서 모바일 메타로 받을 예정
+      const hand = "right";
+      const slowMoFactor = 1;
+
+      // 모델 로드
+      useEffect(() => {
+        if (!mpReady) return;
+        let cancelled = false;
+        (async () => {
+          try {
+            setStage("loading");
+            const lm = await window.__MediaPipe.createLandmarker("full");
+            if (cancelled) { lm.close?.(); return; }
+            landmarkerRef.current = lm;
+            setStage("playing");
+            // 영상 자동 재생
+            const v = videoRef.current;
+            if (v) {
+              v.muted = true;
+              v.playbackRate = 1;
+              v.play().catch(() => {});
+            }
+          } catch (err) {
+            console.error("[MediaPipe]", err);
+            if (!cancelled) onError("모델 로딩 실패. 인터넷 연결 확인");
+          }
+        })();
+        return () => { cancelled = true; };
+      }, [mpReady]);
+
+      // canvas 사이즈 동기화
+      const syncCanvasSize = useCallback(() => {
+        const v = videoRef.current;
+        const c = canvasRef.current;
+        if (!v || !c) return;
+        if (v.videoWidth && (c.width !== v.videoWidth || c.height !== v.videoHeight)) {
+          c.width = v.videoWidth;
+          c.height = v.videoHeight;
+        }
+      }, []);
+
+      // 분석 루프
+      const processFrame = useCallback(() => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const lm = landmarkerRef.current;
+        if (!video || !canvas || !lm) {
+          rafIdRef.current = requestAnimationFrame(processFrame);
+          return;
+        }
+        if (video.paused || video.ended) return;
+        if (video.currentTime === lastFrameTimeRef.current) {
+          rafIdRef.current = requestAnimationFrame(processFrame);
+          return;
+        }
+        lastFrameTimeRef.current = video.currentTime;
+        videoTsRef.current += 16;
+        const ts = videoTsRef.current;
+        let result = null;
+        try { result = lm.detectForVideo(video, ts); }
+        catch (err) { console.warn("[detectForVideo]", err); }
+
+        syncCanvasSize();
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (result?.landmarks?.length > 0) {
+          const landmarks = result.landmarks[0];
+          const tMs = video.currentTime * 1000;
+          const racketTip = estimateRacketTip(landmarks, hand);
+          framesRef.current.push({
+            t: tMs,
+            landmarks: landmarks.map(p => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility })),
+            racketTip,
+          });
+          if (racketTip) racketTrailRef.current.push({ x: racketTip.x, y: racketTip.y, t: tMs });
+          racketTrailRef.current = racketTrailRef.current.filter(p => tMs - p.t <= TRAIL_DURATION_MS);
+          drawPoseSkeleton(ctx, landmarks, window.__MediaPipe.POSE_CONNECTIONS);
+          drawRacketTrail(ctx, racketTrailRef.current, tMs);
+        }
+        // 진행률 — currentTime / duration
+        if (video.duration) {
+          setProgress(Math.min(100, Math.round((video.currentTime / video.duration) * 100)));
+        }
+        rafIdRef.current = requestAnimationFrame(processFrame);
+      }, [hand, syncCanvasSize]);
+
+      // 비디오 이벤트
+      useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        const onPlay = () => {
+          framesRef.current = [];
+          racketTrailRef.current = [];
+          videoTsRef.current = 0;
+          rafIdRef.current = requestAnimationFrame(processFrame);
+        };
+        const onEnded = () => {
+          if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+          // 분석 + 스코어링
+          setStage("scoring");
+          setTimeout(() => {
+            const frames = framesRef.current;
+            const result = detectSwings(frames, hand, slowMoFactor);
+            if (!result.swings.length) {
+              onError("스윙이 검출되지 않았습니다. 측면(좌우 90°) 촬영을 권장합니다.");
+              return;
+            }
+            const perSwing = result.swings.map(sw => {
+              const autoStance = detectStance(frames, sw.peakIdx, slowMoFactor);
+              const finalStance = autoStance === 'unknown' ? 'semi-open' : autoStance;
+              const scored = scoreSwing(frames, sw.peakIdx, hand, slowMoFactor, finalStance);
+              return { ...sw, scores: scored, stance: finalStance };
+            });
+            const axesKeys = ["ready", "back", "weight", "chain", "impact", "follow"];
+            const axes = {};
+            axesKeys.forEach(k => {
+              const vals = perSwing.map(s => s.scores[k]);
+              axes[k] = clampScore(vals.reduce((a, b) => a + b, 0) / vals.length);
+            });
+            const total = clampScore(axesKeys.reduce((sum, k) => sum + axes[k], 0) / axesKeys.length);
+            const fhSwings = perSwing.filter(s => s.type === "forehand");
+            const bhSwings = perSwing.filter(s => s.type === "backhand");
+            const fhAvg = fhSwings.length
+              ? clampScore(fhSwings.reduce((a, s) => a + s.scores.total, 0) / fhSwings.length) : null;
+            const bhAvg = bhSwings.length
+              ? clampScore(bhSwings.reduce((a, s) => a + s.scores.total, 0) / bhSwings.length) : null;
+            const bestSwing = perSwing.reduce((best, sw) =>
+              (sw.scores?.total ?? -1) > (best?.scores?.total ?? -1) ? sw : best, null);
+            onComplete({
+              sessionId: session.sessionId,
+              scoreData: { perSwing, axes, total, fhAvg, bhAvg },
+              bestSwing,
+              framesData: [...framesRef.current],
+              videoUrl: session.videoUrl,
+              slowMoFactor,
+              diagnostics: result.diagnostics,
+            });
+          }, 100);
+        };
+        const onLoadedMeta = () => {
+          syncCanvasSize();
+          if (v.duration > 30) setWarning(`영상 길이 ${v.duration.toFixed(1)}초 (30초 초과). 분석 진행됨.`);
+        };
+        const onErr = () => onError("영상 디코딩 실패");
+        v.addEventListener("play", onPlay);
+        v.addEventListener("ended", onEnded);
+        v.addEventListener("loadedmetadata", onLoadedMeta);
+        v.addEventListener("error", onErr);
+        return () => {
+          v.removeEventListener("play", onPlay);
+          v.removeEventListener("ended", onEnded);
+          v.removeEventListener("loadedmetadata", onLoadedMeta);
+          v.removeEventListener("error", onErr);
+          if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+        };
+      }, [processFrame, session?.videoUrl, syncCanvasSize, onComplete, onError, slowMoFactor]);
+
+      // 단계 정의 — 사용자에게 흐름 보여주기 위함
+      const stages = [
+        { key: "received", label: "영상 받음", icon: "📥" },
+        { key: "loading",  label: "AI 모델 로딩", icon: "🤖" },
+        { key: "playing",  label: "스윙 분석 중", icon: "🎾" },
+        { key: "scoring",  label: "6축 채점", icon: "🎯" },
+        { key: "done",     label: "완료", icon: "✅" },
+      ];
+      // stage 진행도 인덱스 (received는 항상 통과, loading 시점부터 활성화)
+      const stageOrder = { loading: 1, playing: 2, scoring: 3, done: 4 };
+      const currentIdx = stageOrder[stage] ?? 0;
+
+      const stageLabel =
+        stage === "loading" ? "AI 모델 로딩 중... (처음엔 5~10초 걸려요)"
+        : stage === "playing" ? `스윙 분석 중... ${progress}%`
+        : stage === "scoring" ? "스윙 검출 + 6축 채점 중..."
+        : "완료";
+
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center px-6 py-10">
+          <div className="text-center mb-6">
+            <div className="text-2xl font-extrabold tracking-widest accent-lime mb-1">{BRAND.name}</div>
+            <div className="text-sm text-slate-400">자세 분석 중</div>
+          </div>
+
+          {/* 단계 표시 (체크인 형태) */}
+          <div className="mb-6 flex items-center gap-1 sm:gap-3">
+            {stages.map((s, i) => {
+              const done = i < currentIdx + 1;
+              const active = i === currentIdx + 1;
+              return (
+                <React.Fragment key={s.key}>
+                  <div
+                    className={`flex flex-col items-center text-center transition-colors ${
+                      done ? "text-lime-300" : active ? "text-lime-400" : "text-slate-600"
+                    }`}
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-full flex items-center justify-center text-base ${
+                        done
+                          ? "bg-lime-400/20 border border-lime-400/60"
+                          : active
+                          ? "bg-lime-400/10 border border-lime-400/40 pulse-soft"
+                          : "bg-slate-800 border border-slate-700"
+                      }`}
+                    >
+                      {s.icon}
+                    </div>
+                    <div className="text-[10px] mt-1 font-medium hidden sm:block">{s.label}</div>
+                  </div>
+                  {i < stages.length - 1 && (
+                    <div
+                      className={`w-6 sm:w-10 h-px ${
+                        i < currentIdx ? "bg-lime-400/60" : "bg-slate-700"
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          {warning && (
+            <div className="mb-4 w-full max-w-3xl p-3 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-300 text-sm">
+              {warning}
+            </div>
+          )}
+
+          <div className="w-full max-w-3xl">
+            <div className="video-stack">
+              <video
+                ref={videoRef}
+                src={session.videoUrl}
+                controls={false}
+                playsInline
+                muted
+                crossOrigin="anonymous"
+              />
+              <canvas ref={canvasRef} />
+            </div>
+          </div>
+
+          <div className="mt-6 w-full max-w-md">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-slate-300 flex items-center gap-2">
+                <Spinner size={3} />
+                {stageLabel}
+              </span>
+              {stage === "playing" && <span className="text-lime-400 font-semibold">{progress}%</span>}
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${stage === "scoring" ? 100 : progress}%` }} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🏆 PC State 3 — ResultScreen (인스타 9:16 결과 카드)
+    //   - 진입 시 즉시 POST /api/sessions/:id/complete (PCApp에서 처리)
+    //   - 5분 자동 타임아웃 → onRestart()
+    //   - 다운로드 3종: 영상(MediaRecorder webm), PNG, 원본 mp4
+    //   - 안전 영역 오버레이 토글
+    // ========================================
+    function ResultScreen({ result, onRestart }) {
+      const cardRef = useRef(null);
+      const [downloadingPng, setDownloadingPng] = useState(false);
+      const [downloadingVideo, setDownloadingVideo] = useState(false);
+      const [videoRenderProgress, setVideoRenderProgress] = useState(0);
+      const [downloadError, setDownloadError] = useState("");
+      const [showSafeArea, setShowSafeArea] = useState(false);
+      const [secondsLeft, setSecondsLeft] = useState(Math.floor(RESULT_AUTO_TIMEOUT_MS / 1000));
+
+      // ── 자동 합성 (결과 화면 진입 즉시) ───────────────────────────────────────
+      // composeStatus: idle | rendering | uploading | ready | error
+      const [composeStatus, setComposeStatus] = useState("idle");
+      const [composeProgress, setComposeProgress] = useState(0);
+      const [downloadUrl, setDownloadUrl] = useState("");
+      const composedBlobRef = useRef(null);          // 합성 완료된 Blob (재사용)
+      const composedExtRef = useRef("webm");         // 확장자 (mp4 / webm)
+      const autoComposeStartedRef = useRef(false);   // 한 번만 실행
+
+      // 5분 타임아웃 → 자동으로 QR 화면 복귀
+      useEffect(() => {
+        const t = setTimeout(() => onRestart(), RESULT_AUTO_TIMEOUT_MS);
+        const tick = setInterval(() => {
+          setSecondsLeft(s => Math.max(0, s - 1));
+        }, 1000);
+        return () => { clearTimeout(t); clearInterval(tick); };
+      }, [onRestart]);
+
+      // PNG 다운로드 (1080x1920)
+      const handlePngDownload = async () => {
+        const node = cardRef.current;
+        if (!node) return;
+        setDownloadingPng(true);
+        setDownloadError("");
+        try {
+          node.classList.add("capture-mode");
+          await new Promise(r => requestAnimationFrame(r));
+          const canvas = await window.html2canvas(node, {
+            backgroundColor: null,
+            scale: 1,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            width: 1080,
+            height: 1920,
+          });
+          node.classList.remove("capture-mode");
+          const dataUrl = canvas.toDataURL("image/png");
+          const a = document.createElement("a");
+          a.href = dataUrl;
+          a.download = `daily-tennis-${result.scoreData.total}-${Date.now()}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (err) {
+          console.error("[png-download]", err);
+          setDownloadError("PNG 생성 실패: " + err.message);
+          if (cardRef.current) cardRef.current.classList.remove("capture-mode");
+        } finally {
+          setDownloadingPng(false);
+        }
+      };
+
+      // 원본 영상 다운로드
+      const handleRawVideoDownload = () => {
+        if (!result.videoUrl) return;
+        const a = document.createElement("a");
+        a.href = result.videoUrl;
+        a.download = `swing-${Date.now()}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+
+      // ────────────────────────────────────────────────────────────────────────
+      // 🎬 합성 영상 코어 — Canvas + MediaRecorder로 webm/mp4 Blob 생성
+      //   onProgress: 0~99 진행률 콜백
+      //   반환: { blob, ext, mimeType }
+      // ────────────────────────────────────────────────────────────────────────
+      const composeVideoBlob = async (onProgress) => {
+        if (!result.bestSwing || !result.videoUrl) {
+          throw new Error("베스트 샷이 없어 영상을 만들 수 없습니다");
+        }
+
+        // 1) Offscreen video 만들기 (audio off)
+        const srcVideo = document.createElement("video");
+        srcVideo.crossOrigin = "anonymous";
+        srcVideo.muted = true;
+        srcVideo.playsInline = true;
+        srcVideo.src = result.videoUrl;
+        await new Promise((resolve, reject) => {
+          const ok = () => resolve();
+          const ng = () => reject(new Error("영상 로딩 실패"));
+          srcVideo.addEventListener("loadedmetadata", ok, { once: true });
+          srcVideo.addEventListener("error", ng, { once: true });
+        });
+
+        // 2) Offscreen canvas (1080x1920)
+        const canvas = document.createElement("canvas");
+        canvas.width = 1080;
+        canvas.height = 1920;
+        const ctx = canvas.getContext("2d");
+
+        // 3) MediaRecorder
+        // ⚠️ iOS 사진앱은 MP4(H.264)만 지원 — WebM 미지원.
+        //    가능하면 MP4로 인코딩해야 폰 갤러리 저장 흐름이 매끄러움.
+        const stream = canvas.captureStream(30);
+        const mimeCandidates = [
+          'video/mp4; codecs="avc1.42E01E,mp4a.40.2"', // H.264 baseline + AAC
+          'video/mp4; codecs="avc1.42E01E"',          // H.264 only
+          "video/mp4",
+          "video/webm;codecs=vp9",
+          "video/webm;codecs=vp8",
+          "video/webm",
+        ];
+        const mimeType = mimeCandidates.find(m =>
+          window.MediaRecorder && MediaRecorder.isTypeSupported(m)
+        );
+        if (!mimeType) throw new Error("이 브라우저는 영상 녹화를 지원하지 않습니다");
+
+        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 });
+        const chunks = [];
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        const stopPromise = new Promise((resolve) => {
+          recorder.onstop = () => resolve();
+        });
+
+        // 4) 베스트 샷 윈도우 결정 (±500ms × slowMoFactor)
+        const windowMs = 500 * (result.slowMoFactor || 1);
+        const startSec = Math.max(0, (result.bestSwing.time - windowMs) / 1000);
+        const endSec = Math.min(srcVideo.duration || 30, (result.bestSwing.time + windowMs) / 1000);
+        srcVideo.playbackRate = 0.25;
+        srcVideo.currentTime = startSec;
+        await new Promise((resolve) => {
+          const onSeek = () => { srcVideo.removeEventListener("seeked", onSeek); resolve(); };
+          srcVideo.addEventListener("seeked", onSeek);
+        });
+        await srcVideo.play().catch(() => {});
+
+        // 🔍 진단 로그 (1회) — 합성 영상 좌표/타임라인 검증용 (contain fit 방식)
+        try {
+          const _fit = containFitRect(srcVideo.videoWidth, srcVideo.videoHeight, 940, 940);
+          const fd = result.framesData;
+          const firstT = fd && fd.length ? fd[0].t : null;
+          const lastT = fd && fd.length ? fd[fd.length - 1].t : null;
+          console.log("[compose] geometry (contain)", {
+            videoWH: [srcVideo.videoWidth, srcVideo.videoHeight],
+            fit: _fit,
+            window: [startSec.toFixed(3), endSec.toFixed(3)],
+            framesData: { count: fd?.length, firstT, lastT },
+            mimeType,
+          });
+          // 첫 keypoint 변환 검증 (왼쪽 어깨=11번)
+          if (fd && fd.length && fd[0].landmarks && fd[0].landmarks[11]) {
+            const lm = fd[0].landmarks[11];
+            const fitBox = { x: 70 + _fit.dx, y: 195 + _fit.dy, w: _fit.dw, h: _fit.dh };
+            const P = projectNormalizedToFit(lm.x, lm.y, fitBox);
+            console.log("[compose] sample keypoint #11 (left shoulder)", { norm: { x: lm.x, y: lm.y }, fitBox, dst: P });
+          }
+        } catch (e) { /* diag only */ }
+
+        // 5) 녹화 시작 + 렌더링 루프
+        recorder.start();
+        const T_TOTAL_MS = 6500; // 6.5초 영상 (베스트 샷 0.25x × 2바퀴 ~6초 + 여유)
+        const SCORE_ANIM_MS = 1200; // 점수 카운트업
+        const t0 = performance.now();
+        let stopped = false;
+
+        await new Promise((resolveLoop) => {
+          const loop = () => {
+            if (stopped) return;
+            const elapsed = performance.now() - t0;
+            if (elapsed >= T_TOTAL_MS) {
+              stopped = true;
+              resolveLoop();
+              return;
+            }
+            const pct = Math.min(99, Math.floor((elapsed / T_TOTAL_MS) * 100));
+            if (onProgress) onProgress(pct);
+
+            // 영상 윈도우 루프
+            if (srcVideo.currentTime >= endSec) {
+              srcVideo.currentTime = startSec;
+            }
+
+            const animT = Math.min(1, elapsed / SCORE_ANIM_MS);
+            const easeT = 1 - Math.pow(1 - animT, 3); // ease-out cubic
+            drawInstaCardFrame(ctx, {
+              videoEl: srcVideo,
+              framesData: result.framesData,
+              bestSwing: result.bestSwing,
+              scoreData: result.scoreData,
+              currentVideoTimeMs: srcVideo.currentTime * 1000,
+              scoreAnimT: easeT,
+            });
+
+            requestAnimationFrame(loop);
+          };
+          requestAnimationFrame(loop);
+        });
+
+        recorder.stop();
+        srcVideo.pause();
+        await stopPromise;
+
+        // mimeType이 'video/mp4; codecs="..."' 형태라도 startsWith("video/mp4")로 정확히 잡음
+        const isMp4 = mimeType.startsWith("video/mp4");
+        const blob = new Blob(chunks, { type: mimeType });
+        const ext = isMp4 ? "mp4" : "webm";
+        if (onProgress) onProgress(100);
+        return { blob, ext, mimeType };
+      };
+
+      // ────────────────────────────────────────────────────────────────────────
+      // 🚀 자동 합성 + 클라이언트 직접 업로드 (Vercel Blob CDN) — 결과 화면 진입 시 1회 자동 실행
+      //   완료 시 publicDownloadUrl 받아 푸터 QR로 노출
+      // ────────────────────────────────────────────────────────────────────────
+      const startAutoCompose = async () => {
+        try {
+          setComposeStatus("rendering");
+          setComposeProgress(0);
+
+          const { blob, ext } = await composeVideoBlob((pct) => setComposeProgress(pct));
+          composedBlobRef.current = blob;
+          composedExtRef.current = ext;
+
+          // Blob CDN 직접 업로드 → 다운로드 URL 받기
+          setComposeStatus("uploading");
+          const data = await apiUploadResultVideo(result.sessionId, blob, ext, () => {
+            // 진행률은 별도 표시 안 함 (PC 환경 빠름) — 필요시 setComposeProgress(p) 추가
+          });
+          const url = data.publicDownloadUrl || data.downloadUrl;
+          if (!url) throw new Error("다운로드 URL 응답 없음");
+
+          setDownloadUrl(url);
+          setComposeStatus("ready");
+        } catch (err) {
+          console.error("[auto-compose]", err);
+          setComposeStatus("error");
+        }
+      };
+
+      // 결과 데이터가 갖춰지면 1회 자동 합성 시작
+      useEffect(() => {
+        if (!result?.scoreData || !result?.bestSwing || !result?.videoUrl || !result?.sessionId) return;
+        if (autoComposeStartedRef.current) return;
+        autoComposeStartedRef.current = true;
+        startAutoCompose();
+      }, [result]);
+
+      // ────────────────────────────────────────────────────────────────────────
+      // 🎬 PC 다운로드 버튼 — 캐시된 Blob 우선 사용
+      //   (자동 합성이 끝나기 전에 누르면 직접 다시 합성)
+      // ────────────────────────────────────────────────────────────────────────
+      const handleVideoCompose = async () => {
+        // 1) 이미 캐시된 Blob 있으면 즉시 다운로드
+        if (composedBlobRef.current) {
+          const blob = composedBlobRef.current;
+          const ext = composedExtRef.current || "webm";
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `daily-tennis-${result.scoreData.total}-${Date.now()}.${ext}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          return;
+        }
+
+        // 2) 자동 합성이 진행 중이면 대기 안내만
+        if (composeStatus === "rendering" || composeStatus === "uploading") {
+          setDownloadError("영상 생성 중입니다. 잠시 후 다시 시도해주세요");
+          return;
+        }
+
+        // 3) 캐시도 없고 합성도 안 됨 → 직접 합성 + 다운로드 (fallback)
+        if (!result.bestSwing || !result.videoUrl) {
+          setDownloadError("베스트 샷이 없어 영상을 만들 수 없습니다");
+          return;
+        }
+        setDownloadingVideo(true);
+        setVideoRenderProgress(0);
+        setDownloadError("");
+        try {
+          const { blob, ext } = await composeVideoBlob((pct) => setVideoRenderProgress(pct));
+          composedBlobRef.current = blob;
+          composedExtRef.current = ext;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `daily-tennis-${result.scoreData.total}-${Date.now()}.${ext}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (err) {
+          console.error("[video-compose]", err);
+          setDownloadError("영상 생성 실패: " + err.message);
+        } finally {
+          setDownloadingVideo(false);
+          setTimeout(() => setVideoRenderProgress(0), 1500);
+        }
+      };
+
+      const minutesLeft = Math.floor(secondsLeft / 60);
+      const secsLeftMod = secondsLeft % 60;
+
+      return (
+        <div className="min-h-screen px-6 py-10">
+          <div className="max-w-6xl mx-auto">
+            {/* 상단 헤더 */}
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+              <div>
+                <div className="text-xl font-extrabold tracking-widest accent-lime">{BRAND.name}</div>
+                <div className="text-sm text-slate-400">분석 완료 · 다음 손님까지 {minutesLeft}:{String(secsLeftMod).padStart(2, "0")}</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-lime-400"
+                    checked={showSafeArea}
+                    onChange={(e) => setShowSafeArea(e.target.checked)}
+                  />
+                  인스타 안전 영역 보기
+                </label>
+                <PrimaryButton onClick={onRestart}>다음 손님 →</PrimaryButton>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+              {/* 좌측: 컨트롤/요약 */}
+              <div className="lg:col-span-1 space-y-4">
+                <Card>
+                  <h3 className="text-sm font-medium text-slate-400 mb-3">요약</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">검출 스윙</span>
+                      <span className="font-semibold">{result.scoreData.perSwing.length}개</span>
+                    </div>
+                    {result.scoreData.fhAvg !== null && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">포핸드 평균</span>
+                        <span className={`font-semibold ${scoreColorClass(result.scoreData.fhAvg)}`}>
+                          {result.scoreData.fhAvg} / 100
+                        </span>
+                      </div>
+                    )}
+                    {result.scoreData.bhAvg !== null && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">백핸드 평균</span>
+                        <span className={`font-semibold ${scoreColorClass(result.scoreData.bhAvg)}`}>
+                          {result.scoreData.bhAvg} / 100
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2 mt-2 border-t border-slate-700">
+                      <span className="text-slate-300">종합 점수</span>
+                      <span className={`font-bold text-lg ${scoreColorClass(result.scoreData.total)}`}>
+                        {result.scoreData.total} / 100
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <h3 className="text-sm font-medium text-slate-400 mb-3">📥 인스타 공유</h3>
+                  <p className="text-xs text-slate-500 mb-3">
+                    9:16 결과 영상이 자동 생성됩니다. 푸터의 QR을 폰으로 스캔 → 갤러리에 저장하거나 PC에서 직접 받으세요.
+                  </p>
+
+                  {/* 자동 합성 상태 표시 */}
+                  <div className="mb-3 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-xs">
+                    {composeStatus === "rendering" && (
+                      <span className="text-lime-300">📹 영상 자동 생성 중... {composeProgress}%</span>
+                    )}
+                    {composeStatus === "uploading" && (
+                      <span className="text-lime-300">📤 서버 업로드 중...</span>
+                    )}
+                    {composeStatus === "ready" && (
+                      <span className="text-lime-300">✅ QR 준비 완료 — 폰으로 스캔 → 갤러리에 저장</span>
+                    )}
+                    {composeStatus === "error" && (
+                      <span className="text-rose-300">❌ 자동 생성 실패 — 아래 버튼으로 PC에 다운로드 가능합니다</span>
+                    )}
+                    {composeStatus === "idle" && (
+                      <span className="text-slate-400">⏳ 준비중...</span>
+                    )}
+                  </div>
+
+                  {/* 메인 — 영상 다운로드 (PC) */}
+                  <PrimaryButton
+                    onClick={handleVideoCompose}
+                    disabled={downloadingVideo || downloadingPng || composeStatus === "rendering" || composeStatus === "uploading"}
+                    className="w-full"
+                  >
+                    {downloadingVideo
+                      ? `🎬 영상 만드는 중... ${videoRenderProgress}%`
+                      : composeStatus === "ready"
+                        ? "🎬 PC로 영상 다운로드"
+                        : composeStatus === "rendering" || composeStatus === "uploading"
+                          ? "🎬 영상 준비 중..."
+                          : "🎬 영상 다운로드 (인스타 릴스)"}
+                  </PrimaryButton>
+
+                  {/* 보조 — PNG (합성 완료 후 활성화) */}
+                  <button
+                    onClick={handlePngDownload}
+                    disabled={downloadingVideo || downloadingPng || (composeStatus !== "ready" && composeStatus !== "error")}
+                    title={composeStatus !== "ready" && composeStatus !== "error" ? "영상 생성 후 가능합니다" : ""}
+                    className="mt-2 w-full px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-600 text-slate-200 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {downloadingPng
+                      ? "이미지 생성 중..."
+                      : composeStatus !== "ready" && composeStatus !== "error"
+                        ? "🖼️ 이미지 다운로드 (영상 생성 후)"
+                        : "🖼️ 이미지 다운로드 (PNG)"}
+                  </button>
+
+                  {/* 보조 — 원본 영상 */}
+                  <button
+                    onClick={handleRawVideoDownload}
+                    className="mt-2 w-full px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-700 text-slate-300 hover:bg-slate-800"
+                  >
+                    📥 원본 영상 다운로드
+                  </button>
+
+                  {downloadError && (
+                    <p className="mt-2 text-xs text-rose-300">{downloadError}</p>
+                  )}
+
+                  <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
+                    영상은 WebM 형식이에요. 폰에 받아서 인스타에 올리면 자동으로 변환됩니다.
+                  </p>
+                </Card>
+
+                <Card>
+                  <h3 className="text-sm font-medium text-slate-400 mb-3">베스트 샷</h3>
+                  {result.bestSwing && (
+                    <div className="text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">시점</span>
+                        <span>{(result.bestSwing.time / 1000).toFixed(1)}초</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">종목</span>
+                        <span>
+                          {result.bestSwing.type === "forehand" ? "포핸드"
+                            : result.bestSwing.type === "backhand" ? "백핸드" : "분류불가"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">스탠스</span>
+                        <span>{stanceLabel(result.bestSwing.stance)}</span>
+                      </div>
+                      <div className="flex justify-between pt-2 mt-2 border-t border-slate-700">
+                        <span className="text-slate-300">점수</span>
+                        <span className={`font-bold ${scoreColorClass(result.bestSwing.scores.total)}`}>
+                          {result.bestSwing.scores.total} / 100
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              </div>
+
+              {/* 우측: 9:16 인스타 카드 (가운데 정렬) */}
+              <div className="lg:col-span-2 flex justify-center">
+                <div className="relative">
+                  <ResultInstaCard
+                    scoreData={result.scoreData}
+                    bestSwing={result.bestSwing}
+                    framesData={result.framesData}
+                    videoUrl={result.videoUrl}
+                    slowMoFactor={result.slowMoFactor}
+                    cardRef={cardRef}
+                    showSafeArea={showSafeArea}
+                    composeStatus={composeStatus}
+                    composeProgress={composeProgress}
+                    downloadUrl={downloadUrl}
+                  />
+                  {downloadingVideo && (
+                    <div className="render-overlay">
+                      <Spinner size={6} />
+                      <div className="text-lime-300 font-semibold text-lg">
+                        🎬 영상 만드는 중... {videoRenderProgress}%
+                      </div>
+                      <div className="w-3/4 max-w-xs">
+                        <div className="progress-track">
+                          <div className="progress-fill" style={{ width: `${videoRenderProgress}%` }} />
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-400">잠시만 기다려주세요 (~6초)</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📵 ErrorScreen — 분석 실패/에러 안내
+    // ========================================
+    function ErrorScreen({ message, onRestart }) {
+      return (
+        <div className="min-h-screen flex items-center justify-center px-6">
+          <Card className="max-w-md w-full text-center">
+            <div className="text-3xl mb-3">⚠️</div>
+            <h2 className="text-lg font-semibold mb-2 text-amber-300">분석을 마치지 못했습니다</h2>
+            <p className="text-sm text-slate-400 mb-5">{message}</p>
+            <PrimaryButton onClick={onRestart}>다시 시작</PrimaryButton>
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🖥️ PCApp — PC 화면 상태 머신
+    //   waiting (지속 QR) → analyzing (큐 픽업 후) → result → waiting (다음 손님)
+    // ========================================
+    function PCApp() {
+      const [phase, setPhase] = useState("waiting"); // waiting | analyzing | result | error
+      const [session, setSession] = useState(null);   // { sessionId, videoUrl }
+      const [result, setResult] = useState(null);
+      const [errorMsg, setErrorMsg] = useState("");
+
+      // 큐에서 새 업로드 픽업
+      const handlePickup = useCallback((s) => {
+        setSession(s);
+        setPhase("analyzing");
+      }, []);
+
+      // 분석 완료 → 결과 화면 진입 시 서버에 즉시 complete 통보
+      const handleAnalysisComplete = useCallback((r) => {
+        setResult(r);
+        setPhase("result");
+        if (r?.sessionId) {
+          apiSessionComplete(r.sessionId).catch(err => {
+            console.warn("[complete] 보고 실패 (무시)", err);
+          });
+        }
+      }, []);
+
+      // 분석 실패 → skip 보고
+      const handleAnalysisError = useCallback((msg) => {
+        setErrorMsg(msg);
+        setPhase("error");
+        if (session?.sessionId) {
+          apiSessionSkip(session.sessionId, "analysis_error").catch(() => {});
+        }
+      }, [session]);
+
+      // [다음 손님] — QR 화면 복귀
+      const handleRestart = useCallback(() => {
+        setSession(null);
+        setResult(null);
+        setErrorMsg("");
+        setPhase("waiting");
+        // 다음 사이클의 큐 폴링/픽업 핸들러가 다시 작동하도록 페이지 리로드
+        // (WaitingScreen 안의 pickupHandledRef를 초기화하기 위함)
+        // 부드럽게: WaitingScreen은 재마운트되면서 ref가 false로 초기화됨
+      }, []);
+
+      if (phase === "waiting") {
+        return <WaitingScreen key="waiting" onPickup={handlePickup} />;
+      }
+      if (phase === "analyzing" && session) {
+        return (
+          <AnalyzingScreen
+            session={session}
+            onComplete={handleAnalysisComplete}
+            onError={handleAnalysisError}
+          />
+        );
+      }
+      if (phase === "result" && result) {
+        return <ResultScreen result={result} onRestart={handleRestart} />;
+      }
+      if (phase === "error") {
+        return <ErrorScreen message={errorMsg} onRestart={handleRestart} />;
+      }
+      return null;
+    }
+
+    // ========================================
+    // 📱 MobileUploadApp — 모바일 업로드 화면 (`/upload?token=<storeToken>`)
+    //   1) URL ?token 읽음
+    //   2) 영상 선택
+    //   3) 업로드 시작 시 POST /api/sessions { token } → sessionId 발급
+    //   4) POST /api/sessions/:id/upload
+    // ========================================
+    function MobileUploadApp() {
+      const [storeToken, setStoreToken] = useState("");
+      const [legacySessionId, setLegacySessionId] = useState(""); // 구 ?session=… 호환
+      const [file, setFile] = useState(null);
+      const [previewUrl, setPreviewUrl] = useState("");
+      const [progress, setProgress] = useState(0);
+      const [stage, setStage] = useState("idle"); // idle | creating | uploading | done | error
+      const [errorMsg, setErrorMsg] = useState("");
+
+      // 쿼리에서 token 추출 (구 session= 도 폴백 지원)
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get("token");
+        const sessionParam = params.get("session");
+        if (token) {
+          setStoreToken(token);
+        } else if (sessionParam) {
+          setLegacySessionId(sessionParam);
+        } else {
+          setErrorMsg("토큰이 없습니다. 매장 모니터의 QR을 다시 스캔해주세요.");
+        }
+      }, []);
+
+      // 파일 미리보기 URL
+      useEffect(() => {
+        if (!file) {
+          setPreviewUrl("");
+          return;
+        }
+        const u = URL.createObjectURL(file);
+        setPreviewUrl(u);
+        return () => URL.revokeObjectURL(u);
+      }, [file]);
+
+      const handleFile = (f) => {
+        if (!f) return;
+        if (!f.type.startsWith("video/")) {
+          setErrorMsg("영상 파일만 업로드 가능합니다");
+          return;
+        }
+        setErrorMsg("");
+        setFile(f);
+        setStage("idle");
+        setProgress(0);
+      };
+
+      const handleUpload = async () => {
+        if (!file) return;
+        if (!storeToken && !legacySessionId) {
+          setErrorMsg("토큰이 없습니다. 매장 모니터의 QR을 다시 스캔해주세요.");
+          return;
+        }
+        setErrorMsg("");
+        try {
+          // 1) 세션 발급
+          let sessionId = legacySessionId;
+          if (!sessionId && storeToken) {
+            setStage("creating");
+            const s = await apiCreateSessionWithToken(storeToken);
+            sessionId = s.sessionId;
+          }
+          // 2) 영상 업로드
+          setStage("uploading");
+          await apiUploadVideo(sessionId, file, setProgress);
+          setStage("done");
+        } catch (err) {
+          if (err.status === 401) {
+            setErrorMsg("유효하지 않은 토큰입니다. 매장 모니터의 새 QR을 다시 스캔해주세요.");
+          } else {
+            setErrorMsg(err.message || "업로드 실패");
+          }
+          setStage("error");
+        }
+      };
+
+      return (
+        <div className="min-h-screen px-5 py-8">
+          <div className="max-w-md mx-auto">
+            {/* 헤더 */}
+            <div className="text-center mb-8">
+              <div className="text-2xl font-extrabold tracking-widest accent-lime mb-1">{BRAND.name}</div>
+              <div className="text-sm text-slate-400">{BRAND.storeName}</div>
+            </div>
+
+            {errorMsg && (
+              <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 text-sm">
+                {errorMsg}
+              </div>
+            )}
+
+            {stage === "done" ? (
+              <Card className="text-center py-10">
+                <div className="text-5xl mb-3">✅</div>
+                <h2 className="text-xl font-semibold mb-2">업로드 완료!</h2>
+                <p className="text-sm text-slate-400 mb-1">
+                  매장 PC 화면에서 자동으로 분석이 시작됩니다.
+                </p>
+                <p className="text-xs text-slate-500">
+                  PC 화면을 봐주세요 👀
+                </p>
+              </Card>
+            ) : (
+              <>
+                {/* 파일 선택 — 갤러리(기본) + 즉석 촬영 두 옵션 */}
+                {!file ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="mobile-pick block cursor-pointer text-center">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={(e) => handleFile(e.target.files?.[0])}
+                        disabled={stage === "uploading"}
+                      />
+                      <div className="text-4xl mb-2">🖼️</div>
+                      <p className="text-sm font-semibold mb-1">갤러리에서 선택</p>
+                      <p className="text-xs text-slate-500">
+                        저장된 영상 중 고르기
+                      </p>
+                    </label>
+                    <label className="mobile-pick block cursor-pointer text-center">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => handleFile(e.target.files?.[0])}
+                        disabled={stage === "uploading"}
+                      />
+                      <div className="text-4xl mb-2">📹</div>
+                      <p className="text-sm font-semibold mb-1">바로 촬영</p>
+                      <p className="text-xs text-slate-500">
+                        지금 카메라로 찍기
+                      </p>
+                    </label>
+                  </div>
+                ) : (
+                  <label className="mobile-pick block cursor-pointer">
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={(e) => handleFile(e.target.files?.[0])}
+                      disabled={stage === "uploading"}
+                    />
+                    <div className="text-3xl mb-2">🎬</div>
+                    <p className="text-sm font-semibold mb-1">{file.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {(file.size / 1024 / 1024).toFixed(1)} MB · 다시 누르면 재선택
+                    </p>
+                  </label>
+                )}
+                {!file && (
+                  <p className="text-xs text-slate-500 mt-3 text-center">
+                    · 30초 이내 권장 · 측면 촬영 · 사람 1명
+                  </p>
+                )}
+
+                {/* 미리보기 */}
+                {previewUrl && (
+                  <div className="mt-4 rounded-2xl overflow-hidden border border-slate-700 bg-black">
+                    <video
+                      src={previewUrl}
+                      controls
+                      playsInline
+                      className="w-full h-auto block"
+                    />
+                  </div>
+                )}
+
+                {/* 세션 발급 단계 */}
+                {stage === "creating" && (
+                  <div className="mt-5 flex items-center gap-3 text-slate-300 text-sm">
+                    <Spinner size={3} /> <span>세션 준비 중...</span>
+                  </div>
+                )}
+
+                {/* 진행률 */}
+                {stage === "uploading" && (
+                  <div className="mt-5">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-slate-300">업로드 중...</span>
+                      <span className="text-lime-400 font-semibold">{progress}%</span>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${progress}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* 업로드 버튼 */}
+                {file && stage !== "uploading" && stage !== "creating" && (
+                  <PrimaryButton
+                    onClick={handleUpload}
+                    disabled={!storeToken && !legacySessionId}
+                    className="w-full mt-5 text-base"
+                  >
+                    🚀 업로드 시작
+                  </PrimaryButton>
+                )}
+              </>
+            )}
+
+            <div className="mt-10 text-center text-xs text-slate-600">
+              powered by {BRAND.name}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App — pathname 기반 라우팅
+    // ========================================
+    function App() {
+      // 초기 라우팅 — 페이지 로드 시 한 번 결정 (파일 업로드 후 페이지 안 떠나니까 충분)
+      const [path] = useState(() => window.location.pathname);
+
+      if (path === "/upload" || path.startsWith("/upload")) {
+        return <MobileUploadApp />;
+      }
+      return <PCApp />;
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
