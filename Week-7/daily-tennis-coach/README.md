@@ -49,11 +49,35 @@ cd Week-7/daily-tennis-coach
 npm install
 ```
 
-### Windows
+### Windows — 1-클릭 실행 (권장)
+
+매장 PC 처음 셋업이라면 이 방법이 가장 빠르다.
+
+1. 이 레포를 다운로드 (둘 중 하나)
+   - GitHub에서 ZIP 다운로드 → 압축 해제
+   - 또는 `git clone https://github.com/xandelpark/afm-2th-weekday.git`
+2. `Week-7\daily-tennis-coach\` 폴더 진입
+3. **`start.bat` 더블클릭**
+
+`start.bat`이 다음을 자동으로 처리한다:
+- PowerShell 실행정책(ExecutionPolicy) 우회
+- `start-store.ps1` 호출 → winget으로 **Node.js / ffmpeg / cloudflared** 자동 설치
+- `npm install` (최초 1회)
+- 서버(포트 3000) + Cloudflare Quick Tunnel 별도 창에서 시작
+- 매장 모니터용 공개 URL을 기본 브라우저로 자동 오픈
+
+**첫 실행 시 한 번만 뜨는 팝업:**
+- Windows Defender 방화벽 → "사설 네트워크 액세스 허용" 체크
+- winget 약관 동의 (Microsoft Store 첫 사용 시)
+
+**요구사항:** Windows 10 1809+ / Windows 11 (winget 내장). 인터넷 연결 필수.
+
+### Windows — 수동 설치 (스크립트가 막힐 때 폴백)
 
 1. Node.js LTS 설치: <https://nodejs.org/>
 2. ffmpeg 설치: <https://www.gyan.dev/ffmpeg/builds/> 의 "release essentials" 다운로드 → 압축 풀고 `ffmpeg.exe`가 들어있는 `bin` 폴더를 시스템 PATH에 추가
 3. 프로젝트 폴더에서 `npm install`
+4. `node server.js`
 
 ffmpeg가 PATH에 없으면 `.env`에 절대 경로를 지정:
 
@@ -159,6 +183,8 @@ daily-tennis-coach/
 ├── server.js               # Express 서버 (단일 파일)
 ├── package.json
 ├── .env.example
+├── start.bat               # Windows 1-클릭 진입점 (start-store.ps1 호출)
+├── start-store.ps1         # Windows 자동 셋업 + 실행 스크립트
 ├── public/
 │   ├── index.html          # PC 메인 + 모바일 업로드 + 분석 화면 (단일 페이지)
 │   ├── demo.html           # PoC 데모 (참고용)

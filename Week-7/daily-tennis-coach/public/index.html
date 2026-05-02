@@ -184,32 +184,43 @@
     .progress-track { background: #1e293b; border-radius: 999px; overflow: hidden; height: 10px; }
     .progress-fill { background: linear-gradient(90deg, #a3e635, #84cc16); height: 100%; transition: width 0.2s; }
 
-    /* 인스타 안전 영역 오버레이 — 디자인 검수용 */
+    /* 인스타 Reels 안전 영역 오버레이 — 디자인 검수용
+       상단 240px / 하단 300px / 좌우 64px 기준 (1080x1920 캔버스 좌표) */
     .insta-safe-overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
       z-index: 30;
     }
-    .insta-safe-overlay::before,
-    .insta-safe-overlay::after {
-      content: "";
+    .insta-safe-overlay > .safe-band {
       position: absolute;
-      left: 0;
-      right: 0;
       background: rgba(244, 63, 94, 0.10);
       border-color: rgba(244, 63, 94, 0.7);
       border-style: dashed;
     }
-    .insta-safe-overlay::before {
-      top: 0;
-      height: 11.5%; /* 약 220px / 1920 */
+    .insta-safe-overlay > .safe-top {
+      top: 0; left: 0; right: 0;
+      height: 12.5%; /* 240/1920 — Reels 상단 액션바 */
       border-bottom-width: 1.5px;
     }
-    .insta-safe-overlay::after {
-      bottom: 0;
-      height: 13%; /* 약 250px / 1920 */
+    .insta-safe-overlay > .safe-bottom {
+      bottom: 0; left: 0; right: 0;
+      height: 17.7%; /* 340/1920 — Reels 액션바·캡션·음원 영역 */
       border-top-width: 1.5px;
+    }
+    .insta-safe-overlay > .safe-left,
+    .insta-safe-overlay > .safe-right {
+      top: 12.5%;
+      bottom: 17.7%;
+      width: 5.9%; /* 64/1080 */
+    }
+    .insta-safe-overlay > .safe-left {
+      left: 0;
+      border-right-width: 1.5px;
+    }
+    .insta-safe-overlay > .safe-right {
+      right: 0;
+      border-left-width: 1.5px;
     }
 
     /* 카운트업 애니메이션 */
@@ -533,12 +544,12 @@
       return res.json(); // { token, qrUrl, issuedAt, expiresAt }
     }
 
-    // 모바일이 토큰으로 새 세션 생성
-    async function apiCreateSessionWithToken(token) {
+    // 모바일이 토큰으로 새 세션 생성 (카메라 각도 동봉)
+    async function apiCreateSessionWithToken(token, cameraAngle = 'side') {
       const res = await fetch(`${API_BASE_URL}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, cameraAngle }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -546,7 +557,7 @@
         err.status = res.status;
         throw err;
       }
-      return body; // { sessionId, uploadUrl, qrUrl, expiresAt }
+      return body; // { sessionId, uploadUrl, qrUrl, cameraAngle, expiresAt }
     }
 
     async function apiSessionStatus(sessionId) {
@@ -1353,33 +1364,156 @@
     // ========================================
     // 🎯 6축 점수 (룰베이스 휴리스틱)
     // ========================================
-    function scoreReadyPosition(frames, peakIdx, slowMoFactor = 1) {
-      const idx = findFrameIdxAt(frames, peakIdx, -500 * slowMoFactor);
-      const lm = frames[idx]?.landmarks;
-      if (!lm) return 50;
-      const leftKnee = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
-      const rightKnee = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
-      const knees = [leftKnee, rightKnee].filter(Number.isFinite);
-      const kneeAvg = knees.length ? knees.reduce((a, b) => a + b) / knees.length : 175;
-      const kneeDiff = Math.abs(kneeAvg - 150);
-      const kneeScore = Math.max(0, 100 - (kneeDiff / 30) * 100);
-      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
-      const dy = ls && rs ? Math.abs(ls.y - rs.y) : 0.05;
-      const shoulderScore = Math.max(0, 100 - (dy / 0.08) * 100);
+    // ─────────────────────────────────────────────────────────────
+    // 📐 카메라 각도 프로파일 — 측면 vs 정면별 측정 임계치
+    //   같은 영상이라도 어떤 시점에서 찍었는지에 따라 어깨/골반/체중이동의
+    //   2D 투영값이 완전히 다르게 보인다. 그래서 임계치를 각도별로 분리.
+    //   - side(측면, 90°): 어깨 dy/dx 큼, 골반 x-shift 가시화, 일반 테니스 촬영.
+    //   - front(정면): 어깨 dy/dx 작음, 무게이동(앞뒤)은 z축이라 안 보임 → 골반 회전으로 대체.
+    // ─────────────────────────────────────────────────────────────
+    const ANGLE_PROFILES = {
+      side: {
+        label: '측면',
+        // backswing 임계
+        backWristAboveIdeal: 0.05,    // 손목이 어깨보다 5% 위면 충분 (0.10 → 더 너그럽게)
+        backShoulderRotMin: 18,       // 측면이라 어깨 dy/dx 살짝만 기울어도 회전 인정
+        backShoulderRotIdeal: 35,
+        backArmAngleIdeal: 115,       // 살짝 굽힌 자세
+        backArmAngleTolerance: 45,
+        // weight transfer 임계
+        weightShiftIdeal: 0.06,       // 골반 좌우 이동 6%
+        weightShiftMin: 0.025,
+        weightUseRotation: false,
+        // kinetic chain
+        chainTimingIdeal: 110,
+        chainTimingTolerance: 100,    // 50ms~210ms 사이면 고득점
+        // impact
+        spineTiltTolerance: 18,       // 18° 까지는 정상
+        // follow-through
+        followDistIdeal: 0.25,        // 손목 이동거리 25%
+        followAcrossBonus: 0.10,      // 반대편 어깨 위로 손목 가면 보너스
+      },
+      front: {
+        label: '정면',
+        backWristAboveIdeal: 0.08,    // 정면에선 손목이 더 들려야 백스윙으로 인식
+        backShoulderRotMin: 6,        // 정면에선 어깨 dy/dx 변화 작음 → 임계 낮춤
+        backShoulderRotIdeal: 14,
+        backArmAngleIdeal: 105,
+        backArmAngleTolerance: 50,
+        weightShiftIdeal: 0.025,      // 정면에선 좌우 시프트 작음
+        weightShiftMin: 0.01,
+        weightUseRotation: true,      // 골반 회전을 더 가중
+        chainTimingIdeal: 90,
+        chainTimingTolerance: 110,
+        spineTiltTolerance: 22,       // 정면에선 척추 각도가 입체적이라 더 너그럽게
+        followDistIdeal: 0.18,        // 정면에선 손목 이동이 짧아 보임
+        followAcrossBonus: 0.06,
+      },
+    };
+
+    function getAngleProfile(angle) {
+      return ANGLE_PROFILES[angle] || ANGLE_PROFILES.side;
+    }
+
+    // 부드러운 점수 매핑: 이상값(ideal) 부근은 90~100점, sweet 범위 안은 75~95,
+    //   harsh까지는 base까지 선형 감점, 그 밖은 base 유지. 너무 박한 0점 방지.
+    function softScore(value, ideal, sweet, harsh, { peak = 100, base = 35 } = {}) {
+      const diff = Math.abs(value - ideal);
+      if (diff <= sweet) {
+        // sweet 안: peak~peak-12 사이 (살짝 차이 있어도 거의 만점)
+        return clampScore(peak - (diff / Math.max(0.0001, sweet)) * 12);
+      }
+      if (diff <= harsh) {
+        const t = (diff - sweet) / Math.max(0.0001, harsh - sweet);
+        return clampScore((peak - 12) - t * ((peak - 12) - base));
+      }
+      return clampScore(base);
+    }
+
+    // 한쪽 방향만 의미 있을 때 (예: 손목 위 = 좋음, 아래 = 나쁨)
+    function softMonotonic(value, threshold, peak = 100, baseAtZero = 50) {
+      // value <=0 이면 baseAtZero, value >= threshold 면 peak
+      if (value <= 0) return clampScore(baseAtZero - Math.min(15, -value * 200));
+      if (value >= threshold) return clampScore(peak);
+      return clampScore(baseAtZero + (value / threshold) * (peak - baseAtZero));
+    }
+
+    function scoreReadyPosition(frames, peakIdx, slowMoFactor = 1, cameraAngle = 'side') {
+      // 준비자세 — 임팩트 –500ms 부근 무릎 굽힘 + 어깨 수평
+      // ±100ms 윈도우의 평균을 써서 단일 프레임 노이즈 제거
+      const idxC = findFrameIdxAt(frames, peakIdx, -500 * slowMoFactor);
+      const startIdx = findFrameIdxAt(frames, peakIdx, -600 * slowMoFactor);
+      const endIdx = findFrameIdxAt(frames, peakIdx, -400 * slowMoFactor);
+      const lms = [];
+      for (let i = startIdx; i <= endIdx; i++) {
+        if (frames[i]?.landmarks) lms.push(frames[i].landmarks);
+      }
+      if (!lms.length) return 50;
+
+      // 무릎 평균 각도 — 무릎이 살짝 굽은 게 이상값 (155°)
+      const kneeAvgs = lms.map(lm => {
+        const lk = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
+        const rk = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
+        const valid = [lk, rk].filter(Number.isFinite);
+        return valid.length ? valid.reduce((a, b) => a + b) / valid.length : NaN;
+      }).filter(Number.isFinite);
+      const kneeAvg = kneeAvgs.length ? kneeAvgs.reduce((a, b) => a + b) / kneeAvgs.length : 175;
+      const kneeScore = softScore(kneeAvg, 155, 18, 45, { base: 45 });
+
+      // 어깨 수평 — y 차이가 작으면 좋음
+      const dys = lms.map(lm => {
+        const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+        return ls && rs ? Math.abs(ls.y - rs.y) : NaN;
+      }).filter(Number.isFinite);
+      const dy = dys.length ? dys.reduce((a, b) => a + b) / dys.length : 0.05;
+      // 정면에선 어깨가 카메라에 평행이라 dy 더 잘 보이고, 측면에선 살짝 보임 → 임계 다르게
+      const dyTol = cameraAngle === 'front' ? 0.05 : 0.07;
+      const shoulderScore = softScore(dy, 0, dyTol, dyTol * 2.2, { base: 50 });
+
       return clampScore((kneeScore + shoulderScore) / 2);
     }
 
-    function scoreBackswing(frames, peakIdx, hand, slowMoFactor = 1) {
+    // 백스윙 정점을 동적으로 탐색 — wrist가 가장 "뒤로/위로" 빠진 프레임을 찾는다.
+    //   복합 점수 = (어깨 대비 손목 위 정도) + (어깨–손목 수평거리) — 둘 다 클수록 정점.
+    //   탐색 범위는 임팩트 -550ms ~ -100ms (백스윙은 보통 이 안에서 정점 도달).
+    function findBackswingPeakIdx(frames, peakIdx, hand, slowMoFactor) {
+      const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
+      const shoulderIdx = hand === "right" ? KP.RIGHT_SHOULDER : KP.LEFT_SHOULDER;
+      const startIdx = findFrameIdxAt(frames, peakIdx, -550 * slowMoFactor);
+      const endIdx = findFrameIdxAt(frames, peakIdx, -100 * slowMoFactor);
+      let bestIdx = -1, bestComposite = -Infinity;
+      for (let i = startIdx; i <= endIdx; i++) {
+        const lm = frames[i]?.landmarks;
+        if (!lm) continue;
+        const w = lm[wristIdx], s = lm[shoulderIdx];
+        if (!w || !s) continue;
+        const above = s.y - w.y;            // 양수 = 손목이 어깨보다 위 (좋음)
+        const sideways = Math.abs(w.x - s.x); // 어깨에서 옆으로 빠진 거리
+        const composite = above * 0.7 + sideways * 1.0;
+        if (composite > bestComposite) { bestComposite = composite; bestIdx = i; }
+      }
+      return bestIdx >= 0 ? bestIdx : findFrameIdxAt(frames, peakIdx, -300 * slowMoFactor);
+    }
+
+    function scoreBackswing(frames, peakIdx, hand, slowMoFactor = 1, cameraAngle = 'side') {
+      const profile = getAngleProfile(cameraAngle);
       const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
       const shoulderIdx = hand === "right" ? KP.RIGHT_SHOULDER : KP.LEFT_SHOULDER;
       const elbowIdx = hand === "right" ? KP.RIGHT_ELBOW : KP.LEFT_ELBOW;
-      const idx = findFrameIdxAt(frames, peakIdx, -300 * slowMoFactor);
-      const lm = frames[idx]?.landmarks;
-      if (!lm) return 50;
-      const wrist = lm[wristIdx];
-      const shoulder = lm[shoulderIdx];
-      const above = wrist && shoulder ? (shoulder.y - wrist.y) : 0;
-      const wristAboveScore = Math.max(0, Math.min(100, (above / 0.1) * 100 + 50));
+
+      // 1) 백스윙 정점을 동적으로 탐색
+      const bsIdx = findBackswingPeakIdx(frames, peakIdx, hand, slowMoFactor);
+      const lm = frames[bsIdx]?.landmarks;
+      if (!lm) return 55;
+
+      const wrist = lm[wristIdx], shoulder = lm[shoulderIdx];
+      if (!wrist || !shoulder) return 55;
+
+      // 2) 손목이 어깨보다 위로 빠진 정도 — 단조함수 (위로 갈수록 점수↑)
+      const above = shoulder.y - wrist.y;
+      const wristAboveScore = softMonotonic(above, profile.backWristAboveIdeal, 100, 55);
+
+      // 3) 어깨 라인 회전 (이미지 평면 기준 dy/dx)
       const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
       let rot = 0;
       if (ls && rs) {
@@ -1387,61 +1521,62 @@
         const dy = rs.y - ls.y;
         rot = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
       }
-      const rotScore = rot >= 30 ? Math.min(100, 60 + (rot - 30) * 1.5)
-                                  : Math.max(0, 60 - (30 - rot) * 2);
+      // 카메라 각도별 회전 임계
+      const rotScore = softScore(rot, profile.backShoulderRotIdeal,
+        profile.backShoulderRotIdeal - profile.backShoulderRotMin,
+        profile.backShoulderRotIdeal + 25, { base: 45 });
+
+      // 4) 팔 굽힘 각도 (어깨–팔꿈치–손목)
       const armAng = angleAt(lm[shoulderIdx], lm[elbowIdx], lm[wristIdx]);
       const armScore = Number.isFinite(armAng)
-        ? Math.max(0, 100 - Math.abs(armAng - 120) * 1.5)
-        : 50;
-      return clampScore((wristAboveScore + rotScore + armScore) / 3);
+        ? softScore(armAng, profile.backArmAngleIdeal, 25, profile.backArmAngleTolerance, { base: 50 })
+        : 60;
+
+      return clampScore((wristAboveScore * 0.4 + rotScore * 0.35 + armScore * 0.25));
     }
 
-    function scoreWeightTransfer(frames, peakIdx, slowMoFactor = 1, stance = 'semi-open') {
+    function scoreWeightTransfer(frames, peakIdx, slowMoFactor = 1, stance = 'semi-open', cameraAngle = 'side') {
+      const profile = getAngleProfile(cameraAngle);
       const startIdx = findFrameIdxAt(frames, peakIdx, -400 * slowMoFactor);
       const startLm = frames[startIdx]?.landmarks;
       const peakLm = frames[peakIdx]?.landmarks;
-      if (!startLm || !peakLm) return 50;
+      if (!startLm || !peakLm) return 55;
+
+      // (a) 골반 좌우 이동량 — 측면에선 핵심 신호, 정면에선 약함
       const xs = pelvisCenterX(startLm);
       const xp = pelvisCenterX(peakLm);
-      if (!Number.isFinite(xs) || !Number.isFinite(xp)) return 50;
-      const shift = Math.abs(xp - xs);
-      let linearScore;
-      if (stance === 'closed') {
-        if (shift >= 0.07 && shift <= 0.13) linearScore = clampScore(90 + (1 - Math.abs(shift - 0.10) / 0.03) * 10);
-        else if (shift < 0.07) linearScore = clampScore((shift / 0.07) * 80);
-        else linearScore = clampScore(Math.max(50, 90 - (shift - 0.13) * 200));
-      } else if (stance === 'open') {
-        if (shift >= 0.02 && shift <= 0.05) linearScore = clampScore(85 + (1 - Math.abs(shift - 0.035) / 0.015) * 10);
-        else if (shift < 0.02) linearScore = clampScore(50 + (shift / 0.02) * 35);
-        else linearScore = clampScore(Math.max(60, 90 - (shift - 0.05) * 150));
-      } else {
-        if (shift >= 0.04 && shift <= 0.09) linearScore = clampScore(88 + (1 - Math.abs(shift - 0.065) / 0.025) * 10);
-        else if (shift < 0.04) linearScore = clampScore((shift / 0.04) * 80);
-        else linearScore = clampScore(Math.max(55, 90 - (shift - 0.09) * 180));
-      }
-      if (stance === 'open') {
-        const a0 = pelvisAngle(startLm);
-        let maxRot = 0;
-        for (let i = startIdx; i <= peakIdx; i++) {
-          const ai = pelvisAngle(frames[i]?.landmarks);
-          if (Number.isFinite(a0) && Number.isFinite(ai)) {
-            let d = Math.abs(ai - a0);
-            if (d > 180) d = 360 - d;
-            if (d > maxRot) maxRot = d;
-          }
+      const shift = (Number.isFinite(xs) && Number.isFinite(xp)) ? Math.abs(xp - xs) : 0;
+      const shiftIdeal = profile.weightShiftIdeal;
+      const shiftScore = softScore(shift, shiftIdeal, shiftIdeal * 0.7, shiftIdeal * 2.2, { base: 50 });
+
+      // (b) 골반 회전량 — 정면에서 핵심 신호, 측면에선 보조
+      const a0 = pelvisAngle(startLm);
+      let maxRot = 0;
+      for (let i = startIdx; i <= peakIdx; i++) {
+        const ai = pelvisAngle(frames[i]?.landmarks);
+        if (Number.isFinite(a0) && Number.isFinite(ai)) {
+          let d = Math.abs(ai - a0);
+          if (d > 180) d = 360 - d;
+          if (d > maxRot) maxRot = d;
         }
-        let rotationScore;
-        if (maxRot >= 25) rotationScore = clampScore(90 + Math.min(10, (maxRot - 25) * 0.5));
-        else if (maxRot >= 5) rotationScore = clampScore(50 + ((maxRot - 5) / 20) * 40);
-        else rotationScore = clampScore((maxRot / 5) * 50);
-        return clampScore(linearScore * 0.4 + rotationScore * 0.6);
       }
-      return linearScore;
+      // 25° 부근이 이상적, 5° 미만이면 페널티
+      const rotScore = softScore(maxRot, 25, 12, 30, { base: 45 });
+
+      // 가중치 — 정면이면 회전 60% / 시프트 40%, 측면이면 시프트 65% / 회전 35%
+      const wRot = profile.weightUseRotation ? 0.6 : 0.35;
+      const wShift = 1 - wRot;
+      // 스탠스별 미세 가중
+      let stanceBonus = 0;
+      if (stance === 'closed') stanceBonus = 3;
+      else if (stance === 'open') stanceBonus = -2;
+      return clampScore(shiftScore * wShift + rotScore * wRot + stanceBonus);
     }
 
-    function scoreKineticChain(frames, peakIdx, slowMoFactor = 1) {
-      const startT = frames[peakIdx].t - 400 * slowMoFactor;
-      const endT = frames[peakIdx].t + 100 * slowMoFactor;
+    function scoreKineticChain(frames, peakIdx, slowMoFactor = 1, cameraAngle = 'side') {
+      const profile = getAngleProfile(cameraAngle);
+      const startT = frames[peakIdx].t - 450 * slowMoFactor;
+      const endT = frames[peakIdx].t + 150 * slowMoFactor;
       const window = frames.filter(f => f.t >= startT && f.t <= endT);
       if (window.length < 5) return 55;
       const calcAngle = (lm, aIdx, bIdx) => {
@@ -1452,14 +1587,13 @@
       const shoulderAngles = window.map(f => calcAngle(f.landmarks, KP.LEFT_SHOULDER, KP.RIGHT_SHOULDER));
       const hipAngles = window.map(f => calcAngle(f.landmarks, KP.LEFT_HIP, KP.RIGHT_HIP));
       const findPeakT = (vals, ts) => {
-        let bestT = ts[0];
         const valid = vals.filter(Number.isFinite);
         if (!valid.length) return NaN;
         const max = Math.max(...valid);
         for (let i = 0; i < vals.length; i++) {
-          if (vals[i] === max) { bestT = ts[i]; break; }
+          if (vals[i] === max) return ts[i];
         }
-        return bestT;
+        return ts[0];
       };
       const ts = window.map(f => f.t);
       const shoulderPeakT = findPeakT(shoulderAngles, ts);
@@ -1467,53 +1601,77 @@
       if (!Number.isFinite(shoulderPeakT) || !Number.isFinite(hipPeakT)) return 55;
       const diffVideo = shoulderPeakT - hipPeakT;
       const diff = diffVideo / slowMoFactor;
-      const absDiff = Math.abs(diff);
+      // 양수 = 어깨가 골반 다음에 회전 (정상). 음수면 작은 페널티 (역순도 어느정도 인정).
       let base;
-      if (diff < 0) base = 30;
-      else if (absDiff >= 50 && absDiff <= 150) base = 95;
-      else if (absDiff < 50) base = 50 + (absDiff / 50) * 45;
-      else base = Math.max(40, 95 - (absDiff - 150) / 5);
+      if (diff < -50) base = 45;
+      else if (diff < 0) base = 60;
+      else {
+        // 0 ~ tolerance 범위에서 ideal 부근이 만점
+        base = softScore(diff, profile.chainTimingIdeal, 60, profile.chainTimingTolerance, { base: 55 });
+      }
       return clampScore(base);
     }
 
-    function scoreImpactPosture(frames, peakIdx, slowMoFactor = 1) {
-      const lm = frames[peakIdx]?.landmarks;
-      if (!lm) return 50;
-      const lk = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
-      const rk = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
-      const knees = [lk, rk].filter(Number.isFinite);
-      const kneeAvg = knees.length ? knees.reduce((a, b) => a + b) / knees.length : 175;
-      const kneeScore = Math.max(0, 100 - Math.abs(kneeAvg - 155) / 30 * 100);
-      const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
-      const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
-      let spineScore = 50;
-      if (ls && rs && lh && rh) {
+    function scoreImpactPosture(frames, peakIdx, slowMoFactor = 1, cameraAngle = 'side') {
+      const profile = getAngleProfile(cameraAngle);
+      // 임팩트 ±60ms 윈도우 평균 — 단일 프레임 노이즈 줄이기
+      const startIdx = findFrameIdxAt(frames, peakIdx, -60 * slowMoFactor);
+      const endIdx = findFrameIdxAt(frames, peakIdx, 60 * slowMoFactor);
+      const lms = [];
+      for (let i = startIdx; i <= endIdx; i++) {
+        if (frames[i]?.landmarks) lms.push(frames[i].landmarks);
+      }
+      if (!lms.length) return 55;
+
+      // (a) 무릎 굽힘 — 155° 이상값
+      const kneeAvgs = lms.map(lm => {
+        const lk = angleAt(lm[KP.LEFT_HIP], lm[KP.LEFT_KNEE], lm[KP.LEFT_ANKLE]);
+        const rk = angleAt(lm[KP.RIGHT_HIP], lm[KP.RIGHT_KNEE], lm[KP.RIGHT_ANKLE]);
+        const valid = [lk, rk].filter(Number.isFinite);
+        return valid.length ? valid.reduce((a, b) => a + b) / valid.length : NaN;
+      }).filter(Number.isFinite);
+      const kneeAvg = kneeAvgs.length ? kneeAvgs.reduce((a, b) => a + b) / kneeAvgs.length : 165;
+      const kneeScore = softScore(kneeAvg, 155, 18, 45, { base: 50 });
+
+      // (b) 척추 수직성 — 어깨중심과 골반중심 잇는 선이 수직선에서 얼마나 벗어났는지
+      const tilts = lms.map(lm => {
+        const ls = lm[KP.LEFT_SHOULDER], rs = lm[KP.RIGHT_SHOULDER];
+        const lh = lm[KP.LEFT_HIP], rh = lm[KP.RIGHT_HIP];
+        if (!ls || !rs || !lh || !rh) return NaN;
         const sx = (ls.x + rs.x) / 2, sy = (ls.y + rs.y) / 2;
         const hx = (lh.x + rh.x) / 2, hy = (lh.y + rh.y) / 2;
         const dx = Math.abs(hx - sx);
         const dy = Math.abs(hy - sy);
-        const tilt = Math.atan2(dx, dy) * 180 / Math.PI;
-        spineScore = Math.max(0, 100 - (tilt / 30) * 100);
-      }
-      const startIdx = findFrameIdxAt(frames, peakIdx, -100 * slowMoFactor);
-      const endIdx = findFrameIdxAt(frames, peakIdx, 100 * slowMoFactor);
-      let headScore = 70;
+        return Math.atan2(dx, dy) * 180 / Math.PI;
+      }).filter(Number.isFinite);
+      const tilt = tilts.length ? tilts.reduce((a, b) => a + b) / tilts.length : 8;
+      const spineScore = softScore(tilt, 0, profile.spineTiltTolerance, profile.spineTiltTolerance * 2.5, { base: 50 });
+
+      // (c) 머리 정지 — ±100ms 윈도우에서 코의 x 좌표 변동 범위
+      const headStart = findFrameIdxAt(frames, peakIdx, -100 * slowMoFactor);
+      const headEnd = findFrameIdxAt(frames, peakIdx, 100 * slowMoFactor);
       const noses = [];
-      for (let i = startIdx; i <= endIdx; i++) {
+      for (let i = headStart; i <= headEnd; i++) {
         const n = frames[i]?.landmarks?.[KP.NOSE];
         if (n) noses.push(n.x);
       }
+      let headScore = 70;
       if (noses.length >= 2) {
         const range = Math.max(...noses) - Math.min(...noses);
-        headScore = Math.max(0, Math.min(100, 100 - ((range - 0.02) / 0.06) * 100));
+        // 0.04까지는 거의 만점, 0.10이면 base
+        headScore = softScore(range, 0, 0.04, 0.10, { base: 50 });
       }
+
       return clampScore((kneeScore + spineScore + headScore) / 3);
     }
 
-    function scoreFollowThrough(frames, peakIdx, hand, slowMoFactor = 1) {
+    function scoreFollowThrough(frames, peakIdx, hand, slowMoFactor = 1, cameraAngle = 'side') {
+      const profile = getAngleProfile(cameraAngle);
       const wristIdx = hand === "right" ? KP.RIGHT_WRIST : KP.LEFT_WRIST;
-      const endIdx = findFrameIdxAt(frames, peakIdx, 400 * slowMoFactor);
-      if (endIdx <= peakIdx) return 50;
+      const endIdx = findFrameIdxAt(frames, peakIdx, 450 * slowMoFactor);
+      if (endIdx <= peakIdx) return 55;
+
+      // (a) 손목 이동거리 — 임팩트 후 끝까지 따라간 정도
       let dist = 0;
       for (let i = peakIdx + 1; i <= endIdx; i++) {
         const a = frames[i - 1].landmarks?.[wristIdx];
@@ -1521,27 +1679,29 @@
         if (!a || !b) continue;
         dist += Math.hypot(b.x - a.x, b.y - a.y);
       }
-      const distScore = Math.max(0, Math.min(100, (dist / 0.3) * 100));
+      const distScore = softMonotonic(dist, profile.followDistIdeal, 100, 50);
+
+      // (b) 마무리 손목 위치 — 반대편 어깨보다 위에 있으면 좋음
       const last = frames[endIdx]?.landmarks;
-      let endScore = 50;
+      let endScore = 55;
       if (last) {
         const wrist = last[wristIdx];
         const oppShoulder = last[hand === "right" ? KP.LEFT_SHOULDER : KP.RIGHT_SHOULDER];
         if (wrist && oppShoulder) {
           const above = oppShoulder.y - wrist.y;
-          endScore = Math.max(0, Math.min(100, 50 + (above / 0.15) * 50));
+          endScore = softMonotonic(above, profile.followAcrossBonus, 100, 55);
         }
       }
       return clampScore((distScore + endScore) / 2);
     }
 
-    function scoreSwing(frames, peakIdx, hand, slowMoFactor = 1, stance = 'semi-open') {
-      const ready = scoreReadyPosition(frames, peakIdx, slowMoFactor);
-      const back = scoreBackswing(frames, peakIdx, hand, slowMoFactor);
-      const weight = scoreWeightTransfer(frames, peakIdx, slowMoFactor, stance);
-      const chain = scoreKineticChain(frames, peakIdx, slowMoFactor);
-      const impact = scoreImpactPosture(frames, peakIdx, slowMoFactor);
-      const follow = scoreFollowThrough(frames, peakIdx, hand, slowMoFactor);
+    function scoreSwing(frames, peakIdx, hand, slowMoFactor = 1, stance = 'semi-open', cameraAngle = 'side') {
+      const ready = scoreReadyPosition(frames, peakIdx, slowMoFactor, cameraAngle);
+      const back = scoreBackswing(frames, peakIdx, hand, slowMoFactor, cameraAngle);
+      const weight = scoreWeightTransfer(frames, peakIdx, slowMoFactor, stance, cameraAngle);
+      const chain = scoreKineticChain(frames, peakIdx, slowMoFactor, cameraAngle);
+      const impact = scoreImpactPosture(frames, peakIdx, slowMoFactor, cameraAngle);
+      const follow = scoreFollowThrough(frames, peakIdx, hand, slowMoFactor, cameraAngle);
       const total = clampScore((ready + back + weight + chain + impact + follow) / 6);
       return { ready, back, weight, chain, impact, follow, total };
     }
@@ -1555,6 +1715,62 @@
       { key: "impact", label: "임팩트" },
       { key: "follow", label: "팔로우스루" },
     ];
+
+    // ─────────────────────────────────────────────────────────────
+    // 🏷️ 자동 별명 (스윙 MBTI)
+    //   가장 강한 축(=AXIS_LABELS 중 점수 1위) × 종합 점수 등급(0~5)
+    //   → 6 × 6 = 36가지 별명 매트릭스
+    //   분석이 끝나면 결과 화면 + 합성 영상에 그대로 노출된다.
+    // ─────────────────────────────────────────────────────────────
+    const SWING_NICKNAMES = {
+      // [tier 0 (낮음) → tier 5 (전설)]
+      ready:  ["자세 새싹",     "자세 도전자",   "균형의 학생",   "균형의 달인",   "정자세 마스터",   "전설의 자세왕"],
+      back:   ["백스윙 새싹",   "백스윙 도전자", "백스윙 학습자", "백스윙 아티스트","백스윙 마에스트로","전설의 백스윙"],
+      weight: ["스텝 새싹",     "스텝 도전자",   "체중이동 학습자","무게중심의 댄서","풋워크 마스터",   "전설의 풋워크"],
+      chain:  ["리듬 새싹",     "리듬 도전자",   "타이밍 학습자", "리듬 마에스트로","타이밍 마스터",   "전설의 리듬"],
+      impact: ["임팩트 새싹",   "임팩트 도전자", "타격 학습자",   "임팩트 강자",   "임팩트 마스터",   "전설의 강타"],
+      follow: ["마무리 새싹",   "마무리 도전자", "팔로우스루 학습자","팔로우스루 장인","마무리 마스터", "전설의 팔로우스루"],
+    };
+
+    // 별명이 어떤 의미인지 한 줄로 풀어주는 설명 (도미넌트 축 기반).
+    // 별명 옆 괄호로 노출돼서 손님이 자기 강점을 직관적으로 이해하게 한다.
+    const SWING_NICKNAME_DESCS = {
+      ready:  "준비자세·균형이 6축 중 가장 좋아요",
+      back:   "백스윙에서 힘을 가장 많이 모아요",
+      weight: "체중이동·풋워크가 6축 중 가장 좋아요",
+      chain:  "회전 타이밍·리듬이 6축 중 가장 좋아요",
+      impact: "임팩트 순간의 힘이 6축 중 가장 좋아요",
+      follow: "팔로우스루·마무리가 6축 중 가장 좋아요",
+    };
+
+    function computeSwingProfile(scoreData) {
+      if (!scoreData || !scoreData.axes) {
+        return { nickname: "도전자", desc: "", axisKey: null, tier: 0 };
+      }
+      const axes = scoreData.axes;
+      const total = scoreData.total ?? 0;
+
+      // 1) 가장 점수 높은 축 (동점이면 AXIS_LABELS 순서대로 우선)
+      let topKey = AXIS_LABELS[0].key;
+      let topVal = -1;
+      for (const { key } of AXIS_LABELS) {
+        const v = axes[key] ?? 0;
+        if (v > topVal) { topVal = v; topKey = key; }
+      }
+
+      // 2) 총점 → tier (0~5)
+      let tier;
+      if (total >= 95) tier = 5;
+      else if (total >= 85) tier = 4;
+      else if (total >= 75) tier = 3;
+      else if (total >= 65) tier = 2;
+      else if (total >= 50) tier = 1;
+      else tier = 0;
+
+      const nickname = (SWING_NICKNAMES[topKey] || SWING_NICKNAMES.ready)[tier];
+      const desc = SWING_NICKNAME_DESCS[topKey] || "";
+      return { nickname, desc, axisKey: topKey, tier };
+    }
 
     function scoreColorClass(score) {
       if (score >= 70) return "text-lime-400";
@@ -1575,7 +1791,7 @@
     // ========================================
     // 📊 HexagonChart — 6축 SVG 육각형
     // ========================================
-    function HexagonChart({ scores, size = 240 }) {
+    function HexagonChart({ scores, size = 240, showLabels = true }) {
       const cx = size / 2;
       const cy = size / 2;
       const radius = size * 0.36;
@@ -1618,7 +1834,7 @@
             const y = cy + (v.y - cy) * f;
             return <circle key={`pt-${i}`} cx={x} cy={y} r="3.5" fill="#a3e635" />;
           })}
-          {vertices.map((v, i) => {
+          {showLabels && vertices.map((v, i) => {
             const dx = v.lx - cx;
             const anchor = Math.abs(dx) < 5 ? "middle" : (dx > 0 ? "start" : "end");
             return (
@@ -2053,7 +2269,8 @@
     }
 
     // 헥사곤 차트를 캔버스에 직접
-    function drawHexagonChart(ctx, scores, cx, cy, radius) {
+    function drawHexagonChart(ctx, scores, cx, cy, radius, opts = {}) {
+      const { showLabels = true } = opts;
       const labels = AXIS_LABELS;
       const verts = labels.map((axis, i) => {
         const ang = (-90 + i * 60) * Math.PI / 180;
@@ -2115,23 +2332,33 @@
         ctx.fillStyle = "#a3e635";
         ctx.fill();
       }
-      // 라벨
-      ctx.fillStyle = "#cbd5e1";
-      ctx.font = "600 18px system-ui, sans-serif";
-      ctx.textBaseline = "middle";
-      for (const v of verts) {
-        const lx = cx + Math.cos(v.ang) * (radius + 30);
-        const ly = cy + Math.sin(v.ang) * (radius + 30);
-        const dx = lx - cx;
-        ctx.textAlign = Math.abs(dx) < 10 ? "center" : (dx > 0 ? "left" : "right");
-        ctx.fillText(v.axis.label, lx, ly);
+      // 라벨 — showLabels=false 시 생략
+      // (좁은 hero 옆 hex 영역에선 라벨이 카드 밖으로 튀거나 옆 그리드와 겹치기 때문에
+      //  라벨을 끄고, 동일 행의 2열 그리드에서 풀-라벨+점수를 보여주는 식으로 분리한다.)
+      if (showLabels) {
+        ctx.fillStyle = "#cbd5e1";
+        ctx.font = "600 18px system-ui, sans-serif";
+        ctx.textBaseline = "middle";
+        for (const v of verts) {
+          const lx = cx + Math.cos(v.ang) * (radius + 30);
+          const ly = cy + Math.sin(v.ang) * (radius + 30);
+          const dx = lx - cx;
+          ctx.textAlign = Math.abs(dx) < 10 ? "center" : (dx > 0 ? "left" : "right");
+          ctx.fillText(v.axis.label, lx, ly);
+        }
       }
       ctx.restore();
     }
 
     // 인스타 카드 1080x1920 캔버스에 한 프레임 그리기
     // ctx — 1080x1920 컨텍스트
-    // params: { videoEl, framesData, bestSwing, scoreData, hand, currentVideoTimeMs, scoreAnimT (0~1) }
+    // params: { videoEl, framesData, bestSwing, scoreData, nickname, currentVideoTimeMs, scoreAnimT (0~1) }
+    //
+    // ⚠️ 레이아웃 — Reels Safe Area 기준 (모든 핵심 UI가 상하 안전영역 안쪽):
+    //   상단 240px (계정명/팔로우 버튼 영역) — 그 위는 배경 데코만
+    //   하단 300px (캡션/액션 버튼/음원 영역) — 그 아래는 배경 데코만
+    //   좌우 64px (우측 액션 버튼 살짝 침범) — 콘텐츠는 안쪽
+    //   콘텐츠 박스: y=[240, 1620], x=[64, 1016] = 952×1380
     function drawInstaCardFrame(ctx, params) {
       const W = 1080;
       const H = 1920;
@@ -2140,11 +2367,17 @@
         framesData,
         bestSwing,
         scoreData,
+        nickname,
+        nicknameDesc,
         currentVideoTimeMs,
         scoreAnimT = 1,
       } = params;
 
-      // ── 배경 그라디언트 ──
+      const SAFE_TOP = 240;
+      const SAFE_BOTTOM = 1580; // 하단 340px (Reels 액션바/캡션 영역) 안쪽
+      const PAD = 64; // 좌우 패딩
+
+      // ── 배경 그라디언트 (캔버스 전체) ──
       const bgRadial1 = ctx.createRadialGradient(W * 0.3, 0, 0, W * 0.3, 0, W * 0.9);
       bgRadial1.addColorStop(0, "rgba(163, 230, 53, 0.18)");
       bgRadial1.addColorStop(1, "rgba(163, 230, 53, 0)");
@@ -2162,40 +2395,38 @@
       ctx.fillStyle = bgRadial2;
       ctx.fillRect(0, 0, W, H);
 
-      // ── 카드 외곽 라임 보더 ──
+      // ── 카드 외곽 라임 보더 — 안전영역 안쪽으로 좁게 ──
       ctx.save();
-      roundRect(ctx, 16, 16, W - 32, H - 32, 32);
-      ctx.strokeStyle = "rgba(163, 230, 53, 0.25)";
+      roundRect(ctx, 32, SAFE_TOP - 24, W - 64, (SAFE_BOTTOM - SAFE_TOP) + 48, 32);
+      ctx.strokeStyle = "rgba(163, 230, 53, 0.22)";
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
 
-      const PAD = 70; // 6.5% — 카드 좌우 패딩
-
-      // ── 헤더 (컴팩트) ──
+      // ──────────────────────────────────────────────────────
+      // 1) 헤더 스트립 (y=270-360)
+      //    좌: DAILY TENNIS + 태그라인  /  우: 매장 + 날짜
+      // ──────────────────────────────────────────────────────
       ctx.save();
       ctx.shadowColor = "rgba(163, 230, 53, 0.45)";
-      ctx.shadowBlur = 24;
+      ctx.shadowBlur = 22;
       ctx.fillStyle = "#a3e635";
-      ctx.font = "900 50px system-ui, sans-serif";
+      ctx.font = "900 44px system-ui, sans-serif";
       ctx.textBaseline = "alphabetic";
       ctx.textAlign = "left";
-      // 글자 사이 여백 + tracking
-      const brandText = "DAILY  TENNIS";
-      ctx.fillText(brandText, PAD, 105);
+      ctx.fillText("DAILY TENNIS", PAD, 305);
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#cbd5e1";
       ctx.font = "500 20px system-ui, sans-serif";
-      ctx.fillText("AI 자세 분석 리포트", PAD, 138);
+      ctx.fillText("AI 자세 분석 리포트", PAD, 340);
 
-      // 우측: 매장명/날짜
       ctx.textAlign = "right";
       ctx.font = "700 22px system-ui, sans-serif";
       ctx.fillStyle = "#e2e8f0";
-      ctx.fillText("📍 " + BRAND.storeName, W - PAD, 105);
+      ctx.fillText("📍 " + BRAND.storeName, W - PAD, 305);
       ctx.font = "500 18px system-ui, sans-serif";
       ctx.fillStyle = "#94a3b8";
-      ctx.fillText(formatToday(), W - PAD, 135);
+      ctx.fillText(formatToday(), W - PAD, 338);
       ctx.restore();
 
       // 헤더 구분선 (그라디언트)
@@ -2206,17 +2437,59 @@
       ctx.strokeStyle = lineGrad;
       ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(PAD, 165);
-      ctx.lineTo(W - PAD, 165);
+      ctx.moveTo(PAD, 370);
+      ctx.lineTo(W - PAD, 370);
       ctx.stroke();
 
-      // ── 베스트 샷 영상 박스 (1:1, 940x940 — 카드 가로의 ~87%) ──
-      const VID_W = 940;
-      const VID_H = 940;
-      const VID_X = (W - VID_W) / 2; // 중앙 정렬 (= 70)
-      const VID_Y = 195;
+      // ──────────────────────────────────────────────────────
+      // 2) 스윙 별명 hero (y=388-478, 90 tall pill)
+      //    🏷️ 당신의 스윙 별명 / "전설의 임팩트" (괄호 설명)
+      //    한 줄에 [큰 별명][작은 괄호 설명] 으로 한 번에 보여줌
+      // ──────────────────────────────────────────────────────
+      const NICK_Y = 388;
+      const NICK_H = 90;
+      const nickValue = (nickname && nickname.trim()) || "도전자";
+      const descValue = (nicknameDesc && nicknameDesc.trim()) || "";
+
       ctx.save();
-      // 글로우
+      ctx.fillStyle = "rgba(163, 230, 53, 0.10)";
+      ctx.strokeStyle = "rgba(163, 230, 53, 0.45)";
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, PAD, NICK_Y, W - PAD * 2, NICK_H, 22);
+      ctx.fill();
+      ctx.stroke();
+
+      // 작은 소개 라인
+      ctx.fillStyle = "#bef264";
+      ctx.font = "700 17px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText("🏷️ 당신의 스윙 별명", W / 2, NICK_Y + 22);
+
+      // 굵은 별명 본문
+      ctx.fillStyle = "#ecfccb";
+      ctx.font = "900 38px system-ui, sans-serif";
+      ctx.shadowColor = "rgba(163, 230, 53, 0.55)";
+      ctx.shadowBlur = 16;
+      ctx.fillText(nickValue, W / 2, NICK_Y + 56);
+      ctx.shadowBlur = 0;
+
+      // 괄호 안에 별명의 의미를 한 줄로 풀어서 보여줌
+      if (descValue) {
+        ctx.fillStyle = "#cbd5e1";
+        ctx.font = "500 18px system-ui, sans-serif";
+        ctx.fillText(`(${descValue})`, W / 2, NICK_Y + 82);
+      }
+      ctx.restore();
+
+      // ──────────────────────────────────────────────────────
+      // 3) BEST SHOT 영상 박스 (y=488-1288, 800x800 정사각, 가운데)
+      // ──────────────────────────────────────────────────────
+      const VID_W = 800;
+      const VID_H = 800;
+      const VID_X = (W - VID_W) / 2; // = 140
+      const VID_Y = 488;
+      ctx.save();
       ctx.shadowColor = "rgba(163, 230, 53, 0.4)";
       ctx.shadowBlur = 24;
       ctx.fillStyle = "#000";
@@ -2270,22 +2543,22 @@
         ctx.restore();
       }
 
-      // BEST SHOT 라벨 (좌하단)
+      // BEST SHOT 라벨 (영상 박스 좌하단)
       ctx.save();
       const labelY = VID_Y + VID_H - 56;
       ctx.fillStyle = "rgba(163, 230, 53, 0.92)";
-      roundRect(ctx, VID_X + 24, labelY, 220, 44, 22);
+      roundRect(ctx, VID_X + 20, labelY, 200, 40, 20);
       ctx.shadowColor = "rgba(163, 230, 53, 0.6)";
       ctx.shadowBlur = 16;
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#0a0f08";
-      ctx.font = "800 18px system-ui, sans-serif";
+      ctx.font = "800 17px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("🏆 BEST SHOT", VID_X + 24 + 110, labelY + 22);
+      ctx.fillText("🏆 BEST SHOT", VID_X + 20 + 100, labelY + 20);
 
-      // 종목 라벨
+      // 종목 라벨 (영상 박스 우하단)
       const swingTypeLabel = bestSwing
         ? (bestSwing.type === "forehand" ? "포핸드"
           : bestSwing.type === "backhand" ? "백핸드"
@@ -2295,46 +2568,47 @@
         ? " · " + stanceLabel(bestSwing.stance) + " 스탠스"
         : "";
       const fullLabel = swingTypeLabel + stanceTxt;
-      ctx.font = "600 18px system-ui, sans-serif";
-      const tw = ctx.measureText(fullLabel).width + 36;
+      ctx.font = "600 17px system-ui, sans-serif";
+      const tw = ctx.measureText(fullLabel).width + 32;
       ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-      roundRect(ctx, VID_X + 256, labelY, tw, 44, 22);
+      roundRect(ctx, VID_X + VID_W - 20 - tw, labelY, tw, 40, 20);
       ctx.fill();
       ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
       ctx.lineWidth = 1.2;
       ctx.stroke();
       ctx.fillStyle = "#f8fafc";
-      ctx.fillText(fullLabel, VID_X + 256 + tw / 2, labelY + 22);
+      ctx.fillText(fullLabel, VID_X + VID_W - 20 - tw / 2, labelY + 20);
       ctx.restore();
 
-      // ── 메가 점수 ── (영상 바로 아래, 컴팩트)
-      const SCORE_Y = VID_Y + VID_H + 30; // 영상 아래 30px
-      const SCORE_FONT = 150;
+      // ──────────────────────────────────────────────────────
+      // 4) 점수 메가 (y=1308-1395, 87 tall) — 영상 바로 아래
+      // ──────────────────────────────────────────────────────
+      const SCORE_Y = 1308;
+      const SCORE_FONT = 96;
       const animatedScore = Math.round((scoreData?.total ?? 0) * scoreAnimT);
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "alphabetic";
       ctx.shadowColor = "rgba(163, 230, 53, 0.6)";
-      ctx.shadowBlur = 30;
+      ctx.shadowBlur = 24;
       ctx.fillStyle = scoreColorHex(scoreData?.total ?? 0);
       ctx.font = `900 ${SCORE_FONT}px system-ui, sans-serif`;
       const totalText = String(animatedScore);
       const totalMeasure = ctx.measureText(totalText);
-      // baseline 기준 점수 그리기 (점수 영역 높이 ≈ SCORE_FONT)
       const scoreBaseline = SCORE_Y + SCORE_FONT * 0.85;
       ctx.fillText(totalText, W / 2 - 70, scoreBaseline);
       ctx.shadowBlur = 0;
 
       // / 100
       ctx.fillStyle = "#cbd5e1";
-      ctx.font = "700 32px system-ui, sans-serif";
+      ctx.font = "700 26px system-ui, sans-serif";
       ctx.textAlign = "left";
-      const scoreRight = W / 2 - 70 + totalMeasure.width / 2 + 14;
-      ctx.fillText("/ 100", scoreRight, scoreBaseline - 60);
+      const scoreRight = W / 2 - 70 + totalMeasure.width / 2 + 12;
+      ctx.fillText("/ 100", scoreRight, scoreBaseline - 42);
 
       // 별점
       const stars = Math.max(0, Math.min(5, Math.round(((scoreData?.total ?? 0) * scoreAnimT) / 20)));
-      ctx.font = "700 36px system-ui, sans-serif";
+      ctx.font = "700 30px system-ui, sans-serif";
       ctx.fillStyle = "#fbbf24";
       ctx.fillText("★".repeat(stars), scoreRight, scoreBaseline);
       const filledWidth = ctx.measureText("★".repeat(stars)).width;
@@ -2342,48 +2616,61 @@
       ctx.fillText("☆".repeat(5 - stars), scoreRight + filledWidth, scoreBaseline);
       ctx.restore();
 
-      // ── 헥사곤 차트 + 6축 그리드 가로 배치 ──
-      // 헥사곤은 좌측 (반지름 115, 라벨 포함 ~290 영역), 6축 그리드는 우측
-      const HEX_BLOCK_Y = SCORE_Y + SCORE_FONT + 30; // 점수 아래 30px
-      const HEX_R = 115;
-      const HEX_CX = PAD + HEX_R + 30; // 라벨 공간(왼쪽) 확보
-      const HEX_CY = HEX_BLOCK_Y + HEX_R + 20; // 라벨 공간(위쪽) 확보
-      drawHexagonChart(ctx, scoreData?.axes ?? {}, HEX_CX, HEX_CY, HEX_R);
+      // ──────────────────────────────────────────────────────
+      // 5) 헥사곤 + 6축 점수 그리드 (y=1395-1490, 95 tall)
+      //    좌: 작은 헥사곤 / 우: 6축 2열×3행 컴팩트 그리드
+      // ──────────────────────────────────────────────────────
+      const HEX_R = 48;
+      const HEX_EDGE_BUFFER = 12; // hex outer + dot/glow 여유
+      const HEX_CX = PAD + HEX_R + HEX_EDGE_BUFFER;
+      const HEX_CY = 1442; // 박스 중심
+      drawHexagonChart(ctx, scoreData?.axes ?? {}, HEX_CX, HEX_CY, HEX_R, { showLabels: false });
 
-      // ── 6축 점수 리스트 (헥사곤 우측, 1열 6행) ──
-      const LIST_X = HEX_CX + HEX_R + 90; // 헥사곤 우측 라벨 영역(반지름+90) 이후
-      const LIST_W = W - PAD - LIST_X;
-      const LIST_TOP = HEX_BLOCK_Y;
-      const ROW_H = 44;
+      // 6축 그리드: 우측 — 2열 × 3행 (hex는 라벨 없음 → 그리드에서 풀-라벨 + 점수 노출)
+      const GRID_X = HEX_CX + HEX_R + HEX_EDGE_BUFFER + 24;
+      const GRID_RIGHT = W - PAD;
+      const GRID_W = GRID_RIGHT - GRID_X;
+      const COL_W = GRID_W / 2;
+      const ROW_H = 32;
+      const GRID_TOP = 1395;
       ctx.save();
       AXIS_LABELS.forEach(({ key, label }, i) => {
-        const y = LIST_TOP + i * ROW_H;
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const cellX = GRID_X + col * COL_W;
+        const cellY = GRID_TOP + row * ROW_H;
         const v = (scoreData?.axes ?? {})[key] ?? 0;
         const stN = Math.max(0, Math.min(5, Math.round(v / 20)));
-        // 라벨
+
+        // 라벨 (좌)
         ctx.fillStyle = "#e2e8f0";
-        ctx.font = "600 20px system-ui, sans-serif";
+        ctx.font = "600 17px system-ui, sans-serif";
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
-        ctx.fillText(label, LIST_X, y + 22);
-        // 별 (라벨 아래)
-        ctx.font = "700 14px system-ui, sans-serif";
+        ctx.fillText(label, cellX, cellY + 16);
+
+        // 별점 (라벨 아래 작게)
+        ctx.font = "700 11px system-ui, sans-serif";
         ctx.fillStyle = "#fbbf24";
-        ctx.fillText("★".repeat(stN), LIST_X, y + 42);
+        ctx.fillText("★".repeat(stN), cellX, cellY + 30);
         const sw2 = ctx.measureText("★".repeat(stN)).width;
         ctx.fillStyle = "#475569";
-        ctx.fillText("☆".repeat(5 - stN), LIST_X + sw2, y + 42);
-        // 점수 (우측 정렬)
+        ctx.fillText("☆".repeat(5 - stN), cellX + sw2, cellY + 30);
+
+        // 점수 (우측, 같은 행 우측 끝)
         ctx.textAlign = "right";
-        ctx.font = "800 28px system-ui, sans-serif";
+        ctx.font = "800 24px system-ui, sans-serif";
         ctx.fillStyle = scoreColorHex(v);
-        ctx.fillText(String(v), W - PAD, y + 30);
+        ctx.fillText(String(v), cellX + COL_W - 14, cellY + 24);
       });
       ctx.restore();
 
-      // ── 푸터 (안전 영역 안) ──
-      const FOOTER_Y = H - 230; // 하단 250px 안전영역 안
-      // 구분선
+      // ──────────────────────────────────────────────────────
+      // 6) 푸터 (y=1505-1580, 75 tall) — 안전영역(하단 340px) 안쪽
+      //    좌: QR + 핸들  /  우: 매장 + powered by
+      // ──────────────────────────────────────────────────────
+      const FOOTER_Y = 1505;
+      // 푸터 구분선
       const footerLineGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
       footerLineGrad.addColorStop(0, "rgba(163, 230, 53, 0)");
       footerLineGrad.addColorStop(0.5, "rgba(163, 230, 53, 0.4)");
@@ -2397,30 +2684,32 @@
 
       // 푸터 좌측 — QR + 핸들
       ctx.save();
-      const QR_SIZE = 110;
+      const QR_SIZE = 64;
+      const QR_X = PAD;
+      const QR_Y = FOOTER_Y + 10;
       ctx.fillStyle = "#ffffff";
-      roundRect(ctx, PAD, FOOTER_Y + 30, QR_SIZE, QR_SIZE, 12);
+      roundRect(ctx, QR_X, QR_Y, QR_SIZE, QR_SIZE, 8);
       ctx.fill();
-      drawQrToCtx(ctx, BRAND.instagramUrl, PAD + 8, FOOTER_Y + 38, QR_SIZE - 16, "#0a0f08");
+      drawQrToCtx(ctx, BRAND.instagramUrl, QR_X + 5, QR_Y + 5, QR_SIZE - 10, "#0a0f08");
       ctx.fillStyle = "#f8fafc";
-      ctx.font = "700 26px system-ui, sans-serif";
+      ctx.font = "700 22px system-ui, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(BRAND.instagramHandle, PAD + QR_SIZE + 18, FOOTER_Y + 70);
+      ctx.fillText(BRAND.instagramHandle, QR_X + QR_SIZE + 14, QR_Y + 28);
       ctx.fillStyle = "#94a3b8";
-      ctx.font = "500 20px system-ui, sans-serif";
-      ctx.fillText(BRAND.domain, PAD + QR_SIZE + 18, FOOTER_Y + 100);
+      ctx.font = "500 16px system-ui, sans-serif";
+      ctx.fillText(BRAND.domain, QR_X + QR_SIZE + 14, QR_Y + 52);
       // 푸터 우측 — powered by
       ctx.textAlign = "right";
       ctx.fillStyle = "#64748b";
-      ctx.font = "500 16px system-ui, sans-serif";
-      ctx.fillText("POWERED BY", W - PAD, FOOTER_Y + 60);
+      ctx.font = "500 13px system-ui, sans-serif";
+      ctx.fillText("POWERED BY", W - PAD, QR_Y + 18);
       ctx.fillStyle = "#a3e635";
-      ctx.font = "900 24px system-ui, sans-serif";
-      ctx.fillText("DAILY TENNIS", W - PAD, FOOTER_Y + 92);
+      ctx.font = "900 22px system-ui, sans-serif";
+      ctx.fillText("DAILY TENNIS", W - PAD, QR_Y + 44);
       ctx.fillStyle = "#64748b";
-      ctx.font = "500 16px system-ui, sans-serif";
-      ctx.fillText("AI 자세분석", W - PAD, FOOTER_Y + 114);
+      ctx.font = "500 13px system-ui, sans-serif";
+      ctx.fillText("AI 자세분석 매장 시스템", W - PAD, QR_Y + 62);
       ctx.restore();
     }
 
@@ -2453,6 +2742,8 @@
     //   다크 그라디언트 + 라임 글로우 + 메가 점수
     // ========================================
     function ResultInstaCard({
+      nickname = "",
+      nicknameDesc = "",
       scoreData,
       bestSwing,
       framesData,
@@ -2475,10 +2766,16 @@
           : bestSwing.type === "backhand" ? "백핸드"
           : "분류불가")
         : "";
+      const trimmedNick = (nickname || "").trim() || "도전자";
+      const trimmedDesc = (nicknameDesc || "").trim();
 
       return (
         <div ref={cardRef} className={`insta-card ${captureMode ? 'capture-mode' : ''}`}>
-          <div className="absolute inset-0 flex flex-col" style={{ padding: "3.2% 3.5%" }}>
+          {/* 콘텐츠는 Reels 안전영역 안에 (상단 12.5%, 하단 17.7%, 좌우 5.9%) */}
+          <div
+            className="absolute inset-0 flex flex-col"
+            style={{ padding: "12.5% 5.9% 17.7%" }}
+          >
             {/* ========== 헤더 (안전 영역 안) — 컴팩트 ========== */}
             <div className="flex items-end justify-between">
               <div>
@@ -2505,11 +2802,59 @@
 
             <div className="h-px bg-gradient-to-r from-transparent via-lime-400/40 to-transparent my-2" />
 
-            {/* ========== 베스트 샷 (1:1 영상) — 카드 가로의 ~92%, 영상 우위 ========== */}
+            {/* ========== 스윙 별명 hero strip — 자동 분류된 MBTI식 별명 ========== */}
+            <div
+              className="rounded-2xl border flex flex-col items-center justify-center text-center"
+              style={{
+                background: "rgba(163, 230, 53, 0.10)",
+                borderColor: "rgba(163, 230, 53, 0.45)",
+                padding: "0.5rem 0.75rem",
+                marginBottom: "0.5rem",
+                gap: "0.25rem",
+              }}
+            >
+              <span
+                className="font-bold"
+                style={{
+                  color: "#bef264",
+                  fontSize: "0.6rem",
+                  letterSpacing: "0.05em",
+                  lineHeight: 1,
+                }}
+              >
+                🏷️ 당신의 스윙 별명
+              </span>
+              <span
+                className="font-black"
+                style={{
+                  color: "#ecfccb",
+                  fontSize: "1.15rem",
+                  letterSpacing: "0.01em",
+                  textShadow: "0 0 14px rgba(163, 230, 53, 0.55)",
+                  lineHeight: 1.05,
+                }}
+              >
+                {trimmedNick}
+              </span>
+              {trimmedDesc && (
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: "0.6rem",
+                    lineHeight: 1.1,
+                    marginTop: "0.05rem",
+                  }}
+                >
+                  ({trimmedDesc})
+                </span>
+              )}
+            </div>
+
+            {/* ========== 베스트 샷 (1:1 영상) — 캔버스(800/1080=74%)와 동일 비율 ========== */}
             <div
               className="best-shot rounded-2xl overflow-hidden relative bg-black mx-auto"
               style={{
-                width: "100%",
+                width: "84%", /* 800/952 — 캔버스 VID_W와 동일 비율 */
                 aspectRatio: "1 / 1",
                 boxShadow: "0 0 0 1px rgba(163,230,53,0.35), 0 12px 30px -10px rgba(0,0,0,0.7)",
               }}
@@ -2543,36 +2888,38 @@
               </div>
             </div>
 
-            {/* ========== 메가 점수 — 영상 바로 아래 큰 라임 한 줄 ========== */}
-            <div className="flex items-baseline justify-center gap-3 mt-3 mb-1">
-              <div className={`score-mega score-pop ${scoreColorClass(total)}`} style={{ fontSize: "4.2rem" }}>
+            {/* ========== 메가 점수 — 영상 바로 아래 한 줄 (캔버스 96px와 동일 비례) ========== */}
+            <div className="flex items-baseline justify-center gap-3 mt-2 mb-1">
+              <div className={`score-mega score-pop ${scoreColorClass(total)}`} style={{ fontSize: "3rem" }}>
                 {total}
               </div>
-              <div className="flex flex-col items-start" style={{ paddingBottom: "0.4rem" }}>
-                <span className="text-slate-300 text-sm font-semibold">/ 100</span>
-                <div className="text-xl mt-0.5 leading-none">
+              <div className="flex flex-col items-start" style={{ paddingBottom: "0.3rem" }}>
+                <span className="text-slate-300 text-xs font-semibold">/ 100</span>
+                <div className="text-lg mt-0.5 leading-none">
                   <span className="star-yellow">{"★".repeat(Math.max(0, Math.min(5, Math.round((total || 0) / 20))))}</span>
                   <span className="star-dim">{"☆".repeat(5 - Math.max(0, Math.min(5, Math.round((total || 0) / 20))))}</span>
                 </div>
               </div>
             </div>
 
-            {/* ========== 헥사곤 + 6축 그리드 가로 배치 — 헥사곤 작아진 만큼 옆으로 ========== */}
-            <div className="flex items-center gap-2 mt-1">
+            {/* ========== 헥사곤 + 6축 그리드 (좌: 컴팩트 헥사곤 / 우: 2열×3행) ========== */}
+            <div className="flex items-center gap-3 mt-1">
               <div className="flex-shrink-0 hex-fade">
-                <HexagonChart scores={axes} size={150} />
+                <HexagonChart scores={axes} size={110} showLabels={false} />
               </div>
-              <div className="flex-1 grid grid-cols-1 gap-y-1">
+              <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1">
                 {AXIS_LABELS.map(({ key, label }) => {
                   const v = axes[key] ?? 0;
                   const stars = Math.max(0, Math.min(5, Math.round(v / 20)));
                   return (
-                    <div key={key} className="flex items-center justify-between gap-1.5">
-                      <span className="text-[10px] text-slate-300 font-medium flex-shrink-0">{label}</span>
-                      <span className="font-mono text-[9px] leading-none flex-shrink-0">
-                        <span className="star-yellow">{"★".repeat(stars)}</span>
-                        <span className="star-dim">{"☆".repeat(5 - stars)}</span>
-                      </span>
+                    <div key={key} className="flex items-center justify-between gap-1">
+                      <div className="leading-none flex flex-col gap-0.5 min-w-0">
+                        <span className="text-[10px] text-slate-300 font-medium truncate">{label}</span>
+                        <span className="font-mono text-[8px] leading-none">
+                          <span className="star-yellow">{"★".repeat(stars)}</span>
+                          <span className="star-dim">{"☆".repeat(5 - stars)}</span>
+                        </span>
+                      </div>
                       <span className={`text-sm font-extrabold ${scoreColorClass(v)}`}>{v}</span>
                     </div>
                   );
@@ -2657,8 +3004,15 @@
             </div>
           </div>
 
-          {/* 인스타 안전 영역 오버레이 (디자인 검수용) */}
-          {showSafeArea && <div className="insta-safe-overlay" />}
+          {/* 인스타 Reels 안전 영역 오버레이 (디자인 검수용) */}
+          {showSafeArea && (
+            <div className="insta-safe-overlay">
+              <div className="safe-band safe-top" />
+              <div className="safe-band safe-bottom" />
+              <div className="safe-band safe-left" />
+              <div className="safe-band safe-right" />
+            </div>
+          )}
         </div>
       );
     }
@@ -2730,6 +3084,7 @@
               onPickup({
                 sessionId: next.sessionId,
                 videoUrl: next.videoUrl,
+                cameraAngle: next.cameraAngle || 'side',
               });
             }
           } catch (err) {
@@ -2961,10 +3316,11 @@
               onError("스윙이 검출되지 않았습니다. 측면(좌우 90°) 촬영을 권장합니다.");
               return;
             }
+            const cameraAngle = session.cameraAngle === 'front' ? 'front' : 'side';
             const perSwing = result.swings.map(sw => {
               const autoStance = detectStance(frames, sw.peakIdx, slowMoFactor);
               const finalStance = autoStance === 'unknown' ? 'semi-open' : autoStance;
-              const scored = scoreSwing(frames, sw.peakIdx, hand, slowMoFactor, finalStance);
+              const scored = scoreSwing(frames, sw.peakIdx, hand, slowMoFactor, finalStance, cameraAngle);
               return { ...sw, scores: scored, stance: finalStance };
             });
             const axesKeys = ["ready", "back", "weight", "chain", "impact", "follow"];
@@ -2982,9 +3338,14 @@
               ? clampScore(bhSwings.reduce((a, s) => a + s.scores.total, 0) / bhSwings.length) : null;
             const bestSwing = perSwing.reduce((best, sw) =>
               (sw.scores?.total ?? -1) > (best?.scores?.total ?? -1) ? sw : best, null);
+            const finalScoreData = { perSwing, axes, total, fhAvg, bhAvg };
+            const swingProfile = computeSwingProfile(finalScoreData);
             onComplete({
               sessionId: session.sessionId,
-              scoreData: { perSwing, axes, total, fhAvg, bhAvg },
+              nickname: swingProfile.nickname,
+              nicknameDesc: swingProfile.desc,
+              cameraAngle,
+              scoreData: finalScoreData,
               bestSwing,
               framesData: [...framesRef.current],
               videoUrl: session.videoUrl,
@@ -3307,6 +3668,8 @@
               framesData: result.framesData,
               bestSwing: result.bestSwing,
               scoreData: result.scoreData,
+              nickname: result.nickname,
+              nicknameDesc: result.nicknameDesc,
               currentVideoTimeMs: srcVideo.currentTime * 1000,
               scoreAnimT: easeT,
             });
@@ -3586,6 +3949,8 @@
               <div className="lg:col-span-2 flex justify-center">
                 <div className="relative">
                   <ResultInstaCard
+                    nickname={result.nickname}
+                    nicknameDesc={result.nicknameDesc}
                     scoreData={result.scoreData}
                     bestSwing={result.bestSwing}
                     framesData={result.framesData}
@@ -3713,6 +4078,7 @@
     function MobileUploadApp() {
       const [storeToken, setStoreToken] = useState("");
       const [legacySessionId, setLegacySessionId] = useState(""); // 구 ?session=… 호환
+      const [cameraAngle, setCameraAngle] = useState("side"); // 'side' | 'front'
       const [file, setFile] = useState(null);
       const [previewUrl, setPreviewUrl] = useState("");
       const [progress, setProgress] = useState(0);
@@ -3764,11 +4130,11 @@
         }
         setErrorMsg("");
         try {
-          // 1) 세션 발급
+          // 1) 세션 발급 (카메라 각도 동봉)
           let sessionId = legacySessionId;
           if (!sessionId && storeToken) {
             setStage("creating");
-            const s = await apiCreateSessionWithToken(storeToken);
+            const s = await apiCreateSessionWithToken(storeToken, cameraAngle);
             sessionId = s.sessionId;
           }
           // 2) 영상 업로드
@@ -3813,6 +4179,59 @@
               </Card>
             ) : (
               <>
+                {/* 안내: 분석 후 자동으로 스윙 별명이 부여됩니다 */}
+                <div className="mb-4 px-4 py-3 rounded-xl bg-lime-400/5 border border-lime-400/30">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg leading-none">🏷️</span>
+                    <div>
+                      <p className="text-sm font-bold text-lime-300 leading-tight">스윙 별명 자동 부여</p>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                        분석이 끝나면 당신의 스윙 스타일에 맞는 MBTI 같은 별명이 자동으로 붙어요.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 카메라 각도 선택 — 측정 임계치가 다르게 적용됨 */}
+                <div className="mb-4">
+                  <label className="block text-xs text-slate-300 font-semibold mb-2 tracking-wide">
+                    📐 영상 촬영 각도 <span className="text-rose-400">*</span>
+                    <span className="text-slate-500 font-normal ml-1">(채점 기준에 영향)</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'side', emoji: '↔️', title: '측면', sub: '90° 좌·우에서' },
+                      { key: 'front', emoji: '🎯', title: '정면', sub: '카메라를 보며' },
+                    ].map(opt => {
+                      const active = cameraAngle === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setCameraAngle(opt.key)}
+                          disabled={stage === "uploading" || stage === "creating"}
+                          className={`px-3 py-3 rounded-xl text-left border-2 transition-colors disabled:opacity-50 ${
+                            active
+                              ? 'border-lime-400 bg-lime-400/10'
+                              : 'border-slate-700 bg-slate-800/40 hover:border-slate-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl leading-none">{opt.emoji}</span>
+                            <div className="leading-tight">
+                              <div className={`text-sm font-bold ${active ? 'text-lime-300' : 'text-slate-200'}`}>{opt.title}</div>
+                              <div className="text-[10px] text-slate-500 mt-0.5">{opt.sub}</div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1.5 leading-snug">
+                    측면(추천)은 어깨 회전·체중이동 측정이 정확하고, 정면은 골반 회전·임팩트 자세에 가중을 둡니다.
+                  </p>
+                </div>
+
                 {/* 파일 선택 — 갤러리(기본) + 즉석 촬영 두 옵션 */}
                 {!file ? (
                   <div className="grid grid-cols-2 gap-3">

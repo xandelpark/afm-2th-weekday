@@ -319,10 +319,15 @@ app.post('/api/sessions', (req, res) => {
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
     const pcId = req.body && req.body.pcId ? String(req.body.pcId) : null;
 
+    // 카메라 각도 — 모바일에서 측면/정면 라디오로 지정. 채점 임계치에 직접 영향.
+    const rawAngle = req.body && req.body.cameraAngle;
+    const cameraAngle = (rawAngle === 'front' || rawAngle === 'side') ? rawAngle : 'side';
+
     sessions.set(id, {
       id,
       status: 'waiting',
       storeToken: fresh.value,
+      cameraAngle,
       videoFilename: null,
       videoMime: null,
       resultVideoFilename: null,
@@ -343,11 +348,12 @@ app.post('/api/sessions', (req, res) => {
     const base = buildPublicHost(req);
     const uploadUrl = `${base}/upload?session=${id}`;
 
-    console.log(`[session] 새 세션 ${id}`);
+    console.log(`[session] 새 세션 ${id} (각도: ${cameraAngle})`);
     res.status(201).json({
       sessionId: id,
       uploadUrl,
       qrUrl: uploadUrl,
+      cameraAngle,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (err) {
@@ -449,13 +455,15 @@ app.get('/api/queue/next', (req, res) => {
   oldest.status = 'analyzing';
   oldest.pickedUpAt = new Date().toISOString();
 
-  const base = buildPublicHost(req);
-  const videoUrl = oldest.videoFilename ? `${base}/uploads/${oldest.videoFilename}` : null;
+  // 상대 경로로 반환 — PC 브라우저가 어떤 호스트로 접근하든(localhost / LAN IP)
+  // 동일 origin으로 해석되므로 CORS / canvas tainting 문제가 없다.
+  const videoUrl = oldest.videoFilename ? `/uploads/${oldest.videoFilename}` : null;
 
-  console.log(`[queue] 픽업 ${oldest.id} → analyzing`);
+  console.log(`[queue] 픽업 ${oldest.id} → analyzing (각도: ${oldest.cameraAngle || 'side'})`);
   res.json({
     sessionId: oldest.id,
     videoUrl,
+    cameraAngle: oldest.cameraAngle || 'side',
     status: oldest.status,
     uploadedAt: oldest.uploadedAt,
   });
