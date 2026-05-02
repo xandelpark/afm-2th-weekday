@@ -319,15 +319,21 @@ app.post('/api/sessions', (req, res) => {
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
     const pcId = req.body && req.body.pcId ? String(req.body.pcId) : null;
 
-    // 카메라 각도 — 모바일에서 측면/정면 라디오로 지정. 채점 임계치에 직접 영향.
+    // 카메라 각도 — 모바일에서 대각선/정면 라디오로 지정. 채점 임계치에 직접 영향.
+    // 'side'(측면)는 매장 시나리오에 없으므로 제거. 알 수 없는 값은 기본 'diagonal'.
     const rawAngle = req.body && req.body.cameraAngle;
-    const cameraAngle = (rawAngle === 'front' || rawAngle === 'side') ? rawAngle : 'side';
+    const cameraAngle = (rawAngle === 'front' || rawAngle === 'diagonal') ? rawAngle : 'diagonal';
+
+    // 백핸드 스타일 — 모바일에서 자동/한손/양손 선택. 백핸드 영상에만 적용됨.
+    const rawBhStyle = req.body && req.body.backhandStyle;
+    const backhandStyle = (rawBhStyle === 'one-handed' || rawBhStyle === 'two-handed') ? rawBhStyle : 'auto';
 
     sessions.set(id, {
       id,
       status: 'waiting',
       storeToken: fresh.value,
       cameraAngle,
+      backhandStyle,
       videoFilename: null,
       videoMime: null,
       resultVideoFilename: null,
@@ -348,12 +354,13 @@ app.post('/api/sessions', (req, res) => {
     const base = buildPublicHost(req);
     const uploadUrl = `${base}/upload?session=${id}`;
 
-    console.log(`[session] 새 세션 ${id} (각도: ${cameraAngle})`);
+    console.log(`[session] 새 세션 ${id} (각도: ${cameraAngle}, 백핸드: ${backhandStyle})`);
     res.status(201).json({
       sessionId: id,
       uploadUrl,
       qrUrl: uploadUrl,
       cameraAngle,
+      backhandStyle,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (err) {
@@ -463,7 +470,8 @@ app.get('/api/queue/next', (req, res) => {
   res.json({
     sessionId: oldest.id,
     videoUrl,
-    cameraAngle: oldest.cameraAngle || 'side',
+    cameraAngle: oldest.cameraAngle || 'diagonal',
+    backhandStyle: oldest.backhandStyle || 'auto',
     status: oldest.status,
     uploadedAt: oldest.uploadedAt,
   });
