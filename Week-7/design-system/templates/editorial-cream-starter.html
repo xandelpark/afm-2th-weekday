@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[프로젝트 이름] — Editorial Cream</title>
+  <!--
+    AFM Design System / Editorial Cream Palette (shadcn token)
+    따뜻한 종이 톤 + 테라코타 액센트. 사용자 앱/툴/대시보드/콘텐츠.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+            secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+            accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+            popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+            card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+          },
+          borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '-apple-system', 'system-ui', 'sans-serif'],
+            serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ==== Editorial Cream palette ==== */
+    :root {
+      --background: 36 33% 97%;
+      --foreground: 0 0% 10%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 10%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 0 0% 10%;
+      --primary: 0 0% 10%;
+      --primary-foreground: 36 33% 97%;
+      --secondary: 36 25% 92%;
+      --secondary-foreground: 0 0% 10%;
+      --muted: 36 25% 92%;
+      --muted-foreground: 22 9% 47%;
+      --accent: 14 47% 59%;
+      --accent-foreground: 0 0% 100%;
+      --destructive: 0 70% 50%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 36 22% 89%;
+      --input: 36 22% 89%;
+      --ring: 14 47% 59%;
+      --radius: 0.75rem;
+    }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.005em;
+    }
+    .num { font-feature-settings: 'tnum' 1; font-variant-numeric: tabular-nums; }
+    .font-serif-italic { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; }
+    .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; }
+    @keyframes softFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .anim-fade-in { animation: softFadeIn 0.28s ease-out; }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const cn = (...c) => c.filter(Boolean).join(' ');
+
+    // ====== shadcn DS components (동일 구현, 토큰만 변경됨) ======
+    function Button({ variant = "default", size = "default", className = "", ...p }) {
+      const base = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+      const variants = {
+        default:     "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:     "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:   "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost:       "hover:bg-accent hover:text-accent-foreground",
+        link:        "text-accent underline-offset-4 hover:underline",
+      };
+      const sizes = { default: "h-10 px-4 py-2", sm: "h-9 px-3", lg: "h-11 px-8", icon: "h-10 w-10" };
+      return <button className={cn(base, variants[variant], sizes[size], className)} {...p} />;
+    }
+    function Input({ className = "", type = "text", ...p }) {
+      return <input type={type} className={cn(
+        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50", className)} {...p} />;
+    }
+    function Label({ className = "", htmlFor, children }) {
+      return <label htmlFor={htmlFor} className={cn("text-sm font-medium leading-none", className)}>{children}</label>;
+    }
+    function Card({ className = "", ...p }) { return <div className={cn("rounded-lg border bg-card text-card-foreground", className)} {...p} />; }
+    function CardHeader({ className = "", ...p }) { return <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...p} />; }
+    function CardTitle({ className = "", ...p }) { return <h3 className={cn("font-serif-italic text-2xl leading-none tracking-tight text-foreground", className)} {...p} />; }
+    function CardDescription({ className = "", ...p }) { return <p className={cn("text-sm text-muted-foreground", className)} {...p} />; }
+    function CardContent({ className = "", ...p }) { return <div className={cn("p-6 pt-0", className)} {...p} />; }
+    function CardFooter({ className = "", ...p }) { return <div className={cn("flex items-center p-6 pt-0", className)} {...p} />; }
+    function Badge({ variant = "default", className = "", ...p }) {
+      const base = "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold";
+      const variants = {
+        default:     "border-transparent bg-accent text-accent-foreground",
+        secondary:   "border-transparent bg-secondary text-secondary-foreground",
+        destructive: "border-transparent bg-destructive text-destructive-foreground",
+        outline:     "text-foreground",
+      };
+      return <div className={cn(base, variants[variant], className)} {...p} />;
+    }
+    function Checkbox({ checked, onCheckedChange, id, className = "" }) {
+      return (
+        <button type="button" role="checkbox" aria-checked={checked} id={id}
+          onClick={() => onCheckedChange?.(!checked)}
+          className={cn("h-4 w-4 shrink-0 rounded-sm border border-primary flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring",
+            checked && "bg-primary text-primary-foreground", className)}>
+          {checked && <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
+        </button>
+      );
+    }
+    function Switch({ checked, onCheckedChange, className = "" }) {
+      return (
+        <button type="button" role="switch" aria-checked={checked}
+          onClick={() => onCheckedChange?.(!checked)}
+          className={cn("inline-flex h-6 w-11 items-center rounded-full transition-colors", checked ? "bg-primary" : "bg-input", className)}>
+          <span className={cn("block h-5 w-5 rounded-full bg-background shadow transition-transform", checked ? "translate-x-5" : "translate-x-0.5")} />
+        </button>
+      );
+    }
+    function Separator({ className = "" }) { return <div className={cn("h-[1px] w-full bg-border", className)} />; }
+    function Dialog({ open, onOpenChange, children }) {
+      useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => e.key === 'Escape' && onOpenChange?.(false);
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [open, onOpenChange]);
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-50" onClick={() => onOpenChange?.(false)}>
+          <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm anim-fade-in" />
+          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>{children}</div>
+        </div>
+      );
+    }
+    function DialogContent({ className = "", children }) {
+      return <div className={cn("relative z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg sm:rounded-lg anim-fade-in", className)}>{children}</div>;
+    }
+    function DialogHeader({ className = "", ...p }) { return <div className={cn("flex flex-col space-y-1.5", className)} {...p} />; }
+    function DialogTitle({ className = "", ...p }) { return <h2 className={cn("font-serif-italic text-2xl leading-none tracking-tight", className)} {...p} />; }
+    function DialogDescription({ className = "", ...p }) { return <p className={cn("text-sm text-muted-foreground", className)} {...p} />; }
+    function DialogFooter({ className = "", ...p }) { return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...p} />; }
+
+    // ====== App ======
+    function App() {
+      const [name, setName] = useState("");
+      const [agreed, setAgreed] = useState(false);
+      const [open, setOpen] = useState(false);
+      return (
+        <div className="min-h-screen anim-fade-in">
+          <header className="px-6 pt-7 pb-5 flex items-baseline justify-between border-b border-border">
+            <div className="flex items-baseline gap-2">
+              <span className="font-serif-italic text-[18px] text-foreground">Brand</span>
+              <span className="eyebrow text-muted-foreground">Studio</span>
+            </div>
+            <div className="eyebrow text-muted-foreground num">Editorial · v0.1</div>
+          </header>
+
+          <main className="max-w-xl mx-auto px-6 py-10 space-y-6">
+            <div className="space-y-2">
+              <div className="eyebrow text-accent num">01 — Welcome</div>
+              <h1 className="font-serif-italic text-[34px] leading-[1.15] text-foreground">
+                여기에<br/>제목을 적어주세요.
+              </h1>
+              <p className="text-sm text-muted-foreground">Editorial Cream 스타터 — shadcn 토큰 기반.</p>
+            </div>
+
+            <Card>
+              <CardContent className="space-y-4 pt-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name">이름</Label>
+                  <Input id="name" placeholder="홍길동" value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <Separator />
+                <div className="flex items-center gap-2">
+                  <Checkbox id="agree" checked={agreed} onCheckedChange={setAgreed} />
+                  <Label htmlFor="agree">약관 동의</Label>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge>NEW</Badge>
+                  <Badge variant="secondary">DEMO</Badge>
+                  <Badge variant="outline">v0.1</Badge>
+                </div>
+              </CardContent>
+              <CardFooter className="gap-2">
+                <Button variant="outline" className="flex-1">취소</Button>
+                <Button className="flex-1" disabled={!name || !agreed} onClick={() => setOpen(true)}>제출</Button>
+              </CardFooter>
+            </Card>
+          </main>
+
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>확인</DialogTitle>
+                <DialogDescription>
+                  <span className="font-medium text-foreground">{name || "이름"}</span> 님으로 진행할까요?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>취소</Button>
+                <Button onClick={() => setOpen(false)}>확인</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

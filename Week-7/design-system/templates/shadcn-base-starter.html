@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[프로젝트 이름] — shadcn Default</title>
+  <!--
+    AFM Design System / shadcn-style Base Starter (Default neutral palette)
+    토큰: --background, --foreground, --primary, --secondary, --muted, --accent, --destructive, --border, --input, --ring, --radius
+    팔레트만 교체하면 동일 컴포넌트 코드로 톤 변경 가능.
+    팔레트 변경 → templates/{editorial-cream | cinematic-dark | mono-utility}-starter.html 참고.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ['class'],
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+            secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+            accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+            popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+            card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+          },
+          borderRadius: {
+            lg: 'var(--radius)',
+            md: 'calc(var(--radius) - 2px)',
+            sm: 'calc(var(--radius) - 4px)',
+          },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ==== shadcn Default (light) ==== */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 240 10% 3.9%;
+      --card: 0 0% 100%;
+      --card-foreground: 240 10% 3.9%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 240 10% 3.9%;
+      --primary: 240 5.9% 10%;
+      --primary-foreground: 0 0% 98%;
+      --secondary: 240 4.8% 95.9%;
+      --secondary-foreground: 240 5.9% 10%;
+      --muted: 240 4.8% 95.9%;
+      --muted-foreground: 240 3.8% 46.1%;
+      --accent: 240 4.8% 95.9%;
+      --accent-foreground: 240 5.9% 10%;
+      --destructive: 0 84.2% 60.2%;
+      --destructive-foreground: 0 0% 98%;
+      --border: 240 5.9% 90%;
+      --input: 240 5.9% 90%;
+      --ring: 240 5.9% 10%;
+      --radius: 0.5rem;
+    }
+    .dark {
+      --background: 240 10% 3.9%;
+      --foreground: 0 0% 98%;
+      --card: 240 10% 3.9%;
+      --card-foreground: 0 0% 98%;
+      --popover: 240 10% 3.9%;
+      --popover-foreground: 0 0% 98%;
+      --primary: 0 0% 98%;
+      --primary-foreground: 240 5.9% 10%;
+      --secondary: 240 3.7% 15.9%;
+      --secondary-foreground: 0 0% 98%;
+      --muted: 240 3.7% 15.9%;
+      --muted-foreground: 240 5% 64.9%;
+      --accent: 240 3.7% 15.9%;
+      --accent-foreground: 0 0% 98%;
+      --destructive: 0 62.8% 30.6%;
+      --destructive-foreground: 0 0% 98%;
+      --border: 240 3.7% 15.9%;
+      --input: 240 3.7% 15.9%;
+      --ring: 240 4.9% 83.9%;
+    }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.005em;
+    }
+    @keyframes softFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .anim-fade-in { animation: softFadeIn 0.25s ease-out; }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useEffect, useMemo, useCallback, useRef, createContext, useContext } = React;
+
+    // ========================================
+    // 🛠 Utils
+    // ========================================
+    const cn = (...classes) => classes.filter(Boolean).join(' ');
+
+    // ========================================
+    // 🎨 shadcn DS — Button
+    // ========================================
+    function Button({ variant = "default", size = "default", className = "", ...props }) {
+      const base = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+      const variants = {
+        default:     "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:     "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:   "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost:       "hover:bg-accent hover:text-accent-foreground",
+        link:        "text-primary underline-offset-4 hover:underline",
+      };
+      const sizes = {
+        default: "h-10 px-4 py-2",
+        sm:      "h-9 rounded-md px-3",
+        lg:      "h-11 rounded-md px-8",
+        icon:    "h-10 w-10",
+      };
+      return <button className={cn(base, variants[variant], sizes[size], className)} {...props} />;
+    }
+
+    // ========================================
+    // 🎨 shadcn DS — Input / Label
+    // ========================================
+    function Input({ className = "", type = "text", ...props }) {
+      return (
+        <input
+          type={type}
+          className={cn(
+            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+            "placeholder:text-muted-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            className
+          )}
+          {...props}
+        />
+      );
+    }
+    function Label({ className = "", htmlFor, children }) {
+      return <label htmlFor={htmlFor} className={cn("text-sm font-medium leading-none", className)}>{children}</label>;
+    }
+
+    // ========================================
+    // 🎨 shadcn DS — Card
+    // ========================================
+    function Card({ className = "", ...p }) { return <div className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...p} />; }
+    function CardHeader({ className = "", ...p }) { return <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...p} />; }
+    function CardTitle({ className = "", ...p }) { return <h3 className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...p} />; }
+    function CardDescription({ className = "", ...p }) { return <p className={cn("text-sm text-muted-foreground", className)} {...p} />; }
+    function CardContent({ className = "", ...p }) { return <div className={cn("p-6 pt-0", className)} {...p} />; }
+    function CardFooter({ className = "", ...p }) { return <div className={cn("flex items-center p-6 pt-0", className)} {...p} />; }
+
+    // ========================================
+    // 🎨 shadcn DS — Badge
+    // ========================================
+    function Badge({ variant = "default", className = "", ...p }) {
+      const base = "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors";
+      const variants = {
+        default:     "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+        secondary:   "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+        outline:     "text-foreground",
+      };
+      return <div className={cn(base, variants[variant], className)} {...p} />;
+    }
+
+    // ========================================
+    // 🎨 shadcn DS — Checkbox / Switch
+    // ========================================
+    function Checkbox({ checked, onCheckedChange, className = "", id }) {
+      return (
+        <button
+          type="button" role="checkbox" aria-checked={checked} id={id}
+          onClick={() => onCheckedChange?.(!checked)}
+          className={cn(
+            "h-4 w-4 shrink-0 rounded-sm border border-primary flex items-center justify-center",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            checked && "bg-primary text-primary-foreground",
+            className
+          )}
+        >
+          {checked && (
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+          )}
+        </button>
+      );
+    }
+    function Switch({ checked, onCheckedChange, className = "" }) {
+      return (
+        <button
+          type="button" role="switch" aria-checked={checked}
+          onClick={() => onCheckedChange?.(!checked)}
+          className={cn(
+            "inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            checked ? "bg-primary" : "bg-input",
+            className
+          )}
+        >
+          <span className={cn("block h-5 w-5 rounded-full bg-background shadow-lg transition-transform",
+            checked ? "translate-x-5" : "translate-x-0")} />
+        </button>
+      );
+    }
+
+    // ========================================
+    // 🎨 shadcn DS — Dialog
+    // ========================================
+    function Dialog({ open, onOpenChange, children }) {
+      useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => e.key === 'Escape' && onOpenChange?.(false);
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [open, onOpenChange]);
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-50" onClick={() => onOpenChange?.(false)}>
+          <div className="fixed inset-0 bg-black/80 anim-fade-in" />
+          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+    function DialogContent({ className = "", children }) {
+      return (
+        <div className={cn(
+          "relative z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg sm:rounded-lg anim-fade-in",
+          className
+        )}>{children}</div>
+      );
+    }
+    function DialogHeader({ className = "", ...p }) { return <div className={cn("flex flex-col space-y-1.5 text-left", className)} {...p} />; }
+    function DialogTitle({ className = "", ...p }) { return <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...p} />; }
+    function DialogDescription({ className = "", ...p }) { return <p className={cn("text-sm text-muted-foreground", className)} {...p} />; }
+    function DialogFooter({ className = "", ...p }) { return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...p} />; }
+
+    // ========================================
+    // 🎨 shadcn DS — Separator / Avatar
+    // ========================================
+    function Separator({ orientation = "horizontal", className = "" }) {
+      return <div role="separator" aria-orientation={orientation}
+        className={cn("shrink-0 bg-border", orientation === "horizontal" ? "h-[1px] w-full" : "h-full w-[1px]", className)} />;
+    }
+    function Avatar({ className = "", children }) {
+      return <span className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted", className)}>{children}</span>;
+    }
+    function AvatarFallback({ className = "", children }) {
+      return <span className={cn("flex h-full w-full items-center justify-center text-sm text-muted-foreground", className)}>{children}</span>;
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      const [name, setName] = useState("");
+      const [agreed, setAgreed] = useState(false);
+      const [notif, setNotif] = useState(true);
+      const [open, setOpen] = useState(false);
+      const [dark, setDark] = useState(false);
+
+      useEffect(() => {
+        document.documentElement.classList.toggle('dark', dark);
+      }, [dark]);
+
+      return (
+        <div className="min-h-screen bg-background text-foreground">
+          <header className="border-b">
+            <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar><AvatarFallback>AF</AvatarFallback></Avatar>
+                <div>
+                  <div className="text-sm font-semibold">AFM Starter</div>
+                  <div className="text-xs text-muted-foreground">shadcn / default palette</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label>Dark</Label>
+                <Switch checked={dark} onCheckedChange={setDark} />
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-3xl mx-auto px-6 py-10 space-y-6 anim-fade-in">
+            <Card>
+              <CardHeader>
+                <CardTitle>Welcome</CardTitle>
+                <CardDescription>이 파일을 복사해서 새 프로젝트를 시작하세요. 팔레트만 교체하면 톤이 바뀝니다.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">이름</Label>
+                  <Input id="name" placeholder="홍길동" value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <Separator />
+                <div className="flex items-center gap-2">
+                  <Checkbox id="agree" checked={agreed} onCheckedChange={setAgreed} />
+                  <Label htmlFor="agree">약관에 동의합니다</Label>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>알림 받기</Label>
+                  <Switch checked={notif} onCheckedChange={setNotif} />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge>Default</Badge>
+                  <Badge variant="secondary">Secondary</Badge>
+                  <Badge variant="outline">Outline</Badge>
+                  <Badge variant="destructive">Destructive</Badge>
+                </div>
+              </CardContent>
+              <CardFooter className="gap-2">
+                <Button variant="outline" className="flex-1">취소</Button>
+                <Button className="flex-1" disabled={!name || !agreed} onClick={() => setOpen(true)}>제출</Button>
+              </CardFooter>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Button variants</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                <Button>Default</Button>
+                <Button variant="secondary">Secondary</Button>
+                <Button variant="destructive">Destructive</Button>
+                <Button variant="outline">Outline</Button>
+                <Button variant="ghost">Ghost</Button>
+                <Button variant="link">Link</Button>
+              </CardContent>
+              <CardContent className="flex items-center gap-2">
+                <Button size="sm">Small</Button>
+                <Button size="default">Default</Button>
+                <Button size="lg">Large</Button>
+                <Button size="icon" variant="outline">★</Button>
+              </CardContent>
+            </Card>
+          </main>
+
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>제출 확인</DialogTitle>
+                <DialogDescription>
+                  <span className="font-semibold text-foreground">{name || "이름"}</span> 님으로 진행할까요?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>취소</Button>
+                <Button onClick={() => setOpen(false)}>확인</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[프로젝트 이름] — Mono Utility</title>
+  <!--
+    AFM Design System / Mono Utility Palette (shadcn token, neutral grayscale)
+    중성 회색 + 기능 중심. 결제/관리자/B2B/내부 시스템.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+            secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+            accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+            popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+            card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+          },
+          borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', '"Apple SD Gothic Neo"', 'system-ui', 'sans-serif'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ==== Mono Utility palette ==== */
+    :root {
+      --background: 0 0% 98%;
+      --foreground: 222 47% 11%;
+      --card: 0 0% 100%;
+      --card-foreground: 222 47% 11%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 222 47% 11%;
+      --primary: 215 28% 17%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 220 14% 96%;
+      --secondary-foreground: 222 47% 11%;
+      --muted: 220 14% 96%;
+      --muted-foreground: 220 9% 46%;
+      --accent: 220 14% 96%;
+      --accent-foreground: 222 47% 11%;
+      --destructive: 0 84% 60%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 220 13% 91%;
+      --input: 220 13% 91%;
+      --ring: 215 28% 17%;
+      --radius: 0.5rem;
+    }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .anim-fade-in { animation: fadeIn 0.25s ease-out; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.8s linear infinite; }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const cn = (...c) => c.filter(Boolean).join(' ');
+
+    // ====== shadcn DS (mono palette는 shadcn default와 거의 동일한 형태) ======
+    function Button({ variant = "default", size = "default", className = "", ...p }) {
+      const base = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+      const variants = {
+        default:     "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:     "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:   "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost:       "hover:bg-accent hover:text-accent-foreground",
+        link:        "text-primary underline-offset-4 hover:underline",
+      };
+      const sizes = { default: "h-10 px-4 py-2", sm: "h-9 px-3", lg: "h-11 px-8", icon: "h-10 w-10" };
+      return <button className={cn(base, variants[variant], sizes[size], className)} {...p} />;
+    }
+    function Input({ className = "", type = "text", ...p }) {
+      return <input type={type} className={cn("flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50", className)} {...p} />;
+    }
+    function Label({ className = "", htmlFor, children }) {
+      return <label htmlFor={htmlFor} className={cn("text-sm font-medium leading-none", className)}>{children}</label>;
+    }
+    function Card({ className = "", ...p }) { return <div className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...p} />; }
+    function CardHeader({ className = "", ...p }) { return <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...p} />; }
+    function CardTitle({ className = "", ...p }) { return <h3 className={cn("text-xl font-semibold leading-none tracking-tight", className)} {...p} />; }
+    function CardDescription({ className = "", ...p }) { return <p className={cn("text-sm text-muted-foreground", className)} {...p} />; }
+    function CardContent({ className = "", ...p }) { return <div className={cn("p-6 pt-0", className)} {...p} />; }
+    function CardFooter({ className = "", ...p }) { return <div className={cn("flex items-center p-6 pt-0", className)} {...p} />; }
+    function Badge({ variant = "default", className = "", ...p }) {
+      const base = "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold";
+      const variants = {
+        default:     "border-transparent bg-primary text-primary-foreground",
+        secondary:   "border-transparent bg-secondary text-secondary-foreground",
+        destructive: "border-transparent bg-destructive text-destructive-foreground",
+        outline:     "text-foreground",
+      };
+      return <div className={cn(base, variants[variant], className)} {...p} />;
+    }
+    function Checkbox({ checked, onCheckedChange, id, className = "" }) {
+      return (
+        <button type="button" role="checkbox" aria-checked={checked} id={id}
+          onClick={() => onCheckedChange?.(!checked)}
+          className={cn("h-4 w-4 shrink-0 rounded-sm border border-primary flex items-center justify-center", checked && "bg-primary text-primary-foreground", className)}>
+          {checked && <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
+        </button>
+      );
+    }
+    function Switch({ checked, onCheckedChange, className = "" }) {
+      return (
+        <button type="button" role="switch" aria-checked={checked}
+          onClick={() => onCheckedChange?.(!checked)}
+          className={cn("inline-flex h-6 w-11 items-center rounded-full transition-colors", checked ? "bg-primary" : "bg-input", className)}>
+          <span className={cn("block h-5 w-5 rounded-full bg-background shadow transition-transform", checked ? "translate-x-5" : "translate-x-0.5")} />
+        </button>
+      );
+    }
+    function Separator({ className = "" }) { return <div className={cn("h-[1px] w-full bg-border", className)} />; }
+
+    function Dialog({ open, onOpenChange, children }) {
+      useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => e.key === 'Escape' && onOpenChange?.(false);
+        window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
+      }, [open, onOpenChange]);
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-50" onClick={() => onOpenChange?.(false)}>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm anim-fade-in" />
+          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>{children}</div>
+        </div>
+      );
+    }
+    function DialogContent({ className = "", children }) {
+      return <div className={cn("relative z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg sm:rounded-lg anim-fade-in", className)}>{children}</div>;
+    }
+    function DialogHeader({ className = "", ...p }) { return <div className={cn("flex flex-col space-y-1.5", className)} {...p} />; }
+    function DialogTitle({ className = "", ...p }) { return <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...p} />; }
+    function DialogDescription({ className = "", ...p }) { return <p className={cn("text-sm text-muted-foreground", className)} {...p} />; }
+    function DialogFooter({ className = "", ...p }) { return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...p} />; }
+
+    function App() {
+      const [name, setName] = useState("");
+      const [amount, setAmount] = useState("");
+      const [agreed, setAgreed] = useState(false);
+      const [autoConfirm, setAutoConfirm] = useState(true);
+      const [open, setOpen] = useState(false);
+
+      return (
+        <div className="min-h-screen anim-fade-in">
+          <header className="border-b bg-card">
+            <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold">결제 관리자</div>
+                <div className="text-xs text-muted-foreground">Mono Utility · Admin</div>
+              </div>
+              <Badge variant="secondary">v0.1</Badge>
+            </div>
+          </header>
+
+          <main className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>새 결제 생성</CardTitle>
+                <CardDescription>고객 정보와 금액을 입력하세요.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">고객 이름</Label>
+                    <Input id="name" placeholder="홍길동" value={name} onChange={(e) => setName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">결제 금액 (원)</Label>
+                    <Input id="amount" type="number" placeholder="100000" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center gap-2">
+                  <Checkbox id="ag" checked={agreed} onCheckedChange={setAgreed} />
+                  <Label htmlFor="ag">결제 정보 확인 완료</Label>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>자동 확인</Label>
+                    <p className="text-xs text-muted-foreground">결제 완료 시 자동으로 처리 상태로 변경</p>
+                  </div>
+                  <Switch checked={autoConfirm} onCheckedChange={setAutoConfirm} />
+                </div>
+              </CardContent>
+              <CardFooter className="gap-2">
+                <Button variant="outline" className="flex-1">초기화</Button>
+                <Button className="flex-1" disabled={!name || !amount || !agreed} onClick={() => setOpen(true)}>결제 생성</Button>
+              </CardFooter>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">최근 결제</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {[
+                  { name: "김민수", amount: 50000, status: "완료" },
+                  { name: "이지영", amount: 120000, status: "대기" },
+                  { name: "박지훈", amount: 35000, status: "실패" },
+                ].map((row, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div>
+                      <div className="text-sm font-medium">{row.name}</div>
+                      <div className="text-xs text-muted-foreground">{row.amount.toLocaleString()}원</div>
+                    </div>
+                    <Badge variant={row.status === "실패" ? "destructive" : row.status === "완료" ? "default" : "secondary"}>{row.status}</Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </main>
+
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>결제 생성 확인</DialogTitle>
+                <DialogDescription>
+                  <span className="text-foreground font-medium">{name || "고객"}</span> 님에게 <span className="text-foreground font-medium">{Number(amount || 0).toLocaleString()}원</span> 결제를 생성합니다.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>취소</Button>
+                <Button onClick={() => setOpen(false)}>생성</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

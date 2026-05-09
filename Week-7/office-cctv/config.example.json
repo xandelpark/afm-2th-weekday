@@ -1,0 +1,9 @@
+{
+  "storageDir": "/Users/YOUR_NAME/Movies/office-cctv",
+  "retentionDays": 7,
+  "surveillanceActive": false,
+  "telegram": {
+    "botToken": "YOUR_BOT_TOKEN_FROM_BOTFATHER",
+    "chatId": "YOUR_CHAT_ID_FROM_USERINFOBOT"
+  }
+}

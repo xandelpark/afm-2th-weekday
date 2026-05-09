@@ -55,21 +55,52 @@ Always organize code in this exact order with clear section comment separators u
 6. **🚀 App Component** — Root component composing everything together
 7. **Rendering** — `ReactDOM.createRoot(document.getElementById('root')).render(<App />);`
 
-## 🎨 Design System Components
+## 🎨 Design System Components — AFM 공용 시스템 사용 (필수)
 
-Always provide well-crafted, reusable Design System components:
+이 레포에는 `Week-7/design-system/`에 **shadcn/ui 토큰 컨벤션 기반의 공용 디자인 시스템**이 있다. 새 single-file 앱을 만들 때는 **반드시 이 시스템을 출발점으로 사용**해서 프로젝트 간 톤을 일관되게 유지한다.
 
-- **Button**: Support `variant` (primary, secondary, danger, ghost), `size` (sm, md, lg), `disabled`, `onClick`, `className`
-- **Input**: Support `type`, `label`, `value`, `onChange`, `placeholder`, `error`, `disabled`
-- **Card**: Simple wrapper with shadow, rounded corners, padding
-- **Modal**: Support `isOpen`, `onClose`, `title`, `children`, `size`
-- Add more as needed (Badge, Select, Textarea, Tabs, etc.)
+### 작업 시작 시 절차
 
-Design System components must:
-- Use Tailwind CSS utility classes exclusively
-- Accept a `className` prop for extension
-- Be pure presentational (no business logic)
-- Have sensible defaults
+1. **`Week-7/design-system/README.md`를 먼저 읽어 의사결정 가이드를 확인**한다.
+2. 사용자의 요청 도메인에 맞는 팔레트를 결정 (사용자에게 명시적으로 묻지 않아도 됨, 도메인 기반 추론):
+   - 사용자 앱/툴/대시보드/콘텐츠 → **Editorial Cream** (`templates/editorial-cream-starter.html`)
+   - 영상/포스터/티저/시네마틱 랜딩 → **Cinematic Dark** (`templates/cinematic-dark-starter.html`)
+   - 웨딩/포토 스튜디오/포트폴리오 → **Marian Editorial** (`templates/marian-editorial-starter.html`)
+   - 결제/관리자/B2B/내부 → **Mono Utility** (`templates/mono-utility-starter.html`)
+   - 그 외/판단 모호 → **shadcn Default** (`templates/shadcn-base-starter.html`)
+3. 해당 starter 템플릿을 출발점으로 복사 → `<title>`, App 컴포넌트 내부, 토큰별 페이지 콘텐츠를 채운다.
+4. 토큰/컴포넌트가 부족하면 `Week-7/design-system/components.md`에서 복사.
+
+### 토큰 사용 규칙 (절대 준수)
+
+- 색은 **CSS 변수 토큰**으로만 표현한다. Hex/RGB 직접 작성 금지.
+  - ✅ `bg-primary`, `text-foreground`, `border-border`, `bg-card`, `text-muted-foreground`
+  - ❌ `bg-[#1A1A1A]`, `text-gray-700`, `border-neutral-200`
+- variant 이름은 **shadcn 표준**: `default | destructive | outline | secondary | ghost | link`
+- size 이름은 **shadcn 표준**: `default | sm | lg | icon`
+- 라운드는 토큰 단위(`rounded-md`, `rounded-lg`)만. `rounded-[12px]` 같은 임의값 금지.
+
+### 컴포넌트 API 참조
+
+`components.md`에 모든 shadcn 컴포넌트의 CDN-호환 구현이 있다 (Button, Input, Label, Card+Header/Title/Description/Content/Footer, Badge, Checkbox, Switch, Dialog+Content/Header/Title/Description/Footer, Separator, Avatar, Toast). 신규 컴포넌트가 필요하면:
+
+1. shadcn 공식(https://ui.shadcn.com/docs/components)에서 코드 복사
+2. `import` 문 제거
+3. `cva` / `clsx` / `tailwind-merge` → `const cn = (...c) => c.filter(Boolean).join(' ')`로 교체
+4. `@radix-ui/*` 의존이 있으면 가벼운 자체 구현으로 다운그레이드
+
+### 예외
+
+- 사용자가 명시적으로 "디자인 시스템 무시", "임의의 팔레트", "shadcn 쓰지 마" 라고 지시한 경우만 토큰 시스템을 우회한다.
+- 그 외에는 **반드시 토큰 시스템을 따른다**.
+
+### Design System 컴포넌트 필수 속성 (모든 팔레트 공통)
+
+- Tailwind 토큰 클래스만 사용 (`bg-primary` 등)
+- `className` prop으로 외부 확장 가능
+- Pure presentational (비즈니스 로직 없음)
+- 합리적 기본값
+- 한국어 UI 기본
 
 ## 🔀 Router Implementation
 

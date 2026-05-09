@@ -1,0 +1,12 @@
+{
+  "name": "office-cctv",
+  "version": "1.0.0",
+  "description": "공유오피스 자리 감시용 웹캠 CCTV (동작 감지 + 스크린샷)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

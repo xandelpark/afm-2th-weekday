@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AEGIS-7 // ORBITAL SURVEILLANCE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg-deep: #03060f;
+      --bg-panel: #07101f;
+      --bg-panel-2: #0a1628;
+      --grid: rgba(34, 211, 238, 0.06);
+      --cyan: #22d3ee;
+      --cyan-soft: #67e8f9;
+      --amber: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --red-glow: #f87171;
+      --txt: #cfe7f0;
+      --txt-dim: #5b7a8a;
+    }
+    html, body { background: var(--bg-deep); color: var(--txt); }
+    body {
+      font-family: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
+      background-color: var(--bg-deep);
+      background-image:
+        radial-gradient(1px 1px at 23% 17%, rgba(255,255,255,0.45) 50%, transparent 51%),
+        radial-gradient(1px 1px at 77% 41%, rgba(255,255,255,0.35) 50%, transparent 51%),
+        radial-gradient(1px 1px at 12% 78%, rgba(255,255,255,0.40) 50%, transparent 51%),
+        radial-gradient(1px 1px at 56% 86%, rgba(255,255,255,0.25) 50%, transparent 51%),
+        radial-gradient(1.5px 1.5px at 89% 13%, rgba(103,232,249,0.55) 50%, transparent 51%),
+        radial-gradient(1px 1px at 41% 53%, rgba(255,255,255,0.30) 50%, transparent 51%),
+        radial-gradient(1px 1px at 8%  35%, rgba(255,255,255,0.30) 50%, transparent 51%),
+        radial-gradient(1px 1px at 65% 22%, rgba(255,255,255,0.30) 50%, transparent 51%),
+        linear-gradient(transparent 95%, var(--grid) 95%),
+        linear-gradient(90deg, transparent 95%, var(--grid) 95%),
+        radial-gradient(ellipse at top, #0a1a30 0%, #03060f 70%);
+      background-size: 600px 600px, 800px 800px, 700px 700px, 500px 500px, 900px 900px, 650px 650px, 720px 720px, 540px 540px, 60px 60px, 60px 60px, 100% 100%;
+      background-attachment: fixed;
+    }
+    .font-display { font-family: 'Orbitron', 'JetBrains Mono', monospace; letter-spacing: 0.08em; }
+    .font-mono   { font-family: 'JetBrains Mono', monospace; }
+
+    /* ──────── HUD pieces ──────── */
+    .panel {
+      background: linear-gradient(180deg, rgba(10,22,40,0.85) 0%, rgba(7,16,31,0.92) 100%);
+      border: 1px solid rgba(34,211,238,0.18);
+      box-shadow:
+        inset 0 1px 0 rgba(34,211,238,0.06),
+        0 0 24px rgba(0,0,0,0.45);
+      position: relative;
+    }
+    .panel::before, .panel::after,
+    .panel > .corner-tl, .panel > .corner-tr, .panel > .corner-bl, .panel > .corner-br {
+      content: '';
+      position: absolute;
+      width: 10px; height: 10px;
+      border-color: var(--cyan);
+      pointer-events: none;
+    }
+    .corner-tl { top: -1px; left: -1px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+    .corner-tr { top: -1px; right: -1px; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+    .corner-bl { bottom: -1px; left: -1px; border-bottom: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+    .corner-br { bottom: -1px; right: -1px; border-bottom: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+
+    .panel-header {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--cyan-soft);
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border-bottom: 1px dashed rgba(34,211,238,0.18);
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(90deg, rgba(34,211,238,0.07), transparent 70%);
+    }
+
+    .ledtxt-cyan  { color: var(--cyan-soft); text-shadow: 0 0 6px rgba(34,211,238,0.55); }
+    .ledtxt-green { color: var(--green);     text-shadow: 0 0 6px rgba(16,185,129,0.55); }
+    .ledtxt-red   { color: var(--red-glow);  text-shadow: 0 0 6px rgba(239,68,68,0.65); }
+    .ledtxt-amber { color: var(--amber);     text-shadow: 0 0 6px rgba(245,158,11,0.55); }
+
+    .pulse-dot { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    .blink { animation: blink 1s steps(2, end) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* viewport — HUD camera frame */
+    .viewport-frame {
+      position: relative;
+      background: #000;
+      border: 1px solid rgba(34,211,238,0.35);
+      box-shadow:
+        inset 0 0 80px rgba(0,0,0,0.85),
+        0 0 30px rgba(34,211,238,0.10);
+    }
+    .viewport-frame.alert {
+      border-color: rgba(239,68,68,0.85);
+      box-shadow:
+        inset 0 0 60px rgba(239,68,68,0.20),
+        0 0 25px rgba(239,68,68,0.55),
+        0 0 60px rgba(239,68,68,0.30);
+      animation: alert-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes alert-pulse {
+      0%,100% { box-shadow: inset 0 0 60px rgba(239,68,68,0.20), 0 0 25px rgba(239,68,68,0.55), 0 0 60px rgba(239,68,68,0.30); }
+      50%     { box-shadow: inset 0 0 60px rgba(239,68,68,0.35), 0 0 35px rgba(239,68,68,0.85), 0 0 90px rgba(239,68,68,0.55); }
+    }
+    .viewport-frame.nominal {
+      border-color: rgba(16,185,129,0.55);
+      box-shadow:
+        inset 0 0 80px rgba(0,0,0,0.85),
+        0 0 18px rgba(16,185,129,0.20);
+    }
+    .viewport-bracket {
+      position: absolute;
+      width: 28px; height: 28px;
+      border: 2px solid currentColor;
+      pointer-events: none;
+    }
+    .viewport-bracket.tl { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+    .viewport-bracket.tr { top: 8px; right: 8px; border-left: 0; border-bottom: 0; }
+    .viewport-bracket.bl { bottom: 8px; left: 8px; border-right: 0; border-top: 0; }
+    .viewport-bracket.br { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+
+    /* CRT scanlines + slow vertical sweep on viewport */
+    .scanlines::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(34,211,238,0.04) 0px,
+        rgba(34,211,238,0.04) 1px,
+        transparent 1px,
+        transparent 3px);
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+    .scanlines::after {
+      content: '';
+      position: absolute; left: 0; right: 0; top: -10%;
+      height: 12%;
+      background: linear-gradient(to bottom, transparent, rgba(34,211,238,0.10), transparent);
+      animation: sweep 6s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes sweep { 0% { transform: translateY(0); } 100% { transform: translateY(900%); } }
+
+    /* targeting reticle */
+    .reticle {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 140px; height: 140px;
+      border: 1px solid rgba(239,68,68,0.7);
+      border-radius: 50%;
+      box-shadow: 0 0 20px rgba(239,68,68,0.55), inset 0 0 20px rgba(239,68,68,0.25);
+      pointer-events: none;
+    }
+    .reticle::before, .reticle::after {
+      content: '';
+      position: absolute; background: rgba(239,68,68,0.85);
+    }
+    .reticle::before { top: 50%; left: -20px; right: -20px; height: 1px; }
+    .reticle::after  { left: 50%; top: -20px; bottom: -20px; width: 1px; }
+
+    /* engage switch — big toggle */
+    .engage-switch {
+      position: relative;
+      padding: 10px 22px 10px 50px;
+      font-family: 'Orbitron', monospace;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      font-size: 13px;
+      border: 1px solid;
+      cursor: pointer;
+      transition: all .15s ease;
+      text-transform: uppercase;
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    }
+    .engage-switch::before {
+      content: '';
+      position: absolute;
+      left: 18px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px currentColor inset, 0 0 10px currentColor;
+    }
+    .engage-on {
+      color: #fee2e2;
+      background: linear-gradient(180deg, rgba(239,68,68,0.55), rgba(127,29,29,0.85));
+      border-color: var(--red-glow);
+      box-shadow: 0 0 14px rgba(239,68,68,0.65), inset 0 0 18px rgba(239,68,68,0.35);
+      animation: engage-pulse 1.6s ease-in-out infinite;
+    }
+    .engage-off {
+      color: var(--cyan-soft);
+      background: linear-gradient(180deg, rgba(8,30,55,0.9), rgba(3,8,18,0.95));
+      border-color: rgba(34,211,238,0.55);
+      box-shadow: inset 0 0 14px rgba(34,211,238,0.18);
+    }
+    @keyframes engage-pulse {
+      0%,100% { box-shadow: 0 0 14px rgba(239,68,68,0.65), inset 0 0 18px rgba(239,68,68,0.35); }
+      50%     { box-shadow: 0 0 28px rgba(239,68,68,0.95), inset 0 0 24px rgba(239,68,68,0.55); }
+    }
+    .engage-on::before  { color: #fee2e2; background: #f87171; }
+    .engage-off::before { color: #67e8f9; background: transparent; }
+
+    /* console buttons */
+    .btn-hud {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 9px 14px;
+      border: 1px solid rgba(34,211,238,0.35);
+      color: var(--cyan-soft);
+      background: rgba(7,16,31,0.6);
+      transition: all .15s ease;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      cursor: pointer;
+    }
+    .btn-hud:hover { background: rgba(34,211,238,0.12); box-shadow: inset 0 0 14px rgba(34,211,238,0.25); }
+    .btn-hud.active {
+      color: #02151c;
+      background: linear-gradient(180deg, var(--cyan), #0891b2);
+      border-color: var(--cyan-soft);
+      box-shadow: 0 0 14px rgba(34,211,238,0.55), inset 0 0 12px rgba(255,255,255,0.18);
+    }
+    .btn-danger {
+      color: #fecaca;
+      border-color: rgba(239,68,68,0.55);
+      background: rgba(127,29,29,0.4);
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.35); box-shadow: 0 0 12px rgba(239,68,68,0.45); }
+    .btn-disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* HUD slider */
+    input[type=range].slider-hud {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 22px;
+      background: transparent;
+    }
+    input[type=range].slider-hud::-webkit-slider-runnable-track {
+      height: 4px;
+      background: linear-gradient(90deg, rgba(34,211,238,0.5), rgba(34,211,238,0.15));
+      border: 1px solid rgba(34,211,238,0.35);
+    }
+    input[type=range].slider-hud::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 22px;
+      margin-top: -10px;
+      background: var(--cyan);
+      border: 1px solid #ecfeff;
+      box-shadow: 0 0 10px rgba(34,211,238,0.85);
+      cursor: pointer;
+    }
+    input[type=range].slider-hud::-moz-range-track {
+      height: 4px;
+      background: rgba(34,211,238,0.35);
+    }
+    input[type=range].slider-hud::-moz-range-thumb {
+      width: 14px; height: 22px;
+      background: var(--cyan);
+      border: 1px solid #ecfeff;
+      box-shadow: 0 0 10px rgba(34,211,238,0.85);
+      cursor: pointer;
+      border-radius: 0;
+    }
+
+    /* HUD inputs */
+    input.hud, textarea.hud {
+      background: rgba(3,8,18,0.85);
+      border: 1px solid rgba(34,211,238,0.30);
+      color: var(--cyan-soft);
+      font-family: 'JetBrains Mono', monospace;
+      padding: 8px 10px;
+      letter-spacing: 0.05em;
+    }
+    input.hud:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 12px rgba(34,211,238,0.45); }
+
+    /* status pill */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border: 1px solid currentColor;
+      background: rgba(0,0,0,0.55);
+    }
+
+    /* scrollbar */
+    .scrollbar::-webkit-scrollbar { width: 8px; }
+    .scrollbar::-webkit-scrollbar-track { background: rgba(3,8,18,0.6); }
+    .scrollbar::-webkit-scrollbar-thumb { background: rgba(34,211,238,0.35); border-radius: 0; }
+    .scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34,211,238,0.55); }
+
+    /* log entry left-bar */
+    .log-row {
+      position: relative;
+      padding-left: 14px;
+    }
+    .log-row::before {
+      content: '';
+      position: absolute; left: 4px; top: 50%; transform: translateY(-50%);
+      width: 6px; height: 6px;
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan);
+    }
+
+    /* divider with chevrons */
+    .chev-div {
+      display: flex; align-items: center; gap: 8px;
+      color: rgba(34,211,238,0.35);
+      font-size: 9px;
+      letter-spacing: 0.4em;
+    }
+    .chev-div::before, .chev-div::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(34,211,238,0.25), transparent);
+    }
+
+    .badge-dim {
+      color: var(--txt-dim);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // ========================================
+    // 🛰  UTILITIES
+    // ========================================
+    function fmtBytes(n) {
+      if (!n && n !== 0) return '-';
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+      return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+    }
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
+
+    function nowStr() {
+      const d = new Date();
+      return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+    }
+
+    // ========================================
+    // 🎨 DESIGN-SYSTEM BITS (cockpit-styled primitives)
+    // ========================================
+    function PanelCorners() {
+      return (
+        <>
+          <span className="corner-tl"></span>
+          <span className="corner-tr"></span>
+          <span className="corner-bl"></span>
+          <span className="corner-br"></span>
+        </>
+      );
+    }
+
+    function StatusPill({ tone = 'cyan', children, blink: doBlink = false }) {
+      const map = {
+        cyan:  'ledtxt-cyan',
+        green: 'ledtxt-green',
+        red:   'ledtxt-red',
+        amber: 'ledtxt-amber',
+        dim:   'text-[color:var(--txt-dim)]'
+      };
+      return (
+        <span className={`status-pill ${map[tone] || map.cyan}`}>
+          <span className={`inline-block w-1.5 h-1.5 rounded-full bg-current ${doBlink ? 'pulse-dot' : ''}`}></span>
+          {children}
+        </span>
+      );
+    }
+
+    function Readout({ label, value, tone = 'cyan' }) {
+      const toneCls = {
+        cyan: 'ledtxt-cyan',
+        green: 'ledtxt-green',
+        amber: 'ledtxt-amber',
+        red: 'ledtxt-red'
+      }[tone] || 'ledtxt-cyan';
+      return (
+        <div className="flex flex-col">
+          <span className="badge-dim">{label}</span>
+          <span className={`font-display text-sm ${toneCls}`}>{value}</span>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 APP
+    // ========================================
+    function App() {
+      // 마스터 ON/OFF — 자리 비울 때만 ON
+      const [surveillanceActive, setSurveillanceActive] = useState(false);
+
+      // 카메라 / 녹화 상태
+      const [running, setRunning] = useState(false);
+      const [error, setError] = useState('');
+      const [recording, setRecording] = useState(false);
+      const [motionLevel, setMotionLevel] = useState(0);
+      const [motionDetected, setMotionDetected] = useState(false);
+      const [motionEvents, setMotionEvents] = useState(0);
+
+      // 설정
+      const [mode, setMode] = useState('both'); // 'video' | 'snapshot' | 'both'
+      const [sensitivity, setSensitivity] = useState(12); // 동작 임계값 (0~50)
+      const [snapshotInterval, setSnapshotInterval] = useState(5); // 초
+
+      // 서버 설정
+      const [storageDir, setStorageDir] = useState('');
+      const [retentionDays, setRetentionDays] = useState(7);
+      const [diskFree, setDiskFree] = useState(null);
+      const [files, setFiles] = useState([]);
+      const [selected, setSelected] = useState(null); // { date, kind, name }
+      const [telegramInfo, setTelegramInfo] = useState({ hasToken: false, chatId: '' });
+      const [alertCount, setAlertCount] = useState(0);
+
+      // 시계 (시각 효과용 — 1초마다 리렌더)
+      const [clockTick, setClockTick] = useState(nowStr());
+      useEffect(() => {
+        const id = setInterval(() => setClockTick(nowStr()), 1000);
+        return () => clearInterval(id);
+      }, []);
+
+      // refs
+      const videoRef = useRef(null);
+      const detectCanvasRef = useRef(null);
+      const captureCanvasRef = useRef(null);
+      const streamRef = useRef(null);
+      const prevFrameRef = useRef(null);
+      const recorderRef = useRef(null);
+      const recordChunksRef = useRef([]);
+      const stopTimerRef = useRef(null);
+      const lastMotionRef = useRef(0);
+      const lastAlertRef = useRef(0); // 텔레그램 푸시 디바운스
+
+      // 라이브 설정 ref (인터벌 콜백에서 최신값 읽기)
+      const cfgRef = useRef({ mode, sensitivity, running });
+      useEffect(() => { cfgRef.current = { mode, sensitivity, running }; }, [mode, sensitivity, running]);
+
+      // 서버 파일 목록 / 설정 로드
+      const loadFiles = useCallback(async () => {
+        try {
+          const r = await fetch('/api/files');
+          const d = await r.json();
+          setFiles(d.dates || []);
+          setStorageDir(d.storageDir || '');
+          setRetentionDays(d.retentionDays || 7);
+          setDiskFree(d.diskFree);
+          if (d.telegram) setTelegramInfo(d.telegram);
+          if (typeof d.surveillanceActive === 'boolean') setSurveillanceActive(d.surveillanceActive);
+        } catch (e) {}
+      }, []);
+
+      useEffect(() => {
+        loadFiles();
+        const t = setInterval(loadFiles, 15000);
+        return () => clearInterval(t);
+      }, [loadFiles]);
+
+      // surveillanceActive 변화에 따라 카메라 자동 ON/OFF
+      useEffect(() => {
+        if (surveillanceActive && !running && !streamRef.current) {
+          if (!navigator.permissions || !navigator.permissions.query) {
+            startCamera();
+            return;
+          }
+          navigator.permissions
+            .query({ name: 'camera' })
+            .then(p => {
+              if (p.state === 'granted') startCamera();
+              else setError('카메라 권한이 필요합니다 — "감시 시작" 버튼을 눌러 한 번만 허용해주세요.');
+            })
+            .catch(() => startCamera());
+        } else if (!surveillanceActive && running) {
+          stopCamera();
+        }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [surveillanceActive]);
+
+      async function startCamera() {
+        setError('');
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
+            audio: false
+          });
+          streamRef.current = s;
+          videoRef.current.srcObject = s;
+          await videoRef.current.play();
+          setRunning(true);
+        } catch (e) {
+          setError('카메라 접근 실패: ' + e.message);
+        }
+      }
+      function stopCamera() {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+          streamRef.current = null;
+        }
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+          try { recorderRef.current.stop(); } catch (e) {}
+        }
+        setRunning(false);
+        setRecording(false);
+        setMotionDetected(false);
+      }
+
+      useEffect(() => {
+        if (!running) return;
+        let alive = true;
+        const tick = () => {
+          if (!alive) return;
+          detectMotion();
+        };
+        const id = setInterval(tick, 250);
+        return () => { alive = false; clearInterval(id); };
+      }, [running]);
+
+      function detectMotion() {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) return;
+        const canvas = detectCanvasRef.current;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        canvas.width = 80;
+        canvas.height = 60;
+        ctx.drawImage(video, 0, 0, 80, 60);
+        const cur = ctx.getImageData(0, 0, 80, 60).data;
+
+        if (prevFrameRef.current) {
+          let diff = 0;
+          for (let i = 0; i < cur.length; i += 4) {
+            const a = (cur[i] + cur[i + 1] + cur[i + 2]) / 3;
+            const b = (prevFrameRef.current[i] + prevFrameRef.current[i + 1] + prevFrameRef.current[i + 2]) / 3;
+            diff += Math.abs(a - b);
+          }
+          const level = diff / (80 * 60);
+          setMotionLevel(level);
+          if (level > cfgRef.current.sensitivity) {
+            onMotion();
+          } else if (Date.now() - lastMotionRef.current > 800) {
+            setMotionDetected(false);
+          }
+        }
+        prevFrameRef.current = new Uint8ClampedArray(cur);
+      }
+
+      function onMotion() {
+        lastMotionRef.current = Date.now();
+        setMotionDetected(true);
+
+        if (Date.now() - lastAlertRef.current > 30000) {
+          lastAlertRef.current = Date.now();
+          urgentSnapshot();
+        }
+
+        const m = cfgRef.current.mode;
+        if (m === 'video' || m === 'both') {
+          startOrExtendRecording();
+        }
+      }
+
+      async function urgentSnapshot(opts) {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) return;
+        const canvas = captureCanvasRef.current;
+        canvas.width = 1280;
+        canvas.height = 720;
+        canvas.getContext('2d').drawImage(video, 0, 0, 1280, 720);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.78));
+        if (!blob) return;
+        const qs = opts && opts.manual ? 'urgent=1&manual=1' : 'urgent=1';
+        try {
+          await fetch('/api/snapshots?' + qs, {
+            method: 'POST',
+            headers: { 'Content-Type': 'image/jpeg' },
+            body: blob
+          });
+          setAlertCount(n => n + 1);
+        } catch (e) {}
+      }
+
+      // 폴링: 항상 동작
+      useEffect(() => {
+        let alive = true;
+        const poll = async () => {
+          if (!alive) return;
+          try {
+            const r = await fetch('/api/poll');
+            const d = await r.json();
+            if (typeof d.surveillanceActive === 'boolean') {
+              setSurveillanceActive(d.surveillanceActive);
+            }
+            if (d.commands && d.commands.length) {
+              for (const c of d.commands) {
+                if (c.cmd === 'snap') urgentSnapshot({ manual: true });
+              }
+            }
+          } catch (e) {}
+        };
+        const id = setInterval(poll, 2500);
+        poll();
+        return () => { alive = false; clearInterval(id); };
+      }, []);
+
+      async function toggleSurveillance() {
+        const next = !surveillanceActive;
+        setSurveillanceActive(next);
+        try {
+          await fetch('/api/surveillance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: next })
+          });
+        } catch (e) {
+          setSurveillanceActive(!next);
+        }
+      }
+
+      function startOrExtendRecording() {
+        if (recorderRef.current && recorderRef.current.state === 'recording') {
+          clearTimeout(stopTimerRef.current);
+          stopTimerRef.current = setTimeout(stopRecording, 5000);
+          return;
+        }
+        if (!streamRef.current) return;
+
+        let mime = 'video/webm;codecs=vp9';
+        if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm;codecs=vp8';
+        if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+
+        const rec = new MediaRecorder(streamRef.current, { mimeType: mime, videoBitsPerSecond: 2_000_000 });
+        recordChunksRef.current = [];
+        rec.ondataavailable = e => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
+        rec.onstop = async () => {
+          const blob = new Blob(recordChunksRef.current, { type: 'video/webm' });
+          recordChunksRef.current = [];
+          if (blob.size > 0) {
+            try {
+              await fetch('/api/clips', {
+                method: 'POST',
+                headers: { 'Content-Type': 'video/webm' },
+                body: blob
+              });
+              setMotionEvents(n => n + 1);
+              loadFiles();
+            } catch (e) {
+              console.error('업로드 실패', e);
+            }
+          }
+          setRecording(false);
+        };
+        rec.start();
+        recorderRef.current = rec;
+        setRecording(true);
+        stopTimerRef.current = setTimeout(stopRecording, 5000);
+        setTimeout(() => {
+          if (recorderRef.current === rec && rec.state === 'recording') {
+            try { rec.stop(); } catch (e) {}
+          }
+        }, 180_000);
+      }
+
+      function stopRecording() {
+        const r = recorderRef.current;
+        if (r && r.state === 'recording') {
+          try { r.stop(); } catch (e) {}
+        }
+      }
+
+      useEffect(() => {
+        if (!running) return;
+        if (mode !== 'snapshot' && mode !== 'both') return;
+        const id = setInterval(takeSnapshot, snapshotInterval * 1000);
+        return () => clearInterval(id);
+      }, [running, mode, snapshotInterval]);
+
+      async function takeSnapshot() {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) return;
+        const canvas = captureCanvasRef.current;
+        canvas.width = 1280;
+        canvas.height = 720;
+        canvas.getContext('2d').drawImage(video, 0, 0, 1280, 720);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.82));
+        if (!blob) return;
+        try {
+          await fetch('/api/snapshots', {
+            method: 'POST',
+            headers: { 'Content-Type': 'image/jpeg' },
+            body: blob
+          });
+        } catch (e) {}
+      }
+
+      async function saveSettings(next) {
+        try {
+          const r = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(next)
+          });
+          const d = await r.json();
+          if (!r.ok) {
+            alert(d.error || '설정 저장 실패');
+            return;
+          }
+          setStorageDir(d.storageDir);
+          setRetentionDays(d.retentionDays);
+          loadFiles();
+        } catch (e) {
+          alert('설정 저장 실패: ' + e.message);
+        }
+      }
+
+      async function deleteFile(date, kind, name) {
+        if (!confirm(`${date}/${kind}/${name} 삭제할까요?`)) return;
+        await fetch(`/api/file/${date}/${kind}/${name}`, { method: 'DELETE' });
+        if (selected && selected.date === date && selected.kind === kind && selected.name === name) {
+          setSelected(null);
+        }
+        loadFiles();
+      }
+
+      const totalCount = files.reduce((s, d) => s + d.videos.length + d.snapshots.length, 0);
+      const totalSize = files.reduce(
+        (s, d) =>
+          s +
+          d.videos.reduce((x, v) => x + v.size, 0) +
+          d.snapshots.reduce((x, v) => x + v.size, 0),
+        0
+      );
+
+      const modeLabel = { video: 'VIDEO', snapshot: 'SNAPSHOT', both: 'DUAL' }[mode] || 'DUAL';
+      const systemTone = surveillanceActive ? (recording ? 'red' : 'green') : 'cyan';
+      const systemText = surveillanceActive
+        ? (recording ? 'REC // 기록 중' : 'NOMINAL // 감시 중')
+        : 'STANDBY // 대기';
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          {/* ============================================================
+              ▣ TOP STATUS STRIP — system readouts + ENGAGE switch
+              ============================================================ */}
+          <header className="px-6 py-3 border-b border-[rgba(34,211,238,0.18)]"
+                  style={{ background: 'linear-gradient(180deg, rgba(10,22,40,0.85), rgba(3,8,18,0.95))' }}>
+            <div className="flex items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <span className="font-display text-xl font-black tracking-[0.22em] ledtxt-cyan">AEGIS-7</span>
+                  <span className="badge-dim">ORBITAL SURVEILLANCE // 궤도 감시 시스템</span>
+                </div>
+                <span className="hidden md:inline text-[color:var(--txt-dim)] mx-1">│</span>
+                <StatusPill tone={systemTone} blink={recording}>
+                  {systemText}
+                </StatusPill>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <Readout label="MISSION TIME" value={clockTick} />
+                <span className="hidden md:inline text-[color:var(--txt-dim)]">│</span>
+                <Readout label="MODE" value={modeLabel} tone="amber" />
+                <span className="hidden md:inline text-[color:var(--txt-dim)]">│</span>
+                <Readout
+                  label="ARCHIVE"
+                  value={`${totalCount} FILES // ${fmtBytes(totalSize)}`}
+                />
+                <span className="hidden md:inline text-[color:var(--txt-dim)]">│</span>
+                <Readout
+                  label="DISK FREE"
+                  value={diskFree != null ? fmtBytes(diskFree) : '— —'}
+                  tone={diskFree != null && diskFree < 5 * 1024 * 1024 * 1024 ? 'amber' : 'cyan'}
+                />
+
+                {/* ENGAGE / DISENGAGE master switch */}
+                <button
+                  onClick={toggleSurveillance}
+                  className={`engage-switch ${surveillanceActive ? 'engage-on' : 'engage-off'}`}
+                  title={surveillanceActive ? '감시 모드 가동 중 — 클릭하면 대기 모드로 전환' : '대기 모드 — 클릭하면 감시 모드 가동'}
+                >
+                  {surveillanceActive ? 'ENGAGE / 가동' : 'DISENGAGE / 대기'}
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* ============================================================
+              MAIN GRID
+              ============================================================ */}
+          <div className="flex-1 flex">
+            {/* ───────── LEFT: VIEWPORT + CONSOLE ───────── */}
+            <div className="flex-1 p-6 flex flex-col gap-5">
+
+              {/* HUD VIEWPORT */}
+              <div className="panel">
+                <PanelCorners />
+                <div className="panel-header">
+                  <span>[ FORWARD VIEWPORT // 전방 화면 ]</span>
+                  <span className="text-[color:var(--txt-dim)]">CAM-01 ⌁ 1280×720 ⌁ 24 FPS</span>
+                </div>
+                <div className="p-3">
+                  <div
+                    className={`viewport-frame scanlines relative overflow-hidden ${
+                      motionDetected ? 'alert' : (surveillanceActive && running ? 'nominal' : '')
+                    }`}
+                    style={{ aspectRatio: '16/9' }}
+                  >
+                    <video ref={videoRef} className="w-full h-full object-contain bg-black" muted playsInline />
+                    <canvas ref={detectCanvasRef} className="hidden" />
+                    <canvas ref={captureCanvasRef} className="hidden" />
+
+                    {/* corner brackets — always visible on the viewport */}
+                    {(surveillanceActive && running) && (
+                      <>
+                        <span className="viewport-bracket tl ledtxt-cyan"></span>
+                        <span className="viewport-bracket tr ledtxt-cyan"></span>
+                        <span className="viewport-bracket bl ledtxt-cyan"></span>
+                        <span className="viewport-bracket br ledtxt-cyan"></span>
+                      </>
+                    )}
+
+                    {/* targeting reticle on motion */}
+                    {motionDetected && surveillanceActive && running && <span className="reticle"></span>}
+
+                    {/* STANDBY overlay */}
+                    {!surveillanceActive && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+                           style={{ background: 'radial-gradient(ellipse at center, rgba(8,18,36,0.92) 0%, rgba(3,6,15,0.98) 80%)' }}>
+                        <div className="font-display text-3xl tracking-[0.3em] ledtxt-cyan">STANDBY</div>
+                        <div className="badge-dim">대기 모드 // 모든 시스템 OFF</div>
+                        <div className="my-2 chev-div w-72">‹‹‹  ◇  ›››</div>
+                        <p className="text-[color:var(--txt-dim)] text-xs text-center max-w-md leading-relaxed">
+                          카메라 OFF · 동작 감지 OFF · 기록 OFF · 푸시 OFF<br/>
+                          자리를 비울 때 우측 상단 <span className="ledtxt-amber">[ ENGAGE ]</span> 스위치를 가동하세요.
+                        </p>
+                        <button
+                          onClick={toggleSurveillance}
+                          className="engage-switch engage-off mt-2"
+                          style={{ color: '#fee2e2', borderColor: 'var(--red-glow)', background: 'linear-gradient(180deg, rgba(239,68,68,0.30), rgba(127,29,29,0.55))' }}
+                        >
+                          ENGAGE SURVEILLANCE
+                        </button>
+                      </div>
+                    )}
+
+                    {/* permission overlay */}
+                    {surveillanceActive && !running && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4"
+                           style={{ background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.92), rgba(3,6,15,0.98))' }}>
+                        <div className="font-display text-xl tracking-[0.25em] ledtxt-amber blink">SENSOR LINK PENDING</div>
+                        <p className="text-[color:var(--txt-dim)] text-xs">카메라 권한을 허용해주세요 // GRANT CAMERA ACCESS</p>
+                        <button onClick={startCamera} className="btn-hud active">
+                          ◉ INITIATE CAMERA // 카메라 가동
+                        </button>
+                        {error && <p className="ledtxt-red text-xs">{error}</p>}
+                      </div>
+                    )}
+
+                    {/* live HUD overlays */}
+                    {surveillanceActive && running && (
+                      <>
+                        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1 bg-black/55 border border-[rgba(34,211,238,0.35)]">
+                          <span className={`w-2 h-2 ${motionDetected ? 'bg-[var(--red-glow)] pulse-dot' : 'bg-[var(--green)]'}`}
+                                style={{ boxShadow: motionDetected ? '0 0 8px var(--red-glow)' : '0 0 6px var(--green)' }}></span>
+                          <span className={`font-mono text-[11px] tracking-widest ${motionDetected ? 'ledtxt-red' : 'ledtxt-green'}`}>
+                            {motionDetected ? `▲ MOTION DETECTED // Δ ${motionLevel.toFixed(1)}` : `◯ AREA CLEAR // Δ ${motionLevel.toFixed(1)}`}
+                          </span>
+                        </div>
+                        <div className="absolute top-3 left-3 px-2 py-1 bg-black/55 border border-[rgba(34,211,238,0.25)] font-mono text-[10px] ledtxt-cyan">
+                          GRID 37.5N 127.0E
+                        </div>
+                        <div className="absolute top-3 right-3 px-2 py-1 bg-black/55 border border-[rgba(34,211,238,0.25)] font-mono text-[10px] ledtxt-cyan">
+                          T+ {clockTick}
+                        </div>
+                        {recording && (
+                          <div className="absolute bottom-3 left-3 flex items-center gap-2 px-3 py-1 bg-black/65 border border-[rgba(239,68,68,0.55)]">
+                            <span className="w-2 h-2 rounded-full bg-[var(--red-glow)] pulse-dot" style={{ boxShadow: '0 0 8px var(--red-glow)' }}></span>
+                            <span className="font-mono text-[11px] tracking-widest ledtxt-red">REC ●  // 기록 중</span>
+                          </div>
+                        )}
+                        <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/55 border border-[rgba(34,211,238,0.25)] font-mono text-[10px] ledtxt-cyan">
+                          SENS {sensitivity} ⌁ MOD {modeLabel}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* CONSOLE — controls */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* MODE SELECTOR */}
+                <div className="panel">
+                  <PanelCorners />
+                  <div className="panel-header">
+                    <span>[ CAPTURE PROTOCOL // 기록 프로토콜 ]</span>
+                    <span className="text-[color:var(--txt-dim)]">MOD-01</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { v: 'video',    label: 'VIDEO',    sub: '영상 (감지 시)' },
+                        { v: 'snapshot', label: 'SNAPSHOT', sub: '주기 사진' },
+                        { v: 'both',     label: 'DUAL',     sub: '둘 다' }
+                      ].map(o => (
+                        <button
+                          key={o.v}
+                          onClick={() => setMode(o.v)}
+                          className={`btn-hud flex flex-col items-center justify-center gap-1 py-3 ${mode === o.v ? 'active' : ''}`}
+                        >
+                          <span className="font-display tracking-widest">{o.label}</span>
+                          <span className="text-[9px] opacity-80 tracking-normal">{o.sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* SENSITIVITY */}
+                <div className="panel">
+                  <PanelCorners />
+                  <div className="panel-header">
+                    <span>[ MOTION SENSITIVITY // 동작 감지 민감도 ]</span>
+                    <span className="text-[color:var(--txt-dim)]">SNS-02</span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-end justify-between mb-1">
+                      <span className="badge-dim">THRESHOLD // 임계값</span>
+                      <div className="flex items-baseline gap-3">
+                        <span className="font-display text-2xl ledtxt-cyan">{sensitivity}</span>
+                        <span className="badge-dim">CURRENT Δ</span>
+                        <span className={`font-display text-xl ${motionLevel > sensitivity ? 'ledtxt-red' : 'ledtxt-green'}`}>
+                          {motionLevel.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                    <input
+                      type="range" min="3" max="40" step="1"
+                      value={sensitivity}
+                      onChange={e => setSensitivity(Number(e.target.value))}
+                      className="slider-hud"
+                    />
+                    <div className="flex justify-between text-[9px] tracking-widest text-[color:var(--txt-dim)]">
+                      <span>◀ HIGH SENS // 미세 감지</span>
+                      <span>LOW SENS ▶ // 강한 움직임만</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SNAPSHOT INTERVAL — only when relevant */}
+                {(mode === 'snapshot' || mode === 'both') && (
+                  <div className="panel">
+                    <PanelCorners />
+                    <div className="panel-header">
+                      <span>[ SNAPSHOT CADENCE // 스냅샷 주기 ]</span>
+                      <span className="text-[color:var(--txt-dim)]">CAD-03</span>
+                    </div>
+                    <div className="p-4 space-y-2">
+                      <div className="flex items-baseline justify-between mb-1">
+                        <span className="badge-dim">INTERVAL</span>
+                        <div>
+                          <span className="font-display text-2xl ledtxt-cyan">{snapshotInterval}</span>
+                          <span className="badge-dim ml-1">SEC // 초</span>
+                        </div>
+                      </div>
+                      <input
+                        type="range" min="2" max="60" step="1"
+                        value={snapshotInterval}
+                        onChange={e => setSnapshotInterval(Number(e.target.value))}
+                        className="slider-hud"
+                      />
+                      <div className="flex justify-between text-[9px] tracking-widest text-[color:var(--txt-dim)]">
+                        <span>◀ FAST</span>
+                        <span>SLOW ▶</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* COUNTERS */}
+                <div className="panel">
+                  <PanelCorners />
+                  <div className="panel-header">
+                    <span>[ MISSION TELEMETRY // 운용 지표 ]</span>
+                    <span className="text-[color:var(--txt-dim)]">TLM-04</span>
+                  </div>
+                  <div className="p-4 grid grid-cols-2 gap-4">
+                    <div className="border border-[rgba(34,211,238,0.18)] p-3">
+                      <div className="badge-dim mb-1">MOTION EVENTS</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-display text-3xl ledtxt-amber">{String(motionEvents).padStart(3, '0')}</span>
+                        <span className="text-[10px] text-[color:var(--txt-dim)]">감지 이벤트</span>
+                      </div>
+                    </div>
+                    <div className="border border-[rgba(34,211,238,0.18)] p-3">
+                      <div className="badge-dim mb-1">COMM PUSH</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-display text-3xl ledtxt-cyan">{String(alertCount).padStart(3, '0')}</span>
+                        <span className="text-[10px] text-[color:var(--txt-dim)]">📡 푸시 발송</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SETTINGS PANEL */}
+              <SettingsPanel
+                storageDir={storageDir}
+                retentionDays={retentionDays}
+                onSave={saveSettings}
+              />
+
+              {/* TELEGRAM PANEL */}
+              <TelegramPanel info={telegramInfo} onChange={loadFiles} />
+            </div>
+
+            {/* ───────── RIGHT: MISSION LOG ───────── */}
+            <aside className="w-[440px] border-l border-[rgba(34,211,238,0.18)] flex flex-col"
+                   style={{ background: 'linear-gradient(180deg, rgba(7,16,31,0.85), rgba(3,8,18,0.95))' }}>
+              <div className="panel-header" style={{ borderBottom: '1px solid rgba(34,211,238,0.18)' }}>
+                <span>[ MISSION LOG // 기록 보관소 ]</span>
+                <span className="text-[color:var(--txt-dim)]">LOG-Σ</span>
+              </div>
+              <div className="px-4 py-3 border-b border-[rgba(34,211,238,0.12)] flex items-center justify-between text-[10px] tracking-widest">
+                <span className="text-[color:var(--txt-dim)]">날짜별 기록 // {retentionDays}일 후 자동 소거</span>
+                <span className="ledtxt-cyan">{files.length} ENTRIES</span>
+              </div>
+              <div className="flex-1 overflow-y-auto scrollbar p-3 space-y-3">
+                {files.length === 0 && (
+                  <div className="border border-dashed border-[rgba(34,211,238,0.20)] py-10 text-center">
+                    <div className="font-display ledtxt-cyan tracking-widest text-sm mb-1">NO DATA</div>
+                    <p className="text-xs text-[color:var(--txt-dim)]">아직 기록된 항목이 없습니다.</p>
+                  </div>
+                )}
+                {files.map(d => (
+                  <DateGroup
+                    key={d.date}
+                    date={d.date}
+                    videos={d.videos}
+                    snapshots={d.snapshots}
+                    onSelect={f => setSelected(f)}
+                    onDelete={deleteFile}
+                  />
+                ))}
+              </div>
+            </aside>
+          </div>
+
+          {/* ============================================================
+              ▣ PLAYBACK MODAL
+              ============================================================ */}
+          {selected && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6"
+                 style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.85), rgba(0,0,0,0.97))' }}
+                 onClick={() => setSelected(null)}>
+              <div className="panel w-full max-w-5xl" onClick={e => e.stopPropagation()}>
+                <PanelCorners />
+                <div className="panel-header">
+                  <span>[ PLAYBACK // 기록 재생 ]</span>
+                  <span className="font-mono text-[11px] ledtxt-cyan">
+                    {selected.date} · {selected.kind.toUpperCase()} · {selected.name}
+                  </span>
+                  <button onClick={() => setSelected(null)}
+                          className="btn-hud btn-danger" style={{ padding: '4px 10px' }}>
+                    ✕ CLOSE
+                  </button>
+                </div>
+                <div className="p-4 bg-black flex items-center justify-center" style={{ minHeight: 400 }}>
+                  {selected.kind === 'video' ? (
+                    <video
+                      src={`/api/file/${selected.date}/${selected.kind}/${selected.name}`}
+                      controls
+                      autoPlay
+                      className="max-w-full max-h-[70vh]"
+                    />
+                  ) : (
+                    <img
+                      src={`/api/file/${selected.date}/${selected.kind}/${selected.name}`}
+                      className="max-w-full max-h-[70vh]"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📅 DATE GROUP — log entry collapsible
+    // ========================================
+    function DateGroup({ date, videos, snapshots, onSelect, onDelete }) {
+      const [open, setOpen] = useState(true);
+      const total = videos.length + snapshots.length;
+      return (
+        <div className="border border-[rgba(34,211,238,0.20)] bg-[rgba(7,16,31,0.65)]">
+          <button
+            onClick={() => setOpen(!open)}
+            className="w-full px-3 py-2 flex items-center justify-between hover:bg-[rgba(34,211,238,0.05)]"
+          >
+            <span className="flex items-center gap-2">
+              <span className="ledtxt-cyan text-[10px] tracking-widest">{open ? '▼' : '▶'}</span>
+              <span className="font-mono text-sm ledtxt-cyan tracking-widest">{date}</span>
+            </span>
+            <span className="text-[10px] text-[color:var(--txt-dim)] tracking-widest">
+              VID {videos.length} · IMG {snapshots.length}
+            </span>
+          </button>
+          {open && total > 0 && (
+            <div className="px-2 pb-2 pt-1 space-y-1 border-t border-dashed border-[rgba(34,211,238,0.12)]">
+              {videos.map(v => (
+                <FileRow
+                  key={'v' + v.name}
+                  kind="video"
+                  date={date}
+                  file={v}
+                  icon="◉"
+                  tone="amber"
+                  onSelect={() => onSelect({ date, kind: 'video', name: v.name })}
+                  onDelete={() => onDelete(date, 'video', v.name)}
+                />
+              ))}
+              {snapshots.map(s => (
+                <FileRow
+                  key={'s' + s.name}
+                  kind="snapshots"
+                  date={date}
+                  file={s}
+                  icon="▣"
+                  tone="cyan"
+                  onSelect={() => onSelect({ date, kind: 'snapshots', name: s.name })}
+                  onDelete={() => onDelete(date, 'snapshots', s.name)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 FILE ROW
+    // ========================================
+    function FileRow({ icon, file, onSelect, onDelete, tone = 'cyan' }) {
+      const time = file.name.replace(/_motion\.webm|\.jpg|\.webm/, '').replace(/-/g, ':');
+      const toneCls = tone === 'amber' ? 'ledtxt-amber' : 'ledtxt-cyan';
+      return (
+        <div className="log-row flex items-center gap-2 pl-4 pr-2 py-1.5 hover:bg-[rgba(34,211,238,0.06)] group">
+          <span className={`${toneCls} text-xs`}>{icon}</span>
+          <button onClick={onSelect} className="flex-1 text-left text-xs font-mono ledtxt-cyan hover:text-white tracking-widest">
+            {time}
+          </button>
+          <span className="text-[10px] text-[color:var(--txt-dim)] tracking-widest">{fmtBytes(file.size)}</span>
+          <button
+            onClick={onDelete}
+            className="opacity-0 group-hover:opacity-100 text-[10px] tracking-widest ledtxt-red hover:text-red-300 px-2"
+          >
+            DELETE
+          </button>
+        </div>
+      );
+    }
+
+    // ========================================
+    // ⚙ SETTINGS PANEL — STORAGE CONFIG
+    // ========================================
+    function SettingsPanel({ storageDir, retentionDays, onSave }) {
+      const [open, setOpen] = useState(false);
+      const [path, setPath] = useState(storageDir);
+      const [days, setDays] = useState(retentionDays);
+      useEffect(() => { setPath(storageDir); }, [storageDir]);
+      useEffect(() => { setDays(retentionDays); }, [retentionDays]);
+
+      return (
+        <div className="panel">
+          <PanelCorners />
+          <button
+            onClick={() => setOpen(!open)}
+            className="panel-header w-full text-left hover:bg-[rgba(34,211,238,0.05)]"
+            style={{ borderBottom: open ? '1px dashed rgba(34,211,238,0.18)' : 'none' }}
+          >
+            <span>[ STORAGE CONFIG // 저장 설정 ] {open ? '▼' : '▶'}</span>
+            <span className="font-mono text-[10px] text-[color:var(--txt-dim)] truncate ml-4 max-w-md">
+              {storageDir || '— UNCONFIGURED —'}
+            </span>
+          </button>
+          {open && (
+            <div className="px-4 py-4 space-y-4">
+              <div>
+                <label className="block badge-dim mb-1">STORAGE PATH // 저장 경로</label>
+                <input
+                  type="text"
+                  value={path}
+                  onChange={e => setPath(e.target.value)}
+                  placeholder="/Volumes/MyDrive/cctv"
+                  className="hud w-full text-xs"
+                />
+                <p className="text-[10px] text-[color:var(--txt-dim)] mt-1 tracking-wide">
+                  외장하드는 보통 <code className="ledtxt-cyan">/Volumes/이름</code> 으로 마운트됩니다.
+                </p>
+              </div>
+              <div>
+                <label className="block badge-dim mb-1">RETENTION // 보관 기간 (DAYS)</label>
+                <input
+                  type="number"
+                  value={days}
+                  min="1" max="365"
+                  onChange={e => setDays(Number(e.target.value))}
+                  className="hud w-32 text-xs"
+                />
+              </div>
+              <button
+                onClick={() => onSave({ storageDir: path, retentionDays: days })}
+                className="btn-hud active"
+              >
+                ◉ COMMIT // 저장
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📡 TELEGRAM PANEL — COMM LINK
+    // ========================================
+    function TelegramPanel({ info, onChange }) {
+      const [open, setOpen] = useState(false);
+      const [token, setToken] = useState('');
+      const [chatId, setChatId] = useState(info.chatId || '');
+      const [status, setStatus] = useState('');
+      const [busy, setBusy] = useState(false);
+
+      useEffect(() => {
+        setChatId(info.chatId || '');
+      }, [info.chatId]);
+
+      async function testAndSave() {
+        if (!token && !info.hasToken) {
+          setStatus('❌ Bot Token을 입력해주세요');
+          return;
+        }
+        if (!chatId) {
+          setStatus('❌ Chat ID를 입력해주세요');
+          return;
+        }
+        if (!token) {
+          setStatus('❌ Bot Token을 다시 입력해주세요 (보안상 표시되지 않음)');
+          return;
+        }
+        setBusy(true);
+        setStatus('▷ 송신 중 // TRANSMITTING...');
+        try {
+          const r = await fetch('/api/telegram/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ botToken: token, chatId })
+          });
+          const d = await r.json();
+          if (!d.ok) {
+            setStatus('❌ ' + (d.error || '연결 실패'));
+            setBusy(false);
+            return;
+          }
+          await fetch('/api/telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ botToken: token, chatId })
+          });
+          onChange();
+          setToken('');
+          setStatus('✅ LINK ESTABLISHED // 텔레그램에 테스트 메시지 송신 완료');
+        } catch (e) {
+          setStatus('❌ ' + e.message);
+        }
+        setBusy(false);
+      }
+
+      return (
+        <div className="panel">
+          <PanelCorners />
+          <button
+            onClick={() => setOpen(!open)}
+            className="panel-header w-full text-left hover:bg-[rgba(34,211,238,0.05)]"
+            style={{ borderBottom: open ? '1px dashed rgba(34,211,238,0.18)' : 'none' }}
+          >
+            <span>[ COMM LINK // 통신 링크 (텔레그램) ] {open ? '▼' : '▶'}</span>
+            <span className={`status-pill ${info.hasToken ? 'ledtxt-green' : 'ledtxt-amber'}`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full bg-current ${info.hasToken ? 'pulse-dot' : ''}`}></span>
+              {info.hasToken ? 'LINKED // 연결됨' : 'OFFLINE // 미설정'}
+            </span>
+          </button>
+          {open && (
+            <div className="px-4 py-4 space-y-4 text-sm">
+              <div className="border border-[rgba(34,211,238,0.20)] p-3 text-[11px] text-[color:var(--txt-dim)] space-y-1.5 leading-relaxed"
+                   style={{ background: 'rgba(34,211,238,0.04)' }}>
+                <p className="ledtxt-cyan tracking-widest">▣ SETUP PROCEDURE // 설정 방법 (3분)</p>
+                <p>① 텔레그램 <span className="ledtxt-cyan">@BotFather</span> 검색 → <code className="ledtxt-amber">/newbot</code> 송신, 안내대로 봇 생성. 받은 TOKEN 복사.</p>
+                <p>② 만든 봇 채널에 들어가서 아무 메시지나 1회 송신.</p>
+                <p>③ 텔레그램 <span className="ledtxt-cyan">@userinfobot</span> 검색 → /start → 본인 CHAT ID 확인.</p>
+                <p>④ 아래 입력 후 [ ESTABLISH LINK ].</p>
+              </div>
+
+              <div>
+                <label className="block badge-dim mb-1">
+                  BOT TOKEN
+                  {info.hasToken && <span className="ledtxt-green ml-2 normal-case tracking-normal text-[10px]">(저장됨 — 변경 시에만 입력)</span>}
+                </label>
+                <input
+                  type="password"
+                  value={token}
+                  onChange={e => setToken(e.target.value)}
+                  placeholder="123456789:ABC-DEF..."
+                  className="hud w-full text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block badge-dim mb-1">CHAT ID</label>
+                <input
+                  type="text"
+                  value={chatId}
+                  onChange={e => setChatId(e.target.value)}
+                  placeholder="123456789"
+                  className="hud w-full text-xs"
+                />
+              </div>
+
+              <button
+                onClick={testAndSave}
+                disabled={busy}
+                className={`btn-hud ${busy ? 'btn-disabled' : 'active'}`}
+              >
+                {busy ? '▷ TRANSMITTING...' : '◉ ESTABLISH LINK // 연결 테스트 & 저장'}
+              </button>
+
+              {status && <p className="text-[11px] tracking-wide ledtxt-cyan">{status}</p>}
+
+              <p className="text-[10px] text-[color:var(--txt-dim)] pt-2 border-t border-dashed border-[rgba(34,211,238,0.18)] leading-relaxed">
+                감시 모드 가동 중 동작 감지 시 즉시 사진 송신. 동일 움직임 30초 디바운스.<br/>
+                휴대폰 봇으로 <code className="ledtxt-cyan">/help</code> 송신 시 명령어 목록 확인 가능.
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 MOUNT
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

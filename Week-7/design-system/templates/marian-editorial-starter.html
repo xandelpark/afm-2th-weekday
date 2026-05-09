@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[프로젝트 이름] — Marian Editorial</title>
+  <!--
+    AFM Design System / Marian Editorial Palette (shadcn token)
+    참고 무드: marianwedding.co.kr — 풀블리드 사진 + 흰 UI + 딥 네이비(#091940) 액센트.
+    웨딩/포토 스튜디오/포트폴리오/감성 브랜드 사이트.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+            secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+            accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+            popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+            card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+          },
+          borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '"Helvetica Neue"', 'Helvetica', 'Arial', 'system-ui', 'sans-serif'],
+            display: ['"Helvetica Neue"', 'Helvetica', 'Inter', 'Arial', 'sans-serif'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ==== Marian Editorial palette ==== */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 13%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 13%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 0 0% 13%;
+      --primary: 224 75% 14%;          /* #091940 deep midnight navy */
+      --primary-foreground: 0 0% 100%;
+      --secondary: 0 0% 96%;
+      --secondary-foreground: 0 0% 20%;
+      --muted: 0 0% 96%;
+      --muted-foreground: 0 0% 40%;
+      --accent: 224 75% 14%;
+      --accent-foreground: 0 0% 100%;
+      --destructive: 0 70% 45%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 0 0% 87%;
+      --input: 0 0% 87%;
+      --ring: 224 75% 14%;
+      --radius: 0rem;
+    }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .display-bold {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    .eyebrow {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+    }
+    /* 풀블리드 히어로 마스크 */
+    .hero-mask {
+      background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 50%, rgba(9,25,64,0.55) 100%);
+    }
+    /* Maximage 스타일 풀블리드 — placeholder 그라데이션 */
+    .hero-bg {
+      background:
+        linear-gradient(135deg, rgba(9,25,64,0.35) 0%, rgba(0,0,0,0.55) 100%),
+        url('https://images.unsplash.com/photo-1519741497674-611481863552?w=2400&q=80') center/cover no-repeat;
+    }
+    @keyframes softFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .anim-fade-in { animation: softFadeIn 0.4s ease-out; }
+    /* hover 화살표 (Maximage 시그니처) */
+    .nav-arrow {
+      width: 36px; height: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(255,255,255,0.6);
+      color: rgba(255,255,255,0.85);
+      transition: all 0.2s;
+    }
+    .nav-arrow:hover { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: white; }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const cn = (...c) => c.filter(Boolean).join(' ');
+
+    // ====== shadcn DS ======
+    function Button({ variant = "default", size = "default", className = "", ...p }) {
+      const base = "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 tracking-wider uppercase";
+      const variants = {
+        default:     "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:     "border border-foreground/30 bg-transparent text-foreground hover:bg-primary hover:border-primary hover:text-primary-foreground",
+        secondary:   "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost:       "text-foreground hover:bg-secondary",
+        link:        "text-primary underline-offset-4 hover:underline tracking-normal normal-case",
+      };
+      const sizes = { default: "h-11 px-6", sm: "h-9 px-4 text-xs", lg: "h-14 px-10 text-sm", icon: "h-10 w-10" };
+      return <button className={cn(base, variants[variant], sizes[size], className)} {...p} />;
+    }
+    function Input({ className = "", ...p }) {
+      return <input className={cn("flex h-11 w-full border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring", className)} {...p} />;
+    }
+    function Label({ className = "", htmlFor, children }) {
+      return <label htmlFor={htmlFor} className={cn("eyebrow text-foreground", className)}>{children}</label>;
+    }
+    function Card({ className = "", ...p }) { return <div className={cn("border border-border bg-card text-card-foreground", className)} {...p} />; }
+    function CardHeader({ className = "", ...p }) { return <div className={cn("flex flex-col space-y-2 p-8 border-b border-border", className)} {...p} />; }
+    function CardTitle({ className = "", ...p }) { return <h3 className={cn("display-bold text-2xl text-foreground", className)} {...p} />; }
+    function CardDescription({ className = "", ...p }) { return <p className={cn("text-sm text-muted-foreground", className)} {...p} />; }
+    function CardContent({ className = "", ...p }) { return <div className={cn("p-8", className)} {...p} />; }
+    function CardFooter({ className = "", ...p }) { return <div className={cn("flex items-center p-8 pt-0", className)} {...p} />; }
+    function Badge({ variant = "default", className = "", ...p }) {
+      const base = "inline-flex items-center border px-2.5 py-0.5 eyebrow";
+      const variants = {
+        default:     "border-transparent bg-primary text-primary-foreground",
+        secondary:   "border-transparent bg-secondary text-secondary-foreground",
+        destructive: "border-transparent bg-destructive text-destructive-foreground",
+        outline:     "border-foreground/40 text-foreground",
+      };
+      return <div className={cn(base, variants[variant], className)} {...p} />;
+    }
+    function Checkbox({ checked, onCheckedChange, id, className = "" }) {
+      return (
+        <button type="button" role="checkbox" aria-checked={checked} id={id}
+          onClick={() => onCheckedChange?.(!checked)}
+          className={cn("h-4 w-4 shrink-0 border border-foreground/40 flex items-center justify-center", checked && "bg-primary border-primary text-primary-foreground", className)}>
+          {checked && <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
+        </button>
+      );
+    }
+    function Separator({ className = "" }) { return <div className={cn("h-px w-full bg-border", className)} />; }
+
+    // ====== App ======
+    function App() {
+      const [name, setName] = useState("");
+      const [agreed, setAgreed] = useState(false);
+      const heroSlides = [0, 1, 2];
+      const [slide, setSlide] = useState(0);
+
+      return (
+        <div className="min-h-screen">
+          {/* === Top Nav (Maximage 스타일 — 풀블리드 위 흰 메뉴) === */}
+          <header className="absolute top-0 left-0 right-0 z-30 px-8 py-6 flex items-center justify-between text-white">
+            <div className="display-bold text-xl tracking-[0.2em] uppercase">BRAND</div>
+            <nav className="hidden md:flex items-center gap-8 eyebrow">
+              <a href="#" className="opacity-90 hover:opacity-100">Wedding</a>
+              <a href="#" className="opacity-90 hover:opacity-100">Date</a>
+              <a href="#" className="opacity-90 hover:opacity-100">Abroad</a>
+              <a href="#" className="opacity-90 hover:opacity-100">Notice</a>
+              <a href="#" className="opacity-90 hover:opacity-100">Reservation</a>
+            </nav>
+          </header>
+
+          {/* === Hero (풀블리드 사진 + 그라데이션 마스크 + 좌하단 워드마크 + 우하단 화살표) === */}
+          <section className="relative h-screen w-full overflow-hidden hero-bg anim-fade-in">
+            <div className="absolute inset-0 hero-mask" />
+            <div className="absolute bottom-20 left-12 z-10 max-w-2xl">
+              <div className="eyebrow text-white/80 mb-4">Wedding Photography · Since 2010</div>
+              <h1 className="display-bold text-white text-[64px] sm:text-[88px] md:text-[120px] leading-[0.95]">
+                MARIAN<br/>WEDDING
+              </h1>
+              <p className="text-white/85 mt-6 max-w-md text-base leading-relaxed">
+                기억은 사진이 되고, 사진은 다시 기억이 됩니다. 단 하루의 약속을 영원의 기록으로.
+              </p>
+            </div>
+            <div className="absolute bottom-8 right-8 z-10 flex gap-2">
+              <button className="nav-arrow" onClick={() => setSlide((s) => (s - 1 + heroSlides.length) % heroSlides.length)}>‹</button>
+              <button className="nav-arrow" onClick={() => setSlide((s) => (s + 1) % heroSlides.length)}>›</button>
+            </div>
+            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+              {heroSlides.map((i) => (
+                <span key={i} className={cn("h-px transition-all", i === slide ? "w-12 bg-white" : "w-6 bg-white/40")} />
+              ))}
+            </div>
+          </section>
+
+          {/* === 메뉴 카테고리 (마리안 스타일 그리드) === */}
+          <section className="max-w-6xl mx-auto px-8 py-24">
+            <div className="text-center mb-16">
+              <div className="eyebrow text-primary mb-3">Our Service</div>
+              <h2 className="display-bold text-4xl md:text-5xl text-foreground">서비스 카테고리</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-border">
+              {[
+                { kr: "본식 스냅", en: "WEDDING CEREMONY" },
+                { kr: "가봉 스냅", en: "FITTING DAY" },
+                { kr: "프리 웨딩", en: "PRE-WEDDING" },
+                { kr: "데이트 스냅", en: "DATE" },
+                { kr: "제주 스냅", en: "JEJU" },
+                { kr: "해외 스냅", en: "ABROAD" },
+              ].map((item) => (
+                <a key={item.en} href="#" className="bg-background hover:bg-secondary transition-colors p-10 group">
+                  <div className="eyebrow text-muted-foreground mb-3 group-hover:text-primary transition-colors">{item.en}</div>
+                  <div className="display-bold text-2xl text-foreground">{item.kr}</div>
+                </a>
+              ))}
+            </div>
+          </section>
+
+          {/* === 예약 폼 카드 === */}
+          <section className="max-w-3xl mx-auto px-8 py-24">
+            <Card>
+              <CardHeader>
+                <CardTitle>예약 문의</CardTitle>
+                <CardDescription>아래 양식을 작성해주시면 24시간 이내 회신드립니다.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name">신부 이름</Label>
+                  <Input id="name" placeholder="홍길동" value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="date">예식일</Label>
+                    <Input id="date" type="date" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="venue">예식장</Label>
+                    <Input id="venue" placeholder="강남 그랜드 호텔" />
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center gap-2">
+                  <Checkbox id="ag" checked={agreed} onCheckedChange={setAgreed} />
+                  <Label htmlFor="ag">개인정보 수집·이용에 동의합니다</Label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge>NEW 2026</Badge>
+                  <Badge variant="outline">15TH</Badge>
+                </div>
+              </CardContent>
+              <CardFooter className="gap-3">
+                <Button variant="outline" className="flex-1">취소</Button>
+                <Button className="flex-1" disabled={!name || !agreed}>예약 문의 보내기</Button>
+              </CardFooter>
+            </Card>
+          </section>
+
+          {/* === Footer === */}
+          <footer className="border-t border-border bg-secondary/50">
+            <div className="max-w-6xl mx-auto px-8 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <div className="display-bold text-xl tracking-[0.2em] uppercase text-foreground">BRAND</div>
+                <div className="text-xs text-muted-foreground mt-2">© 2026 Brand. All rights reserved.</div>
+              </div>
+              <div className="eyebrow text-muted-foreground space-x-6">
+                <a href="#" className="hover:text-primary">INSTAGRAM</a>
+                <a href="#" className="hover:text-primary">KAKAO</a>
+                <a href="#" className="hover:text-primary">CONTACT</a>
+              </div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
