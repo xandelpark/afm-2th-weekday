@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/prototype-v1.html" }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
+}

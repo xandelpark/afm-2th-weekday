@@ -2,7 +2,9 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>Marian Wedding — Thank You Card</title>
   <!--
     AFM Design System / Marian Editorial Palette (shadcn token)
@@ -72,6 +74,7 @@
       --ring: 224 75% 14%;
       --radius: 0rem;
     }
+    html, body { max-width: 100%; overflow-x: hidden; }
     body {
       font-family: 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -95,15 +98,69 @@
     .lovely-blush { background: linear-gradient(180deg, #fdd9cd 0%, #f9bcae 100%); }
     /* 손글씨 hero "thank you" */
     .font-script { font-family: 'Allura', 'Great Vibes', cursive; font-weight: 400; }
-    /* 세로 조판 — 영화 엔딩 크레딧 / 일본 스타일 */
+    /* 세로 조판 — 한국어 종서 (감성 카드용) */
     .vrl-up  { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.04em; }
     .vrl-mix { writing-mode: vertical-rl; text-orientation: mixed; }
     /* 어절 사이 전각공백을 살짝 키워서 띄어쓰기가 또렷하게 보이도록 */
     .vrl-up.has-em-space { word-spacing: 0.15em; }
+
+    /* === 모바일 터치 최적화 === */
+    /* 텍스트 블록·핸들에 touch-action: none → 드래그가 페이지 스크롤로 새지 않게 */
+    [data-textblock] { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    [data-textblock] [data-resize-handle] { touch-action: none; }
+    /* 포스터 surface 안 사진/배경 영역 클릭으로 선택 해제 시에도 터치 동작 안전 */
+    .poster-surface { touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+    /* iOS 사파리 자동 줌 방지 — 입력 폰트 16px 이상 권장 */
+    input[type='text'], input[type='email'], input[type='password'], input[type='date'], input[type='number'], textarea, select {
+      font-size: 16px;
+    }
+    /* 큰 화면에선 다시 축소 */
+    @media (min-width: 640px) {
+      input[type='text'], input[type='email'], input[type='password'], input[type='date'], input[type='number'], textarea, select {
+        font-size: inherit;
+      }
+    }
+    /* 슬라이더 — 손가락 친화 트랙/엄지 */
+    input[type='range'] { height: 28px; -webkit-appearance: none; appearance: none; background: transparent; }
+    input[type='range']::-webkit-slider-runnable-track { height: 4px; background: hsl(var(--border)); border-radius: 2px; }
+    input[type='range']::-moz-range-track            { height: 4px; background: hsl(var(--border)); border-radius: 2px; }
+    input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; height: 18px; width: 18px; border-radius: 9999px; background: hsl(var(--primary)); margin-top: -7px; border: 2px solid hsl(var(--background)); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+    input[type='range']::-moz-range-thumb     { height: 18px; width: 18px; border-radius: 9999px; background: hsl(var(--primary)); border: 2px solid hsl(var(--background)); }
+    input[type='range']:disabled { opacity: 0.4; }
+
+    /* iPhone safe-area */
+    .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
   </style>
 </head>
 <body class="bg-background text-foreground">
   <div id="root"></div>
+  <script>
+    // 임시 디버그 — viewport 폭과 scrollWidth 화면에 표시 (캡쳐 후 제거 예정)
+    if (location.search.includes('debug=1')) {
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const w = window.innerWidth;
+          const sw = document.documentElement.scrollWidth;
+          const tag = document.createElement('div');
+          tag.style.cssText = 'position:fixed;top:0;left:0;z-index:9999;background:#ff0066;color:white;padding:4px 8px;font:12px/1.2 monospace';
+          tag.textContent = `vp:${w} sw:${sw} diff:${sw - w}`;
+          document.body.appendChild(tag);
+          // 가장 wide한 자식 element 찾기
+          let widest = null, widestRight = 0;
+          document.querySelectorAll('*').forEach(el => {
+            const r = el.getBoundingClientRect();
+            if (r.right > widestRight && r.width > 1) { widestRight = r.right; widest = el; }
+          });
+          if (widest && widestRight > w) {
+            const tag2 = document.createElement('div');
+            tag2.style.cssText = 'position:fixed;top:24px;left:0;z-index:9999;background:#0066ff;color:white;padding:4px 8px;font:11px/1.2 monospace;max-width:90vw';
+            tag2.textContent = `widest right:${widestRight.toFixed(0)} <${widest.tagName}.${(widest.className||'').toString().slice(0,40)}>`;
+            document.body.appendChild(tag2);
+          }
+        }, 800);
+      });
+    }
+  </script>
 
   <script type="text/babel">
     // ========================================
@@ -114,6 +171,29 @@
 
     // 캔바형 스냅 가이드 — surface가 자식 TextBlock의 드래그를 listen하고 가이드 라인을 그림
     const SurfaceContext = createContext(null);
+    const SessionContext = createContext({ session: null, logout: () => {} });
+
+    // ========================================
+    // 🔐 Auth & Storage (localStorage 기반 — Phase 2에서 Supabase로 전환)
+    // ========================================
+    const STORAGE = { signups: 'marian.signups', session: 'marian.session' };
+    const ADMIN_ID = 'marian';
+    const ADMIN_PW = 'marian2026';
+    function readSignups() {
+      try { return JSON.parse(localStorage.getItem(STORAGE.signups) || '[]'); } catch { return []; }
+    }
+    function writeSignups(arr) {
+      try { localStorage.setItem(STORAGE.signups, JSON.stringify(arr)); } catch {}
+    }
+    function readSession() {
+      try { return JSON.parse(localStorage.getItem(STORAGE.session) || 'null'); } catch { return null; }
+    }
+    function writeSession(s) {
+      try {
+        if (s) localStorage.setItem(STORAGE.session, JSON.stringify(s));
+        else   localStorage.removeItem(STORAGE.session);
+      } catch {}
+    }
     function PosterSurface({ className = '', children }) {
       const surfaceRef = useRef(null);
       const [guides, setGuides] = useState([]);
@@ -159,12 +239,12 @@
     function Label({ className = '', htmlFor, children }) {
       return <label htmlFor={htmlFor} className={cn('eyebrow text-foreground', className)}>{children}</label>;
     }
-    function Card({ className = '', ...p })        { return <div className={cn('border border-border bg-card text-card-foreground', className)} {...p} />; }
-    function CardHeader({ className = '', ...p })  { return <div className={cn('flex flex-col space-y-2 p-6 border-b border-border', className)} {...p} />; }
+    function Card({ className = '', ...p })        { return <div className={cn('w-full min-w-0 box-border border border-border bg-card text-card-foreground', className)} {...p} />; }
+    function CardHeader({ className = '', ...p })  { return <div className={cn('flex flex-col space-y-2 p-4 sm:p-6 border-b border-border', className)} {...p} />; }
     function CardTitle({ className = '', ...p })   { return <h3 className={cn('display-bold text-xl text-foreground', className)} {...p} />; }
     function CardDescription({ className = '', ...p }) { return <p className={cn('text-sm text-muted-foreground', className)} {...p} />; }
-    function CardContent({ className = '', ...p }) { return <div className={cn('p-6', className)} {...p} />; }
-    function CardFooter({ className = '', ...p })  { return <div className={cn('flex items-center p-6 pt-0', className)} {...p} />; }
+    function CardContent({ className = '', ...p }) { return <div className={cn('p-4 sm:p-6', className)} {...p} />; }
+    function CardFooter({ className = '', ...p })  { return <div className={cn('flex items-center p-4 sm:p-6 pt-0 sm:pt-0', className)} {...p} />; }
     function Badge({ variant = 'default', className = '', ...p }) {
       const base = 'inline-flex items-center border px-2.5 py-0.5 eyebrow';
       const variants = {
@@ -258,9 +338,13 @@
         };
       };
 
-      const onMouseDown = (ev) => {
+      const onPointerDown = (ev) => {
+        if (ev.button !== undefined && ev.button !== 0) return; // 좌클릭/터치만
         ev.stopPropagation();
+        ev.preventDefault();
         onSelect?.(id);
+        const target = ev.currentTarget;
+        try { target.setPointerCapture(ev.pointerId); } catch {}
         const startX = ev.clientX, startY = ev.clientY;
         const base = { x: e.x, y: e.y };
         const move = (mv) => {
@@ -271,17 +355,23 @@
           onChange?.(id, { x: snap.x, y: snap.y });
         };
         const up = () => {
+          try { target.releasePointerCapture(ev.pointerId); } catch {}
           ctx?.setGuides?.([]);
-          window.removeEventListener('mousemove', move);
-          window.removeEventListener('mouseup', up);
+          target.removeEventListener('pointermove', move);
+          target.removeEventListener('pointerup', up);
+          target.removeEventListener('pointercancel', up);
         };
-        window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', up);
+        target.addEventListener('pointermove', move);
+        target.addEventListener('pointerup', up);
+        target.addEventListener('pointercancel', up);
       };
-      const onResize = (ev) => {
+      const onResizePointerDown = (ev) => {
+        if (ev.button !== undefined && ev.button !== 0) return;
         ev.stopPropagation();
         ev.preventDefault();
         onSelect?.(id);
+        const target = ev.currentTarget;
+        try { target.setPointerCapture(ev.pointerId); } catch {}
         const startX = ev.clientX, startY = ev.clientY;
         const baseScale = e.scale ?? 1;
         const move = (mv) => {
@@ -290,11 +380,14 @@
           onChange?.(id, { scale: +next.toFixed(3) });
         };
         const up = () => {
-          window.removeEventListener('mousemove', move);
-          window.removeEventListener('mouseup', up);
+          try { target.releasePointerCapture(ev.pointerId); } catch {}
+          target.removeEventListener('pointermove', move);
+          target.removeEventListener('pointerup', up);
+          target.removeEventListener('pointercancel', up);
         };
-        window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', up);
+        target.addEventListener('pointermove', move);
+        target.addEventListener('pointerup', up);
+        target.addEventListener('pointercancel', up);
       };
       const transform = `translate(${e.x}px, ${e.y}px) scale(${e.scale ?? 1})`;
       const origin = anchor === 'top-left' ? 'top left' : anchor === 'top-center' ? 'top center' : anchor === 'bottom-left' ? 'bottom left' : 'center';
@@ -302,7 +395,7 @@
         <div
           ref={ref}
           data-textblock={id}
-          onMouseDown={onMouseDown}
+          onPointerDown={onPointerDown}
           onClick={(ev) => ev.stopPropagation()}
           className={cn('relative select-none cursor-move', selected && 'outline outline-1 outline-dashed outline-primary outline-offset-4', className)}
           style={{ transform, transformOrigin: origin }}
@@ -310,10 +403,11 @@
           {children}
           {selected && (
             <span
-              onMouseDown={onResize}
+              data-resize-handle
+              onPointerDown={onResizePointerDown}
               onClick={(ev) => ev.stopPropagation()}
               title="크기 조절"
-              className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full border border-white shadow cursor-nwse-resize"
+              className="absolute -bottom-2 -right-2 w-5 h-5 bg-primary rounded-full border-2 border-white shadow cursor-nwse-resize"
             />
           )}
         </div>
@@ -437,14 +531,20 @@
     // ========================================
     // 📚 Domain Data — 카테고리, 더미 사진, 카피 풀
     // ========================================
-    // 사용자 업로드 사진 객체에서 img 스타일을 만든다 (objectPosition + scale).
+    // 사용자 업로드 사진 객체에서 img 스타일을 만든다 (translate + scale).
+    // object-cover만으로는 사진 AR이 컨테이너 AR과 일치할 때 가로 overflow가 생기지 않아
+    // objectPosition X가 무용해진다 → 항상 베이스 1.2x 줌을 깔고 translate로 패닝.
     // photo: { url, x, y, scale } | undefined
     function applyPhotoStyle(p) {
       if (!p) return undefined;
       const x = p.x ?? 50, y = p.y ?? 50, s = p.scale ?? 100;
+      const totalScale = (s / 100) + 0.2; // 1.2 ~ 2.7 — 항상 overflow 보장
+      const overflowPct = (totalScale - 1) * 50; // 한쪽 여유분 (% of element)
+      const tx = -((x - 50) / 50) * overflowPct; // x=0 → +overflow, x=100 → -overflow
+      const ty = -((y - 50) / 50) * overflowPct;
       return {
-        objectPosition: `${x}% ${y}%`,
-        transform: `scale(${s / 100})`,
+        objectFit: 'cover',
+        transform: `translate(${tx}%, ${ty}%) scale(${totalScale})`,
         transformOrigin: 'center',
       };
     }
@@ -476,11 +576,23 @@
     // ========================================
     // 🖼️ Poster Renders (제품 결과물 — 자체 비주얼 정책 유지, 셸 토큰과 분리)
     // ========================================
-    function PosterMinimal({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy }) {
+    function computeOverlay(o) {
+      if (!o) return undefined;
+      const tx = (((o.x ?? 50) - 50) / 50) * 60;
+      const ty = (((o.y ?? 50) - 50) / 50) * 60;
+      const op = (o.opacity ?? 100) / 100;
+      return {
+        transform: `translate(${tx}px, ${ty}px)`,
+        opacity: op,
+        ...(o.color ? { color: o.color } : {}),
+      };
+    }
+    function PosterMinimal({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy, overlay }) {
       const c = COPY[category];
       const src = photo?.url || PHOTOS[category];
       const imgStyle = applyPhotoStyle(photo);
       const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
       const TB = (id, anchor, className, children) => (
         <TextBlock id={id} anchor={anchor} className={className}
           edit={getTextEdit(textEdits, id)}
@@ -489,17 +601,17 @@
           {children}
         </TextBlock>
       );
-      // 마리안 웨딩 땡큐카드 · 러블리 미니멀 (yoshisnap 풍 인스타 피드)
+      // 마리안 웨딩 땡큐카드 · 러블리 미니멀 (인스타 피드용)
       {
         const i = c.invitation;
         return (
           <PosterSurface className="lovely-cream">
             {/* 상단 72% — 풀너비 사진 */}
             <div className="absolute inset-x-0 top-0 h-[72%] overflow-hidden">
-              <img src={src} className="w-full h-full object-cover" style={imgStyle} />
+              <img src={src} className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
             </div>
             {/* 하단 28% — 누드 핑크 띠 + 컴팩트 캡션 */}
-            <div className="absolute inset-x-0 bottom-0 h-[28%] flex flex-col items-center justify-center text-center px-6">
+            <div className="absolute inset-x-0 bottom-0 h-[28%] flex flex-col items-center justify-center text-center px-6" style={ov}>
               {TB('thanks', 'top-center', '', (
                 <div className="flex items-center gap-3" style={{ color: '#a3554a' }}>
                   <FlowerSprig className="w-10 h-3 opacity-85" />
@@ -522,11 +634,12 @@
         );
       }
     }
-    function PosterInvitation({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy }) {
+    function PosterInvitation({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy, overlay }) {
       const i = COPY[category].invitation;
       const src = photo?.url || PHOTOS[category];
       const imgStyle = applyPhotoStyle(photo);
       const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
       const TB = (id, anchor, className, children) => (
         <TextBlock id={id} anchor={anchor} className={className}
           edit={getTextEdit(textEdits, id)}
@@ -543,7 +656,7 @@
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(122,58,49,0.55) 0%, rgba(0,0,0,0.05) 28%, rgba(0,0,0,0.05) 60%, rgba(90,47,41,0.78) 100%)' }} />
 
             {/* 상단 — 3블록 (모노그램, 서브헤드, Thank you) */}
-            <div className="absolute inset-x-0 top-0 px-7 pt-7 flex flex-col items-center text-center text-white">
+            <div className="absolute inset-x-0 top-0 px-7 pt-7 flex flex-col items-center text-center text-white" style={ov}>
               {TB('mono', 'top-center', '', (
                 <div className="flex items-center gap-3">
                   <LeafSprig className="w-10 h-3 text-white/85" />
@@ -560,7 +673,7 @@
             </div>
 
             {/* 하단 — 4블록 (한국어, 디바이더, 일자/장소, 이름) */}
-            <div className="absolute inset-x-0 bottom-0 px-7 pb-7 flex flex-col items-center text-center text-white">
+            <div className="absolute inset-x-0 bottom-0 px-7 pb-7 flex flex-col items-center text-center text-white" style={ov}>
               {TB('thanks_kr', 'bottom-left', '', (
                 <div className="font-serif-kr text-[12px] leading-[1.75] text-white/95">{getCopy('thanks_kr', i.thanksKr)}</div>
               ))}
@@ -583,11 +696,12 @@
         );
       }
     }
-    function PosterEmotive({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy }) {
+    function PosterEmotive({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy, overlay }) {
       const c = COPY[category];
       const src = photo?.url || PHOTOS[category];
       const imgStyle = applyPhotoStyle(photo);
       const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
       const TB = (id, anchor, className, children) => (
         <TextBlock id={id} anchor={anchor} className={className}
           edit={getTextEdit(textEdits, id)}
@@ -596,7 +710,7 @@
           {children}
         </TextBlock>
       );
-      // 마리안 웨딩 땡큐카드 감성 · 풀블리드 + 우측 세로 (영화 엔딩 크레딧 톤)
+      // 마리안 웨딩 땡큐카드 감성 · 풀블리드 + 우측 한국어 종서
       {
         const ink = '#f6efe6';
         return (
@@ -606,7 +720,7 @@
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.40) 100%)' }} />
 
             {/* 좌상단 — 메타 블록 */}
-            <div className="absolute left-6 top-6" style={{ color: ink }}>
+            <div className="absolute left-6 top-6" style={{ color: ink, ...ov }}>
               {TB('top_meta', 'top-left', '', (
                 <div>
                   <div className="text-[9px] tracking-[0.42em] uppercase opacity-85">{getCopy('tm_eyebrow', 'Wedding Day · Memento')}</div>
@@ -617,7 +731,11 @@
             </div>
 
             {/* 우측 — 한국어 두 컬럼 (한 블록) */}
-            <div className="absolute right-6 top-1/2 -translate-y-1/2" style={{ color: ink }}>
+            <div className="absolute right-6 top-1/2" style={{
+              color: ov?.color || ink,
+              transform: ov ? `translateY(-50%) ${ov.transform}` : 'translateY(-50%)',
+              ...(ov ? { opacity: ov.opacity } : {}),
+            }}>
               {TB('korean_vert', 'center', '', (
                 <div className="flex flex-row-reverse items-start gap-5">
                   <div className="vrl-up has-em-space font-serif-kr text-[20px]" style={{ fontWeight: 300 }}>
@@ -631,7 +749,7 @@
             </div>
 
             {/* 좌하단 크레딧 */}
-            <div className="absolute left-6 bottom-6" style={{ color: ink }}>
+            <div className="absolute left-6 bottom-6" style={{ color: ink, ...ov }}>
               {TB('credit', 'bottom-left', '', (
                 <div>
                   <div className="text-[9px] tracking-[0.42em] uppercase opacity-80">{getCopy('cr_eyebrow', 'Starring')}</div>
@@ -645,36 +763,59 @@
       }
     }
     const STYLE_DEFS = [
-      { key: 'minimal',    label: '미니멀',    desc: 'yoshisnap 풍 · 산세리프 · 여백 ↑',     Render: PosterMinimal },
+      { key: 'minimal',    label: '미니멀',    desc: '러블리 미니멀 · 산세리프 · 여백 ↑',    Render: PosterMinimal },
       { key: 'invitation', label: '청첩장',    desc: '세리프 · 신랑/신부/일시 슬롯',          Render: PosterInvitation },
-      { key: 'emotive',    label: '감성문구',  desc: 'miela 풍 · 풀블리드 + 한 두 줄 카피',   Render: PosterEmotive },
+      { key: 'emotive',    label: '감성문구',  desc: '한국어 종서 감성 · 풀블리드 + 한 두 줄 카피', Render: PosterEmotive },
     ];
 
     // ========================================
     // 🧩 Layout — Top Nav (sticky, 흰 배경 · 토큰)
     // ========================================
     function TopNav({ active, onNav, right }) {
+      const { session, logout } = useContext(SessionContext);
+      const isAdmin = session?.role === 'admin';
+      const tabs = [
+        { key: 'gallery', label: 'Editor' },
+        { key: 'flow',    label: 'User Flow' },
+        ...(isAdmin ? [{ key: 'admin', label: 'Admin' }] : []),
+      ];
       return (
         <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border">
-          <div className="max-w-[1280px] mx-auto px-6 h-16 flex items-center gap-6">
-            <div className="flex items-baseline gap-2">
-              <div className="display-bold text-lg tracking-[0.22em] uppercase text-foreground">Marian Wedding</div>
-              <span className="font-cormorant italic text-[14px] text-muted-foreground">— Thank You Card</span>
+          <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 sm:gap-6">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <div className="display-bold text-base sm:text-lg tracking-[0.18em] sm:tracking-[0.22em] uppercase text-foreground truncate">Marian Wedding</div>
+              <span className="font-cormorant italic text-[14px] text-muted-foreground hidden sm:inline">— Thank You Card</span>
             </div>
-            <Badge variant="outline">v1 Prototype</Badge>
+            <Badge variant="outline" className="hidden sm:inline-flex">v1 Prototype</Badge>
             <nav className="hidden md:flex items-center gap-6 ml-4 eyebrow text-muted-foreground">
-              {[
-                { key: 'gallery', label: 'Editor' },
-                { key: 'flow',    label: 'User Flow' },
-                { key: 'admin',   label: 'Admin' },
-              ].map(t => (
+              {tabs.map(t => (
                 <button key={t.key} onClick={() => onNav(t.key)}
                   className={cn('hover:text-primary transition-colors', active === t.key && 'text-primary')}>
                   {t.label}
                 </button>
               ))}
             </nav>
-            <div className="ml-auto flex items-center gap-2">{right}</div>
+            {/* 모바일 — 컴팩트 셀렉트로 페이지 전환 */}
+            <select
+              value={active}
+              onChange={(e) => onNav(e.target.value)}
+              aria-label="페이지 이동"
+              className="md:hidden ml-auto h-9 px-2 border border-input bg-background eyebrow shrink-0"
+              style={{ minWidth: '92px' }}
+            >
+              {tabs.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+            <div className="ml-auto hidden md:flex items-center gap-2">
+              {right}
+              {session && (
+                <>
+                  <span className="eyebrow text-muted-foreground">
+                    {isAdmin ? 'Admin · marian' : `${session.name}님`}
+                  </span>
+                  <button onClick={logout} className="eyebrow text-muted-foreground hover:text-destructive">로그아웃</button>
+                </>
+              )}
+            </div>
           </div>
         </header>
       );
@@ -686,12 +827,24 @@
     function GalleryScreen({ onNav }) {
       const [size, setSize] = useState('1080x1350');
       const ratioCls = size === '1080x1080' ? 'aspect-square' : 'aspect-[4/5]';
+      // 데모 파라미터 — ?demo=x | ?demo=y | ?demo=s 로 미니멀 thanks 블록을 미리 transform 적용해서 캡쳐 검증용
+      const demoMode = (() => {
+        try { return new URLSearchParams(window.location.search).get('demo') || ''; } catch { return ''; }
+      })();
       // 사진 (카테고리별) — 단순 url만
       const [userPhotos, setUserPhotos] = useState({}); // { wedding: blobURL, ... }
       // 카드별 편집 상태: cardEdits[cat][style] = { photo: {x,y,scale}, texts: { [id]: {x,y,scale} } }
-      const [cardEdits, setCardEdits] = useState({});
+      const [cardEdits, setCardEdits] = useState(() => {
+        if (demoMode === 'x') return { wedding: { minimal: { photo: { x: 50, y: 50, scale: 100 }, texts: { thanks: { x: 80, y: 0, scale: 1 } } } } };
+        if (demoMode === 'y') return { wedding: { minimal: { photo: { x: 50, y: 50, scale: 100 }, texts: { thanks: { x: 0, y: -40, scale: 1 } } } } };
+        if (demoMode === 's') return { wedding: { minimal: { photo: { x: 50, y: 50, scale: 100 }, texts: { thanks: { x: 0, y: 0, scale: 1.4 } } } } };
+        return {};
+      });
       // 선택된 항목: { cat, style, kind: 'text', id }  (사진은 항상 카드 컨트롤로 조정 — 선택 X)
-      const [selected, setSelected] = useState(null);
+      const [selected, setSelected] = useState(() => {
+        if (demoMode) return { cat: 'wedding', style: 'minimal', kind: 'text', id: 'thanks' };
+        return null;
+      });
 
       const handleFile = (catKey, file) => {
         if (!file) return;
@@ -733,7 +886,7 @@
       const resetCardCopyKey = (cat, style, key) => updateCardCopy(cat, style, key, '');
 
       const sizeToggle = (
-        <div className="flex items-center border border-input">
+        <div className="inline-flex items-center border border-input">
           {['1080x1350','1080x1080'].map(s => (
             <button key={s} onClick={() => setSize(s)}
               className={cn('h-10 px-4 text-xs eyebrow', size===s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary')}>
@@ -744,22 +897,27 @@
       );
 
       return (
-        <div className="min-h-screen">
-          <TopNav active="gallery" onNav={onNav} right={<>{sizeToggle}</>} />
+        <div className="min-h-screen overflow-x-hidden">
+          <TopNav active="gallery" onNav={onNav} />
 
           {/* Page header */}
-          <section className="max-w-[1280px] mx-auto px-6 pt-12 pb-8">
-            <div className="eyebrow text-primary mb-3">Marian Wedding · Thank You Card</div>
-            <h1 className="display-bold text-4xl md:text-5xl text-foreground leading-tight">결혼식 후 보내는 땡큐카드</h1>
-            <p className="text-sm text-muted-foreground mt-4 max-w-xl leading-relaxed">
-              마리안 웨딩 고객분들께 제공할 자동 땡큐카드 생성기. 본식 스냅 사진 한 장을 올리면
-              미니멀(인스타용) · 격식(정중한 감사장) · 감성(영화 엔딩 톤) 3가지 카드를 동시에 만들어 드립니다.
-              "수정 없이 바로 쓸 수 있는" 완성도가 목표예요.
-            </p>
+          <section className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 sm:pt-12 pb-6 sm:pb-8">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+              <div className="min-w-0">
+                <div className="eyebrow text-primary mb-3">Marian Wedding · Thank You Card</div>
+                <h1 className="display-bold text-3xl sm:text-4xl md:text-5xl text-foreground leading-tight">결혼식 후 보내는 땡큐카드</h1>
+                <p className="text-sm text-muted-foreground mt-3 sm:mt-4 max-w-xl leading-relaxed">
+                  마리안 웨딩이 우리 고객분들께 또 어떤 걸 해드릴 수 있을까 고민하다 만든
+                  자동 땡큐카드 생성기. 본식 스냅 한 장을 올리면 미니멀 · 격식 · 감성 3가지 카드를
+                  동시에 만들어 드립니다.
+                </p>
+              </div>
+              <div className="shrink-0">{sizeToggle}</div>
+            </div>
           </section>
 
           {/* === 본식 스냅 업로드 (단일) === */}
-          <section className="max-w-[1280px] mx-auto px-6">
+          <section className="max-w-[1280px] mx-auto px-4 sm:px-6">
             <Card>
               <CardHeader>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -812,7 +970,7 @@
           </section>
 
           {/* === 마리안 웨딩 땡큐카드 — 3 변형 === */}
-          <section className="max-w-[1280px] mx-auto px-6 mt-16">
+          <section className="max-w-[1280px] mx-auto px-4 sm:px-6 mt-16">
             <div className="flex items-end justify-between border-b border-border pb-4">
               <div>
                 <div className="eyebrow text-primary">3 Variants</div>
@@ -831,9 +989,9 @@
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
               {STYLE_DEFS.map(s => {
                 const weddingMeta = {
-                  minimal:    { label: '미니멀 땡큐',  desc: 'yoshisnap 톤 · 인스타 피드용 감사' },
+                  minimal:    { label: '미니멀 땡큐',  desc: '러블리 미니멀 · 인스타 피드용 감사' },
                   invitation: { label: '격식형 땡큐',  desc: '청첩장 톤의 정중한 감사장' },
-                  emotive:    { label: '감성 땡큐',    desc: 'miela 톤 · 풀블리드 + 한 줄 카피' },
+                  emotive:    { label: '감성 땡큐',    desc: '한국어 종서 감성 · 풀블리드 + 한 줄 카피' },
                 }[s.key];
                 const cat = 'wedding';
                 const ce = getCardEdit(cat, s.key);
@@ -844,19 +1002,19 @@
 
                 return (
                   <Card key={s.key}>
-                    <CardHeader className="p-5 border-b border-border">
-                      <div className="flex items-end justify-between">
-                        <div>
+                    <CardHeader className="p-4 sm:p-5 border-b border-border">
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="min-w-0">
                           <div className="display-bold text-base text-foreground">{weddingMeta.label}</div>
                           <div className="text-xs text-muted-foreground mt-1">{weddingMeta.desc}</div>
                         </div>
                         <Badge variant="outline">{size}</Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-5">
+                    <CardContent className="p-4 sm:p-5">
                       <div
                         className={cn('overflow-hidden border border-border', ratioCls)}
-                        onMouseDown={() => setSelected(null)}
+                        onPointerDown={() => setSelected(null)}
                       >
                         <s.Render
                           category={cat}
@@ -968,7 +1126,7 @@
 
 
           {/* 디자인 노트 */}
-          <section className="max-w-[1280px] mx-auto px-6 pb-24">
+          <section className="max-w-[1280px] mx-auto px-4 sm:px-6 pb-24">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border">
               {[
                 { t: '미니멀',   en: 'MINIMAL',     body: '여백을 사진 면적의 18~22%로 고정. 산세리프 1종 + 트래킹(0.32em)으로 무드 형성.' },
@@ -984,8 +1142,8 @@
             </div>
           </section>
 
-          <footer className="border-t border-border bg-secondary/40">
-            <div className="max-w-[1280px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <footer className="border-t border-border bg-secondary/40 safe-bottom">
+            <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
               <div className="display-bold tracking-[0.22em] uppercase text-foreground">Marian Wedding</div>
               <div className="eyebrow text-muted-foreground">Thank You Card · For Our Couples</div>
             </div>
@@ -1003,9 +1161,9 @@
       const [editing, setEditing] = useState(null);
 
       return (
-        <div className="min-h-screen">
+        <div className="min-h-screen overflow-x-hidden">
           <TopNav active="flow" onNav={onNav} right={<Badge variant="outline">{step.toUpperCase()}</Badge>} />
-          <div className="max-w-[480px] mx-auto px-6 py-10">
+          <div className="w-full max-w-[480px] mx-auto px-4 sm:px-6 py-10">
             {step === 'login' && <LoginPanel onNext={() => setStep('upload')} />}
             {step === 'upload' && <UploadPanel
               onSubmit={(s) => { setSubmitted(s); setStep('result'); }}
@@ -1118,7 +1276,7 @@
     function EditPanel({ styleKey, category, onBack }) {
       const [color, setColor] = useState('#ffffff');
       const [opacity, setOpacity] = useState(100);
-      const [pos, setPos] = useState({ x: 50, y: 80 });
+      const [pos, setPos] = useState({ x: 50, y: 50 });
       const Style = STYLE_DEFS.find(s => s.key === styleKey);
       const colorPresets = ['#ffffff', '#111111', '#7c5a3a', '#8a4a4a', '#3a5a7c', '#cfa75a'];
       return (
@@ -1128,7 +1286,7 @@
             <Badge variant="outline">{Style.label} · 텍스트만 조정</Badge>
           </div>
           <div className="overflow-hidden border border-border">
-            <Style.Render category={category} />
+            <Style.Render category={category} overlay={{ x: pos.x, y: pos.y, color, opacity }} />
           </div>
           <Card>
             <CardContent className="space-y-6">
@@ -1166,84 +1324,269 @@
     }
 
     // ========================================
-    // 📄 Page · Admin
+    // 🔐 AuthGate — 회원가입 신청 / 신랑·신부 로그인 / 관리자 로그인
+    // ========================================
+    function AuthGate({ onLogin }) {
+      const [mode, setMode] = useState('signup'); // signup | userLogin | adminLogin
+      const [signupForm, setSignupForm] = useState({ name: '', weddingDate: '' });
+      const [userForm, setUserForm] = useState({ name: '', weddingDate: '' });
+      const [adminPw, setAdminPw] = useState('');
+      const [msg, setMsg] = useState(null);
+
+      const submitSignup = () => {
+        const name = signupForm.name.trim();
+        const weddingDate = signupForm.weddingDate;
+        if (!name || !weddingDate) {
+          setMsg({ type: 'error', text: '이름과 예식일자를 모두 입력해 주세요.' });
+          return;
+        }
+        const all = readSignups();
+        if (all.some(s => s.name === name && s.weddingDate === weddingDate)) {
+          setMsg({ type: 'warn', text: '이미 같은 이름·예식일자로 신청한 내역이 있습니다.' });
+          return;
+        }
+        const id = 'u-' + Date.now().toString(36);
+        writeSignups([{ id, name, weddingDate, status: 'pending', appliedAt: new Date().toISOString() }, ...all]);
+        setMsg({ type: 'ok', text: '신청 완료. 마리안 운영자 승인 후 로그인하실 수 있습니다.' });
+        setSignupForm({ name: '', weddingDate: '' });
+      };
+
+      const submitUserLogin = () => {
+        const name = userForm.name.trim();
+        const weddingDate = userForm.weddingDate;
+        if (!name || !weddingDate) {
+          setMsg({ type: 'error', text: '이름과 예식일자를 입력해 주세요.' });
+          return;
+        }
+        const found = readSignups().find(s => s.name === name && s.weddingDate === weddingDate);
+        if (!found) {
+          setMsg({ type: 'error', text: '신청 내역이 없습니다. 회원가입 신청을 먼저 진행해 주세요.' });
+          return;
+        }
+        if (found.status === 'pending') {
+          setMsg({ type: 'warn', text: '아직 승인되지 않았습니다. 마리안 운영자 승인 대기 중.' });
+          return;
+        }
+        if (found.status === 'rejected') {
+          setMsg({ type: 'error', text: '신청이 거절되었습니다. 마리안 웨딩에 문의해 주세요.' });
+          return;
+        }
+        const sess = { role: 'user', userId: found.id, name: found.name, weddingDate: found.weddingDate };
+        writeSession(sess);
+        onLogin(sess);
+      };
+
+      const submitAdminLogin = () => {
+        if (adminPw !== ADMIN_PW) {
+          setMsg({ type: 'error', text: '비밀번호가 일치하지 않습니다.' });
+          return;
+        }
+        const sess = { role: 'admin' };
+        writeSession(sess);
+        onLogin(sess);
+      };
+
+      const TABS = [
+        { k: 'signup',     l: '회원가입' },
+        { k: 'userLogin',  l: '로그인' },
+        { k: 'adminLogin', l: '관리자' },
+      ];
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="eyebrow text-primary mb-2">Marian Wedding</div>
+              <CardTitle className="text-2xl">땡큐카드 서비스</CardTitle>
+              <CardDescription>
+                마리안 웨딩이 우리 고객분들께 또 어떤 걸 해드릴 수 있을까 고민하다 만든
+                자동 땡큐카드 생성기입니다. 결혼식 후 본식 스냅 한 장으로 3가지 톤의 감사 카드를 받아 보세요.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex border border-border">
+                {TABS.map(t => (
+                  <button key={t.k} onClick={() => { setMode(t.k); setMsg(null); }}
+                    className={cn('flex-1 h-10 text-xs eyebrow', mode === t.k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary')}>
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+
+              {mode === 'signup' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>이름 (신랑 또는 신부)</Label>
+                    <Input value={signupForm.name} onChange={e => setSignupForm({ ...signupForm, name: e.target.value })} placeholder="홍길동" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>예식일자</Label>
+                    <Input type="date" value={signupForm.weddingDate} onChange={e => setSignupForm({ ...signupForm, weddingDate: e.target.value })} />
+                  </div>
+                  <Button className="w-full" onClick={submitSignup}>가입 신청</Button>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    신청 후 마리안 운영자의 승인을 거쳐 사용 가능합니다. 승인 시 입력하신 이름·예식일자로 로그인하세요.
+                  </p>
+                </div>
+              )}
+
+              {mode === 'userLogin' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>이름</Label>
+                    <Input value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} placeholder="홍길동" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>예식일자</Label>
+                    <Input type="date" value={userForm.weddingDate} onChange={e => setUserForm({ ...userForm, weddingDate: e.target.value })} />
+                  </div>
+                  <Button className="w-full" onClick={submitUserLogin}>로그인</Button>
+                  <p className="text-[11px] text-muted-foreground">가입 신청 시 입력한 이름·예식일자로 로그인합니다.</p>
+                </div>
+              )}
+
+              {mode === 'adminLogin' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>아이디</Label>
+                    <Input value={ADMIN_ID} readOnly className="bg-secondary cursor-not-allowed" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>비밀번호</Label>
+                    <Input type="password" value={adminPw}
+                      onChange={e => setAdminPw(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') submitAdminLogin(); }} />
+                  </div>
+                  <Button className="w-full" onClick={submitAdminLogin}>관리자 로그인</Button>
+                  <p className="text-[11px] text-muted-foreground">마리안 운영자 전용 입구.</p>
+                </div>
+              )}
+
+              {msg && (
+                <div className={cn('text-xs p-3 border',
+                  msg.type === 'error' ? 'border-destructive text-destructive bg-destructive/5' :
+                  msg.type === 'warn'  ? 'border-amber-300 text-amber-700 bg-amber-50' :
+                                         'border-primary text-primary bg-primary/5'
+                )}>{msg.text}</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Page · Admin (마리안 운영자 — 회원가입 승인 큐)
     // ========================================
     function AdminScreen({ onNav }) {
-      const [accounts, setAccounts] = useState([
-        { id: 'u-001', email: 'jihye.minsu@marian.kr', status: 'active',   expiresAt: '2026-06-09', quotaUsed: 7,  quotaTotal: 50 },
-        { id: 'u-002', email: 'soyeon.donghyun@marian.kr', status: 'active',   expiresAt: '2026-06-22', quotaUsed: 12, quotaTotal: 50 },
-        { id: 'u-003', email: 'eunji.taemin@marian.kr',  status: 'disabled', expiresAt: '2026-04-30', quotaUsed: 50, quotaTotal: 50 },
-      ]);
-      const [draft, setDraft] = useState({ email: '', expiresAt: '2026-06-09', quotaTotal: 50 });
-      const issue = () => {
-        if (!draft.email) return;
-        setAccounts(prev => [{
-          id: 'u-' + (Math.random()*1e4|0).toString(36),
-          email: draft.email, status: 'active',
-          expiresAt: draft.expiresAt, quotaUsed: 0, quotaTotal: draft.quotaTotal,
-        }, ...prev]);
-        setDraft({ email: '', expiresAt: '2026-06-09', quotaTotal: 50 });
+      const [signups, setSignups] = useState(() => readSignups());
+      const refresh = () => setSignups(readSignups());
+      const update = (id, patch) => {
+        const next = readSignups().map(s => s.id === id ? { ...s, ...patch } : s);
+        writeSignups(next); setSignups(next);
       };
-      const toggle = (id) => setAccounts(prev => prev.map(a =>
-        a.id === id ? { ...a, status: a.status === 'active' ? 'disabled' : 'active' } : a
-      ));
+      const remove = (id) => {
+        const next = readSignups().filter(s => s.id !== id);
+        writeSignups(next); setSignups(next);
+      };
+      const approve = (id) => update(id, { status: 'approved', approvedAt: new Date().toISOString() });
+      const reject  = (id) => update(id, { status: 'rejected' });
+      const restore = (id) => update(id, { status: 'pending' });
+
+      const pending  = signups.filter(s => s.status === 'pending');
+      const approved = signups.filter(s => s.status === 'approved');
+      const rejected = signups.filter(s => s.status === 'rejected');
+
+      const Row = ({ s, actions }) => (
+        <div className="px-6 py-4 flex items-center gap-4 text-sm">
+          <div className="flex-1 min-w-0">
+            <div className="truncate text-foreground">{s.name}</div>
+            <div className="eyebrow text-muted-foreground mt-1">예식일 {s.weddingDate} · 신청 {(s.appliedAt||'').slice(0,10)}</div>
+          </div>
+          {actions}
+        </div>
+      );
+
       return (
-        <div className="min-h-screen">
+        <div className="min-h-screen overflow-x-hidden">
           <TopNav active="admin" onNav={onNav} />
-          <div className="max-w-[860px] mx-auto px-6 py-12 space-y-8">
+          <div className="w-full max-w-[860px] mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
             <div>
               <div className="eyebrow text-primary mb-2">Marian Admin</div>
-              <h1 className="display-bold text-3xl text-foreground">고객 계정 관리</h1>
-              <p className="text-sm text-muted-foreground mt-2">마리안 웨딩 신랑·신부에게만 발급. 자유 가입 없음. 슬기 운영자가 ID/PW·만료·할당량을 직접 관리합니다.</p>
+              <h1 className="display-bold text-3xl text-foreground">회원가입 승인 관리</h1>
+              <p className="text-sm text-muted-foreground mt-2">
+                마리안 웨딩에서 결혼식을 올리신 신랑·신부의 가입 신청을 검토하고 승인합니다.
+                자유 가입 없음 — 운영자 승인을 받아야만 땡큐카드 도구를 사용할 수 있습니다.
+              </p>
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">계정 발급</CardTitle>
-                <CardDescription>발급 시 임시 비밀번호가 사용자 이메일로 발송됩니다 (Phase 4 연동).</CardDescription>
+                <CardTitle className="text-lg">승인 대기 ({pending.length})</CardTitle>
+                <CardDescription>마리안에서 결혼식을 올리신 부부가 맞는지 확인 후 승인해 주세요.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-12 sm:col-span-5 space-y-2">
-                    <Label>이메일</Label>
-                    <Input value={draft.email} onChange={e => setDraft({...draft, email: e.target.value})} placeholder="bride.groom@marian.kr" />
+              <CardContent className="p-0">
+                {pending.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">대기 중인 신청이 없습니다.</div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {pending.map(s => (
+                      <Row key={s.id} s={s} actions={
+                        <>
+                          <Badge variant="outline">대기</Badge>
+                          <Button size="sm" onClick={() => approve(s.id)}>승인</Button>
+                          <Button variant="outline" size="sm" onClick={() => reject(s.id)}>거절</Button>
+                        </>
+                      } />
+                    ))}
                   </div>
-                  <div className="col-span-7 sm:col-span-4 space-y-2">
-                    <Label>만료일</Label>
-                    <Input value={draft.expiresAt} onChange={e => setDraft({...draft, expiresAt: e.target.value})} placeholder="YYYY-MM-DD" />
-                  </div>
-                  <div className="col-span-5 sm:col-span-2 space-y-2">
-                    <Label>할당량</Label>
-                    <Input type="number" value={draft.quotaTotal} onChange={e => setDraft({...draft, quotaTotal: +e.target.value})} />
-                  </div>
-                  <div className="col-span-12 sm:col-span-1 flex items-end">
-                    <Button className="w-full" onClick={issue}>발급</Button>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">계정 목록 ({accounts.length})</CardTitle>
+                <CardTitle className="text-lg">승인 완료 ({approved.length})</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {accounts.map(a => (
-                    <div key={a.id} className="px-6 py-4 flex items-center gap-4 text-sm">
-                      <div className="flex-1 min-w-0">
-                        <div className="truncate text-foreground">{a.email}</div>
-                        <div className="eyebrow text-muted-foreground mt-1">EXP {a.expiresAt} · {a.quotaUsed}/{a.quotaTotal}</div>
-                      </div>
-                      <Badge variant={a.status === 'active' ? 'default' : 'destructive'}>{a.status}</Badge>
-                      <Button variant="outline" size="sm" onClick={() => toggle(a.id)}>
-                        {a.status === 'active' ? '비활성' : '재활성'}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                {approved.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">승인된 신청이 없습니다.</div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {approved.map(s => (
+                      <Row key={s.id} s={s} actions={
+                        <>
+                          <Badge>승인</Badge>
+                          <Button variant="outline" size="sm" onClick={() => reject(s.id)}>비활성</Button>
+                          <Button variant="ghost" size="sm" onClick={() => remove(s.id)}>삭제</Button>
+                        </>
+                      } />
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {rejected.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">거절/비활성 ({rejected.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {rejected.map(s => (
+                      <Row key={s.id} s={s} actions={
+                        <>
+                          <Badge variant="destructive">거절</Badge>
+                          <Button variant="outline" size="sm" onClick={() => restore(s.id)}>복원</Button>
+                          <Button variant="ghost" size="sm" onClick={() => remove(s.id)}>삭제</Button>
+                        </>
+                      } />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       );
@@ -1252,11 +1595,30 @@
     // ========================================
     // 🚀 App Root
     // ========================================
+    // URL 쿼리 파라미터로 시작 화면을 강제할 수 있게 — 헤드리스 캡쳐·딥링크용
+    function readInitialView() {
+      try {
+        const v = new URLSearchParams(window.location.search).get('view');
+        return ['gallery','flow','admin'].includes(v) ? v : 'gallery';
+      } catch { return 'gallery'; }
+    }
     function App() {
-      const [view, setView] = useState('gallery'); // gallery | flow | admin
-      if (view === 'flow')  return <FlowScreen  onNav={setView} />;
-      if (view === 'admin') return <AdminScreen onNav={setView} />;
-      return <GalleryScreen onNav={setView} />;
+      const [session, setSession] = useState(() => readSession());
+      const [view, setView] = useState(readInitialView);
+      const logout = () => { writeSession(null); setSession(null); setView('gallery'); };
+
+      if (!session) return <AuthGate onLogin={setSession} />;
+
+      const isAdmin = session.role === 'admin';
+      const safeView = isAdmin ? view : (view === 'admin' ? 'gallery' : view);
+      const ctx = { session, logout };
+
+      let screen;
+      if (safeView === 'flow')       screen = <FlowScreen  onNav={setView} />;
+      else if (safeView === 'admin') screen = <AdminScreen onNav={setView} />;
+      else                           screen = <GalleryScreen onNav={setView} />;
+
+      return <SessionContext.Provider value={ctx}>{screen}</SessionContext.Provider>;
     }
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>

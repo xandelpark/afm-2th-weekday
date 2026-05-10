@@ -6,3 +6,4 @@ node_modules/
 .vercel
 .playwright-mcp/
 yt-dlp
+photo-poster/screenshots/
