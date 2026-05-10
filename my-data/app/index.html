@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>할 일 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const API = '/api';
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+
+    function Button({ children, variant = 'primary', size = 'md', onClick, disabled, className = '' }) {
+      const base = 'rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+      const variants = {
+        primary: 'bg-indigo-500 text-white hover:bg-indigo-600 focus:ring-indigo-400',
+        secondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-400',
+        danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-400',
+        ghost: 'bg-transparent text-gray-500 hover:bg-gray-100 focus:ring-gray-300',
+      };
+      const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2 text-sm', lg: 'px-6 py-3 text-base' };
+      return (
+        <button onClick={onClick} disabled={disabled}
+          className={`${base} ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}>
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ value, onChange, placeholder, className = '', ...props }) {
+      return (
+        <input value={value} onChange={onChange} placeholder={placeholder}
+          className={`w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-colors text-sm ${className}`}
+          {...props} />
+      );
+    }
+
+    function Card({ children, className = '' }) {
+      return <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-5 ${className}`}>{children}</div>;
+    }
+
+    // ========================================
+    // 📄 Todo Item Component
+    // ========================================
+
+    function TodoItem({ todo, onToggle, onDelete }) {
+      return (
+        <div className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors group">
+          <button onClick={() => onToggle(todo.id)}
+            className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors
+              ${todo.done ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300 hover:border-indigo-400'}`}>
+            {todo.done && <span className="text-white text-xs">✓</span>}
+          </button>
+          <span className={`flex-1 text-sm ${todo.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+            {todo.title}
+          </span>
+          <button onClick={() => onDelete(todo.id)}
+            className="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-lg">
+            ×
+          </button>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 👤 User Item Component
+    // ========================================
+
+    function UserItem({ user, onDelete }) {
+      return (
+        <div className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors group">
+          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
+            {user.name.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-700 truncate">{user.name}</p>
+            <p className="text-xs text-gray-400 truncate">{user.email}</p>
+          </div>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
+            {user.role === 'admin' ? '관리자' : '멤버'}
+          </span>
+          <button onClick={() => onDelete(user.id)}
+            className="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-lg">
+            ×
+          </button>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 TodoPage Component
+    // ========================================
+
+    function TodoPage() {
+      const [todos, setTodos] = useState([]);
+      const [input, setInput] = useState('');
+      const [filter, setFilter] = useState('all');
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        fetch(`${API}/todos`).then(r => r.json()).then(json => {
+          if (json.success) setTodos(json.data);
+        }).finally(() => setLoading(false));
+      }, []);
+
+      const addTodo = async () => {
+        const text = input.trim();
+        if (!text) return;
+        const res = await fetch(`${API}/todos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: text })
+        });
+        const json = await res.json();
+        if (json.success) {
+          setTodos(prev => [...prev, json.data]);
+          setInput('');
+        }
+      };
+
+      const toggleTodo = async (id) => {
+        const todo = todos.find(t => t.id === id);
+        const res = await fetch(`${API}/todos/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ done: !todo.done })
+        });
+        const json = await res.json();
+        if (json.success) {
+          setTodos(prev => prev.map(t => t.id === id ? json.data : t));
+        }
+      };
+
+      const deleteTodo = async (id) => {
+        const res = await fetch(`${API}/todos/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+          setTodos(prev => prev.filter(t => t.id !== id));
+        }
+      };
+
+      const clearDone = async () => {
+        const res = await fetch(`${API}/todos`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+          setTodos(prev => prev.filter(t => !t.done));
+        }
+      };
+
+      const filtered = todos.filter(t => {
+        if (filter === 'active') return !t.done;
+        if (filter === 'done') return t.done;
+        return true;
+      });
+      const doneCount = todos.filter(t => t.done).length;
+
+      if (loading) return <p className="text-center text-gray-400 py-10">로딩중...</p>;
+
+      return (
+        <>
+          <Card className="mb-4">
+            <div className="flex gap-2">
+              <Input value={input} onChange={e => setInput(e.target.value)} placeholder="새로운 할 일을 입력하세요..."
+                onKeyDown={e => e.key === 'Enter' && addTodo()} />
+              <Button onClick={addTodo}>추가</Button>
+            </div>
+          </Card>
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex gap-1">
+                {['all', 'active', 'done'].map(f => (
+                  <button key={f} onClick={() => setFilter(f)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors
+                      ${filter === f ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100'}`}>
+                    {f === 'all' ? '전체' : f === 'active' ? '진행중' : '완료'}
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs text-gray-400">{doneCount}/{todos.length} 완료</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {filtered.length === 0 ? (
+                <p className="text-center text-gray-400 text-sm py-10">할 일이 없습니다</p>
+              ) : (
+                filtered.map(todo => (
+                  <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                ))
+              )}
+            </div>
+            {doneCount > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-100 text-right">
+                <Button variant="ghost" size="sm" onClick={clearDone}>완료 항목 삭제</Button>
+              </div>
+            )}
+          </Card>
+        </>
+      );
+    }
+
+    // ========================================
+    // 👤 UserPage Component
+    // ========================================
+
+    function UserPage() {
+      const [users, setUsers] = useState([]);
+      const [name, setName] = useState('');
+      const [email, setEmail] = useState('');
+      const [role, setRole] = useState('member');
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        fetch(`${API}/users`).then(r => r.json()).then(json => {
+          if (json.success) setUsers(json.data);
+        }).finally(() => setLoading(false));
+      }, []);
+
+      const addUser = async () => {
+        if (!name.trim() || !email.trim()) return;
+        const res = await fetch(`${API}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim(), email: email.trim(), role })
+        });
+        const json = await res.json();
+        if (json.success) {
+          setUsers(prev => [...prev, json.data]);
+          setName(''); setEmail(''); setRole('member');
+        }
+      };
+
+      const deleteUser = async (id) => {
+        const res = await fetch(`${API}/users/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+          setUsers(prev => prev.filter(u => u.id !== id));
+        }
+      };
+
+      if (loading) return <p className="text-center text-gray-400 py-10">로딩중...</p>;
+
+      return (
+        <>
+          <Card className="mb-4">
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="이름" />
+                <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일"
+                  onKeyDown={e => e.key === 'Enter' && addUser()} />
+              </div>
+              <div className="flex gap-2 items-center">
+                <select value={role} onChange={e => setRole(e.target.value)}
+                  className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                  <option value="member">멤버</option>
+                  <option value="admin">관리자</option>
+                </select>
+                <Button onClick={addUser} className="ml-auto">추가</Button>
+              </div>
+            </div>
+          </Card>
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-gray-600">전체 {users.length}명</p>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {users.length === 0 ? (
+                <p className="text-center text-gray-400 text-sm py-10">등록된 유저가 없습니다</p>
+              ) : (
+                users.map(user => (
+                  <UserItem key={user.id} user={user} onDelete={deleteUser} />
+                ))
+              )}
+            </div>
+          </Card>
+        </>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+
+    function App() {
+      const [tab, setTab] = useState('todos');
+
+      return (
+        <div className="min-h-screen bg-gray-50 py-12 px-4">
+          <div className="max-w-lg mx-auto">
+            <h1 className="text-2xl font-bold text-gray-800 text-center mb-6">할 일 관리</h1>
+
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex bg-white rounded-lg border border-gray-200 p-1">
+                <button onClick={() => setTab('todos')}
+                  className={`px-5 py-2 rounded-md text-sm font-medium transition-colors
+                    ${tab === 'todos' ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                  할 일
+                </button>
+                <button onClick={() => setTab('users')}
+                  className={`px-5 py-2 rounded-md text-sm font-medium transition-colors
+                    ${tab === 'users' ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                  유저
+                </button>
+              </div>
+            </div>
+
+            {tab === 'todos' ? <TodoPage /> : <UserPage />}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

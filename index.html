@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 이미지 생성기 - FLUX</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface2: #1e1e1e;
+      --border: #2a2a2a;
+      --text: #e5e5e5;
+      --text2: #888;
+      --accent: #7c5cfc;
+      --accent2: #9b7dff;
+      --success: #22c55e;
+      --error: #ef4444;
+      --radius: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* 헤더 */
+    .header {
+      text-align: center;
+      padding: 40px 20px 20px;
+    }
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header p {
+      color: var(--text2);
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    /* 레이아웃 */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+    }
+    @media (max-width: 768px) {
+      .container { grid-template-columns: 1fr; }
+    }
+
+    /* 카드 */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    /* 프롬프트 입력 */
+    .prompt-section { margin-bottom: 20px; }
+    .prompt-section label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      color: var(--text2);
+    }
+    .prompt-row {
+      display: flex;
+      gap: 10px;
+    }
+    textarea {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      color: var(--text);
+      font-size: 1rem;
+      resize: vertical;
+      min-height: 60px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .btn-generate {
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--accent), #ec4899);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn-generate:hover { opacity: 0.9; }
+    .btn-generate:active { transform: scale(0.97); }
+    .btn-generate:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* 고급 설정 */
+    .advanced-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 0.85rem;
+      cursor: pointer;
+      padding: 8px 0;
+      margin-bottom: 12px;
+    }
+    .advanced-toggle:hover { color: var(--text); }
+    .advanced-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
+    .field select, .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .field select:focus, .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* 스피너 */
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 상태 텍스트 */
+    .status-text {
+      font-size: 0.9rem;
+      min-height: 24px;
+      margin-bottom: 16px;
+    }
+    .status-text.loading { color: var(--accent2); }
+    .status-text.success { color: var(--success); }
+    .status-text.error { color: var(--error); }
+
+    /* 결과 */
+    .result-area { min-height: 200px; }
+    .result-card {
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+    .result-card img {
+      width: 100%;
+      display: block;
+    }
+    .result-info {
+      padding: 16px;
+    }
+    .result-prompt {
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .result-meta {
+      font-size: 0.8rem;
+      color: var(--text2);
+      margin-bottom: 10px;
+    }
+    .download-btn {
+      display: inline-block;
+      padding: 6px 14px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: opacity 0.2s;
+    }
+    .download-btn:hover { opacity: 0.8; }
+
+    .no-result {
+      text-align: center;
+      color: var(--text2);
+      padding: 60px 20px;
+    }
+
+    /* 히스토리 사이드바 */
+    .sidebar-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .sidebar-title h3 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .btn-clear {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .btn-clear:hover { border-color: var(--error); color: var(--error); }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--surface2);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .history-item:hover { background: #252525; }
+    .history-thumb {
+      width: 48px; height: 48px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .history-info { flex: 1; min-width: 0; }
+    .history-prompt {
+      font-size: 0.8rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-time {
+      font-size: 0.7rem;
+      color: var(--text2);
+    }
+    .history-delete {
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 0.9rem;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .history-item:hover .history-delete { opacity: 1; }
+    .history-delete:hover { color: var(--error); }
+
+    .empty-history {
+      text-align: center;
+      color: var(--text2);
+      font-size: 0.85rem;
+      padding: 40px 10px;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>AI 이미지 생성기</h1>
+    <p>FLUX 모델로 텍스트를 이미지로 변환하세요</p>
+  </div>
+
+  <div class="container">
+    <!-- 메인 영역 -->
+    <div>
+      <div class="card">
+        <div class="prompt-section">
+          <label>프롬프트</label>
+          <div class="prompt-row">
+            <textarea id="prompt-input" placeholder="생성하고 싶은 이미지를 설명해주세요... (예: a futuristic city at sunset, cyberpunk style)" rows="2"></textarea>
+            <button id="generate-btn" class="btn-generate">생성</button>
+          </div>
+        </div>
+
+        <button id="advanced-toggle" class="advanced-toggle">
+          <span class="arrow">▶</span> 고급 설정
+        </button>
+
+        <div id="advanced-panel" class="advanced-panel hidden">
+          <div class="field">
+            <label>모델</label>
+            <select id="model-select">
+              <option value="fal-ai/flux/dev">FLUX.1 Dev (고품질)</option>
+              <option value="fal-ai/flux/schnell">FLUX.1 Schnell (빠른)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>이미지 크기</label>
+            <select id="size-select">
+              <option value="landscape_4_3">가로 4:3</option>
+              <option value="landscape_16_9">가로 16:9</option>
+              <option value="square_hd">정사각형 HD</option>
+              <option value="square">정사각형</option>
+              <option value="portrait_4_3">세로 4:3</option>
+              <option value="portrait_16_9">세로 16:9</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>추론 단계 (Steps)</label>
+            <input id="steps-input" type="number" value="28" min="1" max="50" />
+          </div>
+          <div class="field">
+            <label>가이던스 스케일</label>
+            <input id="guidance-input" type="number" value="3.5" min="0" max="20" step="0.5" />
+          </div>
+          <div class="field">
+            <label>시드 (선택)</label>
+            <input id="seed-input" type="number" placeholder="랜덤" />
+          </div>
+        </div>
+
+        <div id="status-text" class="status-text"></div>
+        <span id="spinner" class="spinner hidden"></span>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <div id="result-area" class="result-area">
+          <p class="no-result">프롬프트를 입력하고 생성 버튼을 눌러주세요</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 사이드바 -->
+    <div class="card">
+      <div class="sidebar-title">
+        <h3>히스토리</h3>
+        <button id="clear-history-btn" class="btn-clear">전체 삭제</button>
+      </div>
+      <div id="history-list" class="history-list">
+        <p class="empty-history">아직 생성된 이미지가 없습니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="client.js"></script>
+</body>
+</html>
