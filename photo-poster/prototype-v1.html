@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marian Wedding — Thank You Card</title>
+  <!--
+    AFM Design System / Marian Editorial Palette (shadcn token)
+    프로젝트: SnapPoster (사진 스튜디오용 자동 포스터 합성)
+    팔레트 선택 사유: 도메인이 "웨딩/포토 스튜디오/포트폴리오" — README 가이드의 마리안 권장 케이스.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Allura&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Great+Vibes&family=Noto+Serif+KR:wght@200;300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary:     { DEFAULT: 'hsl(var(--primary))',     foreground: 'hsl(var(--primary-foreground))' },
+            secondary:   { DEFAULT: 'hsl(var(--secondary))',   foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted:       { DEFAULT: 'hsl(var(--muted))',       foreground: 'hsl(var(--muted-foreground))' },
+            accent:      { DEFAULT: 'hsl(var(--accent))',      foreground: 'hsl(var(--accent-foreground))' },
+            popover:     { DEFAULT: 'hsl(var(--popover))',     foreground: 'hsl(var(--popover-foreground))' },
+            card:        { DEFAULT: 'hsl(var(--card))',        foreground: 'hsl(var(--card-foreground))' },
+          },
+          borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '"Helvetica Neue"', 'Helvetica', 'Arial', 'system-ui', 'sans-serif'],
+            display: ['"Helvetica Neue"', 'Helvetica', 'Inter', 'Arial', 'sans-serif'],
+            'serif-kr': ['"Noto Serif KR"', 'serif'],
+            cormorant: ['"Cormorant Garamond"', 'serif'],
+            playfair: ['"Playfair Display"', 'serif'],
+            script: ['"Allura"', '"Great Vibes"', 'cursive'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ==== Marian Editorial palette ==== */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 13%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 13%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 0 0% 13%;
+      --primary: 224 75% 14%;          /* #091940 deep midnight navy */
+      --primary-foreground: 0 0% 100%;
+      --secondary: 0 0% 96%;
+      --secondary-foreground: 0 0% 20%;
+      --muted: 0 0% 96%;
+      --muted-foreground: 0 0% 40%;
+      --accent: 224 75% 14%;
+      --accent-foreground: 0 0% 100%;
+      --destructive: 0 70% 45%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 0 0% 87%;
+      --input: 0 0% 87%;
+      --ring: 224 75% 14%;
+      --radius: 0rem;
+    }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .display-bold {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    .eyebrow {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+    }
+    /* 청첩장 스타일에서 사용하는 세로 디바이더 */
+    .vline::after { content:''; display:block; width:1px; height:36px; background: currentColor; margin: 6px auto 0; opacity:.5; }
+    /* 러블리 톤 — 누드 핑크 베이스 (강화) */
+    .lovely-cream { background: linear-gradient(180deg, #fde2d8 0%, #fac9bd 100%); }
+    .lovely-blush { background: linear-gradient(180deg, #fdd9cd 0%, #f9bcae 100%); }
+    /* 손글씨 hero "thank you" */
+    .font-script { font-family: 'Allura', 'Great Vibes', cursive; font-weight: 400; }
+    /* 세로 조판 — 영화 엔딩 크레딧 / 일본 스타일 */
+    .vrl-up  { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.04em; }
+    .vrl-mix { writing-mode: vertical-rl; text-orientation: mixed; }
+    /* 어절 사이 전각공백을 살짝 키워서 띄어쓰기가 또렷하게 보이도록 */
+    .vrl-up.has-em-space { word-spacing: 0.15em; }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useMemo, useRef, useEffect, useContext, createContext } = React;
+    const cn = (...c) => c.filter(Boolean).join(' ');
+
+    // 캔바형 스냅 가이드 — surface가 자식 TextBlock의 드래그를 listen하고 가이드 라인을 그림
+    const SurfaceContext = createContext(null);
+    function PosterSurface({ className = '', children }) {
+      const surfaceRef = useRef(null);
+      const [guides, setGuides] = useState([]);
+      return (
+        <SurfaceContext.Provider value={{ surfaceRef, setGuides }}>
+          <div ref={surfaceRef} className={cn('aspect-[4/5] w-full relative overflow-hidden poster-surface', className)}>
+            {children}
+            {guides.length > 0 && (
+              <div className="pointer-events-none absolute inset-0 z-50">
+                {guides.map((g, i) => g.type === 'v'
+                  ? <div key={i} className="absolute top-0 bottom-0" style={{ left: g.pos, borderLeft: '1px dashed #ec4899' }} />
+                  : <div key={i} className="absolute left-0 right-0" style={{ top: g.pos, borderTop: '1px dashed #ec4899' }} />
+                )}
+              </div>
+            )}
+          </div>
+        </SurfaceContext.Provider>
+      );
+    }
+
+    // ========================================
+    // 🎨 Design System (shadcn 토큰 기반 — components.md 규약)
+    // ========================================
+    function Button({ variant = 'default', size = 'default', className = '', ...p }) {
+      const base = 'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+      const variants = {
+        default:     'bg-primary text-primary-foreground hover:bg-primary/90 tracking-wider uppercase',
+        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 tracking-wider uppercase',
+        outline:     'border border-foreground/30 bg-transparent text-foreground hover:bg-primary hover:border-primary hover:text-primary-foreground tracking-wider uppercase',
+        secondary:   'bg-secondary text-secondary-foreground hover:bg-secondary/80 tracking-wider uppercase',
+        ghost:       'text-foreground hover:bg-secondary',
+        link:        'text-primary underline-offset-4 hover:underline',
+      };
+      const sizes = { default: 'h-11 px-6', sm: 'h-9 px-4 text-xs', lg: 'h-14 px-10 text-sm', icon: 'h-10 w-10' };
+      return <button className={cn(base, variants[variant], sizes[size], className)} {...p} />;
+    }
+    function Input({ className = '', ...p }) {
+      return <input className={cn('flex h-11 w-full border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring', className)} {...p} />;
+    }
+    function Select({ className = '', children, ...p }) {
+      return <select className={cn('flex h-11 border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring', className)} {...p}>{children}</select>;
+    }
+    function Label({ className = '', htmlFor, children }) {
+      return <label htmlFor={htmlFor} className={cn('eyebrow text-foreground', className)}>{children}</label>;
+    }
+    function Card({ className = '', ...p })        { return <div className={cn('border border-border bg-card text-card-foreground', className)} {...p} />; }
+    function CardHeader({ className = '', ...p })  { return <div className={cn('flex flex-col space-y-2 p-6 border-b border-border', className)} {...p} />; }
+    function CardTitle({ className = '', ...p })   { return <h3 className={cn('display-bold text-xl text-foreground', className)} {...p} />; }
+    function CardDescription({ className = '', ...p }) { return <p className={cn('text-sm text-muted-foreground', className)} {...p} />; }
+    function CardContent({ className = '', ...p }) { return <div className={cn('p-6', className)} {...p} />; }
+    function CardFooter({ className = '', ...p })  { return <div className={cn('flex items-center p-6 pt-0', className)} {...p} />; }
+    function Badge({ variant = 'default', className = '', ...p }) {
+      const base = 'inline-flex items-center border px-2.5 py-0.5 eyebrow';
+      const variants = {
+        default:     'border-transparent bg-primary text-primary-foreground',
+        secondary:   'border-transparent bg-secondary text-secondary-foreground',
+        destructive: 'border-transparent bg-destructive text-destructive-foreground',
+        outline:     'border-foreground/40 text-foreground',
+      };
+      return <span className={cn(base, variants[variant], className)} {...p} />;
+    }
+    function Separator({ className = '' }) { return <div className={cn('h-px w-full bg-border', className)} />; }
+
+    // 캔바 라이트 — 텍스트 블록 (클릭 선택 + 드래그 이동 + 우하단 핸들로 scale + 스냅)
+    // edit: { x, y, scale }  — x/y는 px 오프셋(베이스 레이아웃 기준), scale은 1.0 디폴트
+    const SNAP_PX = 6;
+    function TextBlock({ id, edit, selected, onSelect, onChange, className = '', anchor = 'top-left', children }) {
+      const e = edit || { x: 0, y: 0, scale: 1 };
+      const ref = useRef(null);
+      const ctx = useContext(SurfaceContext);
+
+      // 드래그 시 스냅 + 가이드 계산
+      const computeSnap = (proposedX, proposedY) => {
+        const surface = ctx?.surfaceRef?.current;
+        const me = ref.current;
+        if (!surface || !me) return { x: proposedX, y: proposedY, guides: [] };
+        const sr = surface.getBoundingClientRect();
+        const myR = me.getBoundingClientRect();
+        const dx = proposedX - e.x;  // 현재 transform 대비 추가 변화량
+        const dy = proposedY - e.y;
+        const pr = {
+          left:   myR.left - sr.left + dx,
+          top:    myR.top  - sr.top  + dy,
+          width:  myR.width,
+          height: myR.height,
+        };
+        pr.right  = pr.left + pr.width;
+        pr.bottom = pr.top  + pr.height;
+        pr.cx     = pr.left + pr.width / 2;
+        pr.cy     = pr.top  + pr.height / 2;
+
+        // surface 기준점
+        const targetsX = [
+          { x: 0,            kind: 's-l' },
+          { x: sr.width / 2, kind: 's-c' },
+          { x: sr.width,     kind: 's-r' },
+        ];
+        const targetsY = [
+          { y: 0,             kind: 's-t' },
+          { y: sr.height / 2, kind: 's-m' },
+          { y: sr.height,     kind: 's-b' },
+        ];
+        // 다른 형제 텍스트 블록 기준점
+        surface.querySelectorAll('[data-textblock]').forEach(el => {
+          if (el === me) return;
+          const r = el.getBoundingClientRect();
+          targetsX.push(
+            { x: r.left  - sr.left,                   kind: 'b-l' },
+            { x: r.left  - sr.left + r.width / 2,     kind: 'b-c' },
+            { x: r.right - sr.left,                   kind: 'b-r' },
+          );
+          targetsY.push(
+            { y: r.top    - sr.top,                   kind: 'b-t' },
+            { y: r.top    - sr.top + r.height / 2,    kind: 'b-m' },
+            { y: r.bottom - sr.top,                   kind: 'b-b' },
+          );
+        });
+
+        const myXs = [pr.left, pr.cx, pr.right];
+        const myYs = [pr.top,  pr.cy, pr.bottom];
+        let bestX = null, bestY = null;
+        myXs.forEach(my => targetsX.forEach(t => {
+          const d = t.x - my;
+          if (Math.abs(d) <= SNAP_PX && (!bestX || Math.abs(d) < Math.abs(bestX.delta))) {
+            bestX = { delta: d, pos: t.x };
+          }
+        }));
+        myYs.forEach(my => targetsY.forEach(t => {
+          const d = t.y - my;
+          if (Math.abs(d) <= SNAP_PX && (!bestY || Math.abs(d) < Math.abs(bestY.delta))) {
+            bestY = { delta: d, pos: t.y };
+          }
+        }));
+
+        const guides = [];
+        if (bestX) guides.push({ type: 'v', pos: bestX.pos });
+        if (bestY) guides.push({ type: 'h', pos: bestY.pos });
+        return {
+          x: proposedX + (bestX?.delta ?? 0),
+          y: proposedY + (bestY?.delta ?? 0),
+          guides,
+        };
+      };
+
+      const onMouseDown = (ev) => {
+        ev.stopPropagation();
+        onSelect?.(id);
+        const startX = ev.clientX, startY = ev.clientY;
+        const base = { x: e.x, y: e.y };
+        const move = (mv) => {
+          const proposedX = base.x + (mv.clientX - startX);
+          const proposedY = base.y + (mv.clientY - startY);
+          const snap = computeSnap(proposedX, proposedY);
+          ctx?.setGuides?.(snap.guides);
+          onChange?.(id, { x: snap.x, y: snap.y });
+        };
+        const up = () => {
+          ctx?.setGuides?.([]);
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+      };
+      const onResize = (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        onSelect?.(id);
+        const startX = ev.clientX, startY = ev.clientY;
+        const baseScale = e.scale ?? 1;
+        const move = (mv) => {
+          const delta = ((mv.clientX - startX) + (mv.clientY - startY)) / 200;
+          const next = Math.max(0.4, Math.min(3, baseScale + delta));
+          onChange?.(id, { scale: +next.toFixed(3) });
+        };
+        const up = () => {
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+      };
+      const transform = `translate(${e.x}px, ${e.y}px) scale(${e.scale ?? 1})`;
+      const origin = anchor === 'top-left' ? 'top left' : anchor === 'top-center' ? 'top center' : anchor === 'bottom-left' ? 'bottom left' : 'center';
+      return (
+        <div
+          ref={ref}
+          data-textblock={id}
+          onMouseDown={onMouseDown}
+          onClick={(ev) => ev.stopPropagation()}
+          className={cn('relative select-none cursor-move', selected && 'outline outline-1 outline-dashed outline-primary outline-offset-4', className)}
+          style={{ transform, transformOrigin: origin }}
+        >
+          {children}
+          {selected && (
+            <span
+              onMouseDown={onResize}
+              onClick={(ev) => ev.stopPropagation()}
+              title="크기 조절"
+              className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full border border-white shadow cursor-nwse-resize"
+            />
+          )}
+        </div>
+      );
+    }
+    // 베이스 transform이 0인 helper
+    function getTextEdit(texts, id) { return texts?.[id] || { x: 0, y: 0, scale: 1 }; }
+
+    // 텍스트 블록 안의 편집 가능한 텍스트 필드 메타.
+    // PosterX 컴포넌트가 getCopy(blockId, fieldKey, defaultText)로 사용한다.
+    // 카드 밑 컨트롤 패널이 selected 블록의 fields를 input으로 노출한다.
+    const TEXT_FIELDS = {
+      wedding: {
+        minimal: {
+          thanks: [{ key: 'thanks_en', label: 'Thank you (영문)' }],
+          korean: [{ key: 'korean',    label: '한국어' }],
+          couple: [
+            { key: 'couple_en',   label: '이름' },
+            { key: 'couple_date', label: '날짜' },
+          ],
+        },
+        invitation: {
+          mono:      [{ key: 'mono',      label: '모노그램' }],
+          subhead:   [{ key: 'subhead',   label: '서브헤드' }],
+          hero:      [{ key: 'hero',      label: '헤드라인' }],
+          thanks_kr: [{ key: 'thanks_kr', label: '한국어 감사', textarea: true }],
+          datevenue: [
+            { key: 'date',  label: '일자' },
+            { key: 'venue', label: '장소' },
+          ],
+          couple:    [{ key: 'couple',    label: '이름' }],
+        },
+        emotive: {
+          top_meta: [
+            { key: 'tm_eyebrow', label: 'Eyebrow' },
+            { key: 'tm_date',    label: '날짜' },
+            { key: 'tm_sub',     label: 'Sub' },
+          ],
+          korean_vert: [
+            { key: 'kv1', label: '한국어 1행' },
+            { key: 'kv2', label: '한국어 2행' },
+          ],
+          credit: [
+            { key: 'cr_eyebrow', label: 'Eyebrow' },
+            { key: 'cr_name',    label: '이름' },
+            { key: 'cr_fin',     label: '엔딩' },
+          ],
+        },
+      },
+    };
+    function makeGetCopy(copy) {
+      return (key, defaultText) => {
+        const v = copy?.[key];
+        return v == null || v === '' ? defaultText : v;
+      };
+    }
+
+    // 카드 밑 컴팩트 슬라이더 한 줄
+    function SliderRow({ label, value, min, max, suffix = '', onChange, disabled }) {
+      return (
+        <div className={cn('flex items-center gap-2 text-[10px]', disabled ? 'opacity-40' : 'text-muted-foreground')}>
+          <span className="w-5 eyebrow">{label}</span>
+          <input
+            type="range" min={min} max={max} value={value}
+            disabled={disabled}
+            onChange={(e) => onChange(+e.target.value)}
+            className="flex-1 accent-primary"
+          />
+          <span className="w-10 text-right tabular-nums">{value}{suffix}</span>
+        </div>
+      );
+    }
+
+    // 작은 잎 라인 일러스트 — 러블리 톤 장식 (좌·우 미러)
+    function LeafSprig({ className = '', mirror = false }) {
+      return (
+        <svg viewBox="0 0 60 24" className={className} fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" style={mirror ? { transform: 'scaleX(-1)' } : undefined}>
+          <path d="M3 12 C 18 12, 30 12, 56 12" />
+          <path d="M14 12 C 14 8, 16 6, 19 5"  />
+          <path d="M14 12 C 14 16, 16 18, 19 19" />
+          <path d="M24 12 C 24 9, 26 7, 29 6.5" />
+          <path d="M24 12 C 24 15, 26 17, 29 17.5" />
+          <path d="M34 12 C 34 9.5, 36 8, 39 7.6" />
+          <path d="M34 12 C 34 14.5, 36 16, 39 16.4" />
+          <path d="M44 12 C 44 10.5, 46 9.5, 48 9.2" />
+          <path d="M44 12 C 44 13.5, 46 14.5, 48 14.8" />
+        </svg>
+      );
+    }
+    function HeartTiny({ className = '' }) {
+      return (
+        <svg viewBox="0 0 20 20" className={className} fill="currentColor">
+          <path d="M10 17s-6-3.6-6-8a4 4 0 0 1 6-3.5A4 4 0 0 1 16 9c0 4.4-6 8-6 8z" opacity="0.85" />
+        </svg>
+      );
+    }
+    // 가는 라인 꽃·잎 사이드 장식 (좌·우 미러)
+    function FlowerSprig({ className = '', mirror = false }) {
+      return (
+        <svg viewBox="0 0 64 28" className={className} fill="none" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" style={mirror ? { transform: 'scaleX(-1)' } : undefined}>
+          <path d="M2 14 C 18 14, 34 14, 60 14" />
+          <path d="M14 14 C 14 9, 17 7, 21 6.5" />
+          <path d="M14 14 C 14 19, 17 21, 21 21.5" />
+          <path d="M26 14 C 26 11, 28 9.5, 31 9" />
+          <path d="M26 14 C 26 17, 28 18.5, 31 19" />
+          {/* 꽃봉오리 */}
+          <circle cx="40" cy="9.5" r="1.6" fill="currentColor" stroke="none" opacity="0.85" />
+          <path d="M38.4 9.5 C 38.4 7.5, 41.6 7.5, 41.6 9.5" />
+          <path d="M38.4 9.5 C 38.4 11.5, 41.6 11.5, 41.6 9.5" />
+          <path d="M40 14 L 40 11" />
+          {/* 또 다른 꽃봉오리 */}
+          <circle cx="50" cy="18" r="1.4" fill="currentColor" stroke="none" opacity="0.85" />
+          <path d="M50 14 L 50 16.6" />
+          {/* 잎 두 장 */}
+          <path d="M44 14 C 46 12.5, 48 12.5, 49.5 13.6" />
+          <path d="M44 14 C 46 15.5, 48 15.5, 49.5 14.4" />
+        </svg>
+      );
+    }
+
+    // ========================================
+    // 📚 Domain Data — 카테고리, 더미 사진, 카피 풀
+    // ========================================
+    // 사용자 업로드 사진 객체에서 img 스타일을 만든다 (objectPosition + scale).
+    // photo: { url, x, y, scale } | undefined
+    function applyPhotoStyle(p) {
+      if (!p) return undefined;
+      const x = p.x ?? 50, y = p.y ?? 50, s = p.scale ?? 100;
+      return {
+        objectPosition: `${x}% ${y}%`,
+        transform: `scale(${s / 100})`,
+        transformOrigin: 'center',
+      };
+    }
+
+    // v1 = 마리안 웨딩 단일 카테고리 (본식 스냅 = 땡큐카드)
+    const PHOTOS = {
+      wedding: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=80',
+    };
+    const CATEGORIES = [
+      { key: 'wedding', label: '본식 스냅 — 땡큐카드', en: 'Thank You Card' },
+    ];
+    const COPY = {
+      wedding: {
+        minimalEn: 'Thank You for Being There',
+        minimalKr: '함께해 주셔서 감사합니다',
+        emotiveKr: '당신이 있던 자리, 가장 환했습니다',
+        emotiveSub: '— thank you, from both of us',
+        invitation: {
+          coupleEn:     'JIHYE  ·  MINSU',
+          dateEn:       '2026 . 06 . 14  SUN',
+          venueKr:      '그랜드 컨벤션 5F 더 그레이스홀',
+          thanksHeadEn: 'with all our love',
+          thanksKr:     '오신 자리 덕분에 더 빛나는 날이었습니다',
+        },
+        no: 'No. 0421',
+      },
+    };
+
+    // ========================================
+    // 🖼️ Poster Renders (제품 결과물 — 자체 비주얼 정책 유지, 셸 토큰과 분리)
+    // ========================================
+    function PosterMinimal({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy }) {
+      const c = COPY[category];
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      const getCopy = makeGetCopy(cardCopy);
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className}
+          edit={getTextEdit(textEdits, id)}
+          selected={selectedTextId === id}
+          onSelect={onSelectText} onChange={onChangeText}>
+          {children}
+        </TextBlock>
+      );
+      // 마리안 웨딩 땡큐카드 · 러블리 미니멀 (yoshisnap 풍 인스타 피드)
+      {
+        const i = c.invitation;
+        return (
+          <PosterSurface className="lovely-cream">
+            {/* 상단 72% — 풀너비 사진 */}
+            <div className="absolute inset-x-0 top-0 h-[72%] overflow-hidden">
+              <img src={src} className="w-full h-full object-cover" style={imgStyle} />
+            </div>
+            {/* 하단 28% — 누드 핑크 띠 + 컴팩트 캡션 */}
+            <div className="absolute inset-x-0 bottom-0 h-[28%] flex flex-col items-center justify-center text-center px-6">
+              {TB('thanks', 'top-center', '', (
+                <div className="flex items-center gap-3" style={{ color: '#a3554a' }}>
+                  <FlowerSprig className="w-10 h-3 opacity-85" />
+                  <span className="font-script text-[36px] leading-none" style={{ color: '#7a3a31' }}>{getCopy('thanks_en', 'thank you')}</span>
+                  <FlowerSprig className="w-10 h-3 opacity-85" mirror />
+                </div>
+              ))}
+              {TB('korean', 'top-center', 'mt-1.5', (
+                <div className="font-serif-kr text-[11px]" style={{ color: '#5a2f29' }}>{getCopy('korean', c.minimalKr)}</div>
+              ))}
+              {TB('couple', 'top-center', 'mt-1.5', (
+                <div className="inline-flex items-center gap-2 text-[9px] tracking-[0.24em] uppercase" style={{ color: '#a3554a' }}>
+                  <span>{getCopy('couple_en', i.coupleEn)}</span>
+                  <HeartTiny className="w-2.5 h-2.5" />
+                  <span>{getCopy('couple_date', '06.14.2026')}</span>
+                </div>
+              ))}
+            </div>
+          </PosterSurface>
+        );
+      }
+    }
+    function PosterInvitation({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy }) {
+      const i = COPY[category].invitation;
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      const getCopy = makeGetCopy(cardCopy);
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className}
+          edit={getTextEdit(textEdits, id)}
+          selected={selectedTextId === id}
+          onSelect={onSelectText} onChange={onChangeText}>
+          {children}
+        </TextBlock>
+      );
+      // 마리안 웨딩 땡큐카드 격식형 · 풀블리드 사진 + 텍스트 오버레이
+      {
+        return (
+          <PosterSurface className="bg-zinc-900">
+            <img src={src} className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(122,58,49,0.55) 0%, rgba(0,0,0,0.05) 28%, rgba(0,0,0,0.05) 60%, rgba(90,47,41,0.78) 100%)' }} />
+
+            {/* 상단 — 3블록 (모노그램, 서브헤드, Thank you) */}
+            <div className="absolute inset-x-0 top-0 px-7 pt-7 flex flex-col items-center text-center text-white">
+              {TB('mono', 'top-center', '', (
+                <div className="flex items-center gap-3">
+                  <LeafSprig className="w-10 h-3 text-white/85" />
+                  <span className="font-cormorant italic text-[22px] tracking-wide leading-none text-white">{getCopy('mono', 'J & M')}</span>
+                  <LeafSprig className="w-10 h-3 text-white/85" mirror />
+                </div>
+              ))}
+              {TB('subhead', 'top-center', 'mt-2', (
+                <div className="font-cormorant italic text-[13px] text-white/90">{getCopy('subhead', i.thanksHeadEn)}</div>
+              ))}
+              {TB('hero', 'top-center', 'mt-2', (
+                <div className="font-script text-[60px] leading-[0.9] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]">{getCopy('hero', 'Thank you')}</div>
+              ))}
+            </div>
+
+            {/* 하단 — 4블록 (한국어, 디바이더, 일자/장소, 이름) */}
+            <div className="absolute inset-x-0 bottom-0 px-7 pb-7 flex flex-col items-center text-center text-white">
+              {TB('thanks_kr', 'bottom-left', '', (
+                <div className="font-serif-kr text-[12px] leading-[1.75] text-white/95">{getCopy('thanks_kr', i.thanksKr)}</div>
+              ))}
+              <div className="flex items-center gap-2 mt-3 text-white/80">
+                <span className="w-8 h-px bg-current" />
+                <HeartTiny className="w-2.5 h-2.5" />
+                <span className="w-8 h-px bg-current" />
+              </div>
+              {TB('datevenue', 'top-center', 'mt-3', (
+                <div>
+                  <div className="font-cormorant text-[11px] tracking-[0.22em] text-white/95">{getCopy('date', i.dateEn)}</div>
+                  <div className="font-serif-kr text-[10px] mt-1 text-white/80">{getCopy('venue', i.venueKr)}</div>
+                </div>
+              ))}
+              {TB('couple', 'top-center', 'mt-2', (
+                <div className="font-cormorant italic text-[12px] tracking-wide text-white">{getCopy('couple', i.coupleEn)}</div>
+              ))}
+            </div>
+          </PosterSurface>
+        );
+      }
+    }
+    function PosterEmotive({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy }) {
+      const c = COPY[category];
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      const getCopy = makeGetCopy(cardCopy);
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className}
+          edit={getTextEdit(textEdits, id)}
+          selected={selectedTextId === id}
+          onSelect={onSelectText} onChange={onChangeText}>
+          {children}
+        </TextBlock>
+      );
+      // 마리안 웨딩 땡큐카드 감성 · 풀블리드 + 우측 세로 (영화 엔딩 크레딧 톤)
+      {
+        const ink = '#f6efe6';
+        return (
+          <PosterSurface className="bg-zinc-900">
+            <img src={src} className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.66) 100%)' }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.40) 100%)' }} />
+
+            {/* 좌상단 — 메타 블록 */}
+            <div className="absolute left-6 top-6" style={{ color: ink }}>
+              {TB('top_meta', 'top-left', '', (
+                <div>
+                  <div className="text-[9px] tracking-[0.42em] uppercase opacity-85">{getCopy('tm_eyebrow', 'Wedding Day · Memento')}</div>
+                  <div className="font-cormorant italic text-[11px] mt-1 opacity-90">{getCopy('tm_date', '06.14.2026')}</div>
+                  <div className="font-cormorant italic text-[10px] mt-1 opacity-75">{getCopy('tm_sub', '— thank you, from both of us')}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 우측 — 한국어 두 컬럼 (한 블록) */}
+            <div className="absolute right-6 top-1/2 -translate-y-1/2" style={{ color: ink }}>
+              {TB('korean_vert', 'center', '', (
+                <div className="flex flex-row-reverse items-start gap-5">
+                  <div className="vrl-up has-em-space font-serif-kr text-[20px]" style={{ fontWeight: 300 }}>
+                    {getCopy('kv1', '당신이　있던　자리,')}
+                  </div>
+                  <div className="vrl-up has-em-space font-serif-kr text-[20px]" style={{ fontWeight: 300 }}>
+                    {getCopy('kv2', '가장　환했습니다')}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 좌하단 크레딧 */}
+            <div className="absolute left-6 bottom-6" style={{ color: ink }}>
+              {TB('credit', 'bottom-left', '', (
+                <div>
+                  <div className="text-[9px] tracking-[0.42em] uppercase opacity-80">{getCopy('cr_eyebrow', 'Starring')}</div>
+                  <div className="font-cormorant italic text-[16px] tracking-wide mt-1">{getCopy('cr_name', 'Jihye × Minsu')}</div>
+                  <div className="text-[9px] tracking-[0.32em] uppercase opacity-70 mt-2">{getCopy('cr_fin', '— Fin —')}</div>
+                </div>
+              ))}
+            </div>
+          </PosterSurface>
+        );
+      }
+    }
+    const STYLE_DEFS = [
+      { key: 'minimal',    label: '미니멀',    desc: 'yoshisnap 풍 · 산세리프 · 여백 ↑',     Render: PosterMinimal },
+      { key: 'invitation', label: '청첩장',    desc: '세리프 · 신랑/신부/일시 슬롯',          Render: PosterInvitation },
+      { key: 'emotive',    label: '감성문구',  desc: 'miela 풍 · 풀블리드 + 한 두 줄 카피',   Render: PosterEmotive },
+    ];
+
+    // ========================================
+    // 🧩 Layout — Top Nav (sticky, 흰 배경 · 토큰)
+    // ========================================
+    function TopNav({ active, onNav, right }) {
+      return (
+        <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border">
+          <div className="max-w-[1280px] mx-auto px-6 h-16 flex items-center gap-6">
+            <div className="flex items-baseline gap-2">
+              <div className="display-bold text-lg tracking-[0.22em] uppercase text-foreground">Marian Wedding</div>
+              <span className="font-cormorant italic text-[14px] text-muted-foreground">— Thank You Card</span>
+            </div>
+            <Badge variant="outline">v1 Prototype</Badge>
+            <nav className="hidden md:flex items-center gap-6 ml-4 eyebrow text-muted-foreground">
+              {[
+                { key: 'gallery', label: 'Editor' },
+                { key: 'flow',    label: 'User Flow' },
+                { key: 'admin',   label: 'Admin' },
+              ].map(t => (
+                <button key={t.key} onClick={() => onNav(t.key)}
+                  className={cn('hover:text-primary transition-colors', active === t.key && 'text-primary')}>
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+            <div className="ml-auto flex items-center gap-2">{right}</div>
+          </div>
+        </header>
+      );
+    }
+
+    // ========================================
+    // 📄 Page · Gallery (디자인 검토 메인)
+    // ========================================
+    function GalleryScreen({ onNav }) {
+      const [size, setSize] = useState('1080x1350');
+      const ratioCls = size === '1080x1080' ? 'aspect-square' : 'aspect-[4/5]';
+      // 사진 (카테고리별) — 단순 url만
+      const [userPhotos, setUserPhotos] = useState({}); // { wedding: blobURL, ... }
+      // 카드별 편집 상태: cardEdits[cat][style] = { photo: {x,y,scale}, texts: { [id]: {x,y,scale} } }
+      const [cardEdits, setCardEdits] = useState({});
+      // 선택된 항목: { cat, style, kind: 'text', id }  (사진은 항상 카드 컨트롤로 조정 — 선택 X)
+      const [selected, setSelected] = useState(null);
+
+      const handleFile = (catKey, file) => {
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        setUserPhotos(prev => ({ ...prev, [catKey]: url }));
+      };
+      const clearPhoto = (catKey) => {
+        setUserPhotos(prev => {
+          const u = prev[catKey];
+          if (u) URL.revokeObjectURL(u);
+          const { [catKey]: gone, ...rest } = prev;
+          return rest;
+        });
+      };
+
+      const getCardEdit = (cat, style) => cardEdits[cat]?.[style] || { photo: { x: 50, y: 50, scale: 100 }, texts: {}, copy: {} };
+      const ensureCard = (prev, cat, style) => prev[cat]?.[style] || { photo: { x: 50, y: 50, scale: 100 }, texts: {}, copy: {} };
+      const updateCardPhoto = (cat, style, patch) => {
+        setCardEdits(prev => {
+          const cur = ensureCard(prev, cat, style);
+          return { ...prev, [cat]: { ...prev[cat], [style]: { ...cur, photo: { ...cur.photo, ...patch } } } };
+        });
+      };
+      const updateCardText = (cat, style, id, patch) => {
+        setCardEdits(prev => {
+          const cur = ensureCard(prev, cat, style);
+          const t = cur.texts?.[id] || { x: 0, y: 0, scale: 1 };
+          return { ...prev, [cat]: { ...prev[cat], [style]: { ...cur, texts: { ...cur.texts, [id]: { ...t, ...patch } } } } };
+        });
+      };
+      const updateCardCopy = (cat, style, key, value) => {
+        setCardEdits(prev => {
+          const cur = ensureCard(prev, cat, style);
+          return { ...prev, [cat]: { ...prev[cat], [style]: { ...cur, copy: { ...(cur.copy||{}), [key]: value } } } };
+        });
+      };
+      const resetCardPhoto = (cat, style) => updateCardPhoto(cat, style, { x: 50, y: 50, scale: 100 });
+      const resetCardText  = (cat, style, id) => updateCardText(cat, style, id, { x: 0, y: 0, scale: 1 });
+      const resetCardCopyKey = (cat, style, key) => updateCardCopy(cat, style, key, '');
+
+      const sizeToggle = (
+        <div className="flex items-center border border-input">
+          {['1080x1350','1080x1080'].map(s => (
+            <button key={s} onClick={() => setSize(s)}
+              className={cn('h-10 px-4 text-xs eyebrow', size===s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary')}>
+              {s}
+            </button>
+          ))}
+        </div>
+      );
+
+      return (
+        <div className="min-h-screen">
+          <TopNav active="gallery" onNav={onNav} right={<>{sizeToggle}</>} />
+
+          {/* Page header */}
+          <section className="max-w-[1280px] mx-auto px-6 pt-12 pb-8">
+            <div className="eyebrow text-primary mb-3">Marian Wedding · Thank You Card</div>
+            <h1 className="display-bold text-4xl md:text-5xl text-foreground leading-tight">결혼식 후 보내는 땡큐카드</h1>
+            <p className="text-sm text-muted-foreground mt-4 max-w-xl leading-relaxed">
+              마리안 웨딩 고객분들께 제공할 자동 땡큐카드 생성기. 본식 스냅 사진 한 장을 올리면
+              미니멀(인스타용) · 격식(정중한 감사장) · 감성(영화 엔딩 톤) 3가지 카드를 동시에 만들어 드립니다.
+              "수정 없이 바로 쓸 수 있는" 완성도가 목표예요.
+            </p>
+          </section>
+
+          {/* === 본식 스냅 업로드 (단일) === */}
+          <section className="max-w-[1280px] mx-auto px-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="text-xl">본식 스냅 업로드</CardTitle>
+                    <CardDescription>
+                      결혼식 당일 촬영된 본식 스냅 한 장을 올려주세요. 파일은 브라우저 안에서만 미리보기에 쓰이고
+                      서버에 저장되지 않습니다 (Phase 2에서 마리안 전용 Supabase 저장 연동).
+                    </CardDescription>
+                  </div>
+                  <label className="inline-flex">
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={(e) => handleFile('wedding', e.target.files?.[0])} />
+                    <span className="inline-flex items-center justify-center gap-2 h-11 px-6 bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium tracking-wider uppercase cursor-pointer">
+                      본식 사진 선택
+                    </span>
+                  </label>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border">
+                  <div className="bg-background sm:col-span-1">
+                    <div className="aspect-[4/5] relative overflow-hidden">
+                      {userPhotos.wedding ? (
+                        <img src={userPhotos.wedding} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center eyebrow text-muted-foreground text-center px-4">
+                          본식 스냅<br/>여기에 표시됩니다
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-background sm:col-span-2 p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="eyebrow text-muted-foreground">Workflow</div>
+                      <ol className="mt-3 space-y-2 text-sm text-foreground list-decimal list-inside">
+                        <li>본식 스냅 한 장 업로드</li>
+                        <li>3 카드(미니멀 · 격식 · 감성)가 자동 생성</li>
+                        <li>카드별 밑 컨트롤로 사진 크롭·텍스트 이동·문구 수정</li>
+                        <li>PNG 다운로드 후 신랑·신부에게 전송</li>
+                      </ol>
+                    </div>
+                    {userPhotos.wedding && (
+                      <button onClick={() => clearPhoto('wedding')} className="eyebrow text-destructive hover:opacity-70 mt-6 self-start">사진 제거</button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* === 마리안 웨딩 땡큐카드 — 3 변형 === */}
+          <section className="max-w-[1280px] mx-auto px-6 mt-16">
+            <div className="flex items-end justify-between border-b border-border pb-4">
+              <div>
+                <div className="eyebrow text-primary">3 Variants</div>
+                <h2 className="display-bold text-3xl md:text-4xl text-foreground mt-2">
+                  땡큐카드 결과물
+                  {userPhotos.wedding && <Badge className="ml-3 align-middle">YOUR PHOTO</Badge>}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-2 max-w-xl leading-relaxed">
+                  같은 사진 한 장 → 3가지 톤으로 동시 출력. 신랑·신부가 인스타·카톡·인쇄 어디에든 어울리는
+                  카드를 골라 사용할 수 있도록.
+                </p>
+              </div>
+              <div className="eyebrow text-muted-foreground hidden sm:block">click & drag · snap</div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+              {STYLE_DEFS.map(s => {
+                const weddingMeta = {
+                  minimal:    { label: '미니멀 땡큐',  desc: 'yoshisnap 톤 · 인스타 피드용 감사' },
+                  invitation: { label: '격식형 땡큐',  desc: '청첩장 톤의 정중한 감사장' },
+                  emotive:    { label: '감성 땡큐',    desc: 'miela 톤 · 풀블리드 + 한 줄 카피' },
+                }[s.key];
+                const cat = 'wedding';
+                const ce = getCardEdit(cat, s.key);
+                const photoData = userPhotos.wedding ? { url: userPhotos.wedding, ...ce.photo } : null;
+                const isSelectedHere = selected && selected.cat === cat && selected.style === s.key;
+                const selectedTextId = isSelectedHere && selected.kind === 'text' ? selected.id : null;
+                const selectedTextEdit = selectedTextId ? getTextEdit(ce.texts, selectedTextId) : null;
+
+                return (
+                  <Card key={s.key}>
+                    <CardHeader className="p-5 border-b border-border">
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <div className="display-bold text-base text-foreground">{weddingMeta.label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{weddingMeta.desc}</div>
+                        </div>
+                        <Badge variant="outline">{size}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                      <div
+                        className={cn('overflow-hidden border border-border', ratioCls)}
+                        onMouseDown={() => setSelected(null)}
+                      >
+                        <s.Render
+                          category={cat}
+                          photo={photoData}
+                          textEdits={ce.texts}
+                          selectedTextId={selectedTextId}
+                          onSelectText={(id) => setSelected({ cat, style: s.key, kind: 'text', id })}
+                          onChangeText={(id, patch) => updateCardText(cat, s.key, id, patch)}
+                          cardCopy={ce.copy}
+                        />
+                      </div>
+
+                      {/* 카드별 편집 컨트롤 */}
+                      <div className="mt-4 border-t border-border pt-4 space-y-4">
+                        {/* 사진 컨트롤 */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="eyebrow text-muted-foreground">Photo</div>
+                            <button onClick={() => resetCardPhoto(cat, s.key)} className="eyebrow text-muted-foreground hover:text-primary">초기화</button>
+                          </div>
+                          {!userPhotos.wedding && (
+                            <div className="text-[11px] text-muted-foreground italic mb-2">
+                              상단에서 본식 사진을 업로드하면 카드별로 위치·크롭을 조정할 수 있습니다.
+                            </div>
+                          )}
+                          <div className="space-y-1.5 opacity-100">
+                            <SliderRow label="X" value={ce.photo.x} min={0} max={100} suffix=""
+                              disabled={!userPhotos.wedding}
+                              onChange={(v) => updateCardPhoto(cat, s.key, { x: v })} />
+                            <SliderRow label="Y" value={ce.photo.y} min={0} max={100} suffix=""
+                              disabled={!userPhotos.wedding}
+                              onChange={(v) => updateCardPhoto(cat, s.key, { y: v })} />
+                            <SliderRow label="Z" value={ce.photo.scale} min={100} max={250} suffix="%"
+                              disabled={!userPhotos.wedding}
+                              onChange={(v) => updateCardPhoto(cat, s.key, { scale: v })} />
+                          </div>
+                        </div>
+
+                        {/* 선택된 텍스트 컨트롤 */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="eyebrow text-muted-foreground">
+                              Text {selectedTextId ? <span className="text-foreground">· {selectedTextId}</span> : <span className="opacity-60">— 클릭으로 선택</span>}
+                            </div>
+                            {selectedTextId && (
+                              <button onClick={() => resetCardText(cat, s.key, selectedTextId)} className="eyebrow text-muted-foreground hover:text-primary">위치 초기화</button>
+                            )}
+                          </div>
+                          <div className="space-y-1.5">
+                            <SliderRow label="X" value={selectedTextEdit?.x ?? 0} min={-200} max={200} suffix="px"
+                              disabled={!selectedTextId}
+                              onChange={(v) => updateCardText(cat, s.key, selectedTextId, { x: v })} />
+                            <SliderRow label="Y" value={selectedTextEdit?.y ?? 0} min={-200} max={200} suffix="px"
+                              disabled={!selectedTextId}
+                              onChange={(v) => updateCardText(cat, s.key, selectedTextId, { y: v })} />
+                            <SliderRow label="S" value={Math.round(((selectedTextEdit?.scale ?? 1)) * 100)} min={40} max={300} suffix="%"
+                              disabled={!selectedTextId}
+                              onChange={(v) => updateCardText(cat, s.key, selectedTextId, { scale: v / 100 })} />
+                          </div>
+
+                          {/* 선택된 블록의 텍스트 필드 편집 */}
+                          {selectedTextId && (TEXT_FIELDS[cat]?.[s.key]?.[selectedTextId] || []).length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-border space-y-2">
+                              <div className="eyebrow text-muted-foreground">Copy</div>
+                              {TEXT_FIELDS[cat][s.key][selectedTextId].map(f => {
+                                const val = ce.copy?.[f.key] ?? '';
+                                const placeholder = (() => {
+                                  // 디폴트 안내 — 빠른 시각용 (실제 값은 컴포넌트에서 결정)
+                                  return f.label;
+                                })();
+                                return (
+                                  <div key={f.key}>
+                                    <div className="flex items-center justify-between">
+                                      <Label className="!text-[10px]">{f.label}</Label>
+                                      {val && (
+                                        <button onClick={() => resetCardCopyKey(cat, s.key, f.key)}
+                                          className="eyebrow text-muted-foreground hover:text-primary text-[10px]">초기화</button>
+                                      )}
+                                    </div>
+                                    {f.textarea ? (
+                                      <textarea
+                                        value={val}
+                                        onChange={(e) => updateCardCopy(cat, s.key, f.key, e.target.value)}
+                                        placeholder={placeholder}
+                                        rows={2}
+                                        className="mt-1 w-full border border-input bg-background px-2 py-1.5 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                      />
+                                    ) : (
+                                      <Input
+                                        value={val}
+                                        onChange={(e) => updateCardCopy(cat, s.key, f.key, e.target.value)}
+                                        placeholder={placeholder}
+                                        className="!h-9 !text-[12px] mt-1"
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+
+
+          {/* 디자인 노트 */}
+          <section className="max-w-[1280px] mx-auto px-6 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border">
+              {[
+                { t: '미니멀',   en: 'MINIMAL',     body: '여백을 사진 면적의 18~22%로 고정. 산세리프 1종 + 트래킹(0.32em)으로 무드 형성.' },
+                { t: '청첩장',   en: 'INVITATION',  body: 'Cormorant Garamond(라틴) + Noto Serif KR(국문) 2종. we → 이름 → 사진 → 일시 → 장소 5단 구조.' },
+                { t: '감성문구', en: 'EMOTIVE',     body: '풀블리드 + 하단 그라디언트(black/55). 한국어 1줄 + 영문 sub 1줄. 분위기 연출이 핵심.' },
+              ].map(n => (
+                <div key={n.en} className="bg-background p-6">
+                  <div className="eyebrow text-primary mb-2">{n.en}</div>
+                  <div className="display-bold text-lg text-foreground">{n.t}</div>
+                  <p className="text-sm text-muted-foreground leading-relaxed mt-3">{n.body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <footer className="border-t border-border bg-secondary/40">
+            <div className="max-w-[1280px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <div className="display-bold tracking-[0.22em] uppercase text-foreground">Marian Wedding</div>
+              <div className="eyebrow text-muted-foreground">Thank You Card · For Our Couples</div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Page · User Flow (Login → Upload → Result → Edit)
+    // ========================================
+    function FlowScreen({ onNav }) {
+      const [step, setStep] = useState('login'); // login | upload | result | edit
+      const [submitted, setSubmitted] = useState({ category: 'wedding' });
+      const [editing, setEditing] = useState(null);
+
+      return (
+        <div className="min-h-screen">
+          <TopNav active="flow" onNav={onNav} right={<Badge variant="outline">{step.toUpperCase()}</Badge>} />
+          <div className="max-w-[480px] mx-auto px-6 py-10">
+            {step === 'login' && <LoginPanel onNext={() => setStep('upload')} />}
+            {step === 'upload' && <UploadPanel
+              onSubmit={(s) => { setSubmitted(s); setStep('result'); }}
+              onBack={() => setStep('login')} />}
+            {step === 'result' && <ResultPanel
+              category={submitted.category}
+              onBack={() => setStep('upload')}
+              onEdit={(k) => { setEditing(k); setStep('edit'); }} />}
+            {step === 'edit' && <EditPanel
+              styleKey={editing} category={submitted.category}
+              onBack={() => setStep('result')} />}
+          </div>
+        </div>
+      );
+    }
+
+    function LoginPanel({ onNext }) {
+      const [email, setEmail] = useState('');
+      const [pw, setPw] = useState('');
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>로그인</CardTitle>
+            <CardDescription>마리안 웨딩에서 보내드린 ID/PW로 로그인하세요. 자유 가입은 지원하지 않습니다.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="em">이메일</Label>
+              <Input id="em" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pw">비밀번호</Label>
+              <Input id="pw" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="••••••••" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full" onClick={onNext}>로그인</Button>
+          </CardFooter>
+        </Card>
+      );
+    }
+
+    function UploadPanel({ onSubmit, onBack }) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>새 땡큐카드 만들기</CardTitle>
+            <CardDescription>마리안에서 보내드린 본식 스냅 한 장을 올려주세요. 3가지 톤의 카드를 동시에 만들어 드려요.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label>본식 스냅</Label>
+              <div className="aspect-[4/5] border border-dashed border-border bg-secondary/30 flex items-center justify-center text-sm text-muted-foreground">
+                + 사진 업로드 (JPEG/PNG/HEIC, ≤20MB)
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>신랑·신부·일자·장소</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="신부 이름" />
+                <Input placeholder="신랑 이름" />
+                <Input placeholder="식 날짜 (예: 2026.06.14)" className="col-span-2" />
+                <Input placeholder="식장 (예: 그랜드 컨벤션 5F)" className="col-span-2" />
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="gap-3">
+            <Button variant="outline" className="flex-1" onClick={onBack}>이전</Button>
+            <Button className="flex-1" onClick={() => onSubmit({ category: 'wedding' })}>3가지 카드 만들기</Button>
+          </CardFooter>
+        </Card>
+      );
+    }
+
+    function ResultPanel({ category, onBack, onEdit }) {
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <button onClick={onBack} className="eyebrow text-muted-foreground hover:text-primary">← 새로 만들기</button>
+            <Badge variant="outline">{CATEGORIES.find(c => c.key === category)?.label}</Badge>
+          </div>
+          <div className="space-y-6">
+            {STYLE_DEFS.map(s => (
+              <Card key={s.key}>
+                <CardHeader className="p-5 border-b border-border">
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <div className="display-bold text-base text-foreground">{s.label}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{s.desc}</div>
+                    </div>
+                    <Badge variant="outline">1080×1350</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-5 space-y-4">
+                  <div className="overflow-hidden border border-border">
+                    <s.Render category={category} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" onClick={() => onEdit(s.key)}>텍스트 조정</Button>
+                    <Button>PNG 다운로드</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function EditPanel({ styleKey, category, onBack }) {
+      const [color, setColor] = useState('#ffffff');
+      const [opacity, setOpacity] = useState(100);
+      const [pos, setPos] = useState({ x: 50, y: 80 });
+      const Style = STYLE_DEFS.find(s => s.key === styleKey);
+      const colorPresets = ['#ffffff', '#111111', '#7c5a3a', '#8a4a4a', '#3a5a7c', '#cfa75a'];
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <button onClick={onBack} className="eyebrow text-muted-foreground hover:text-primary">← 결과로</button>
+            <Badge variant="outline">{Style.label} · 텍스트만 조정</Badge>
+          </div>
+          <div className="overflow-hidden border border-border">
+            <Style.Render category={category} />
+          </div>
+          <Card>
+            <CardContent className="space-y-6">
+              <div>
+                <Label>텍스트 색</Label>
+                <div className="flex gap-2 mt-2">
+                  {colorPresets.map(c => (
+                    <button key={c} onClick={() => setColor(c)}
+                      className={cn('w-9 h-9 border', color === c ? 'ring-2 ring-ring ring-offset-2' : 'border-border')}
+                      style={{ background: c }} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label>불투명도 — {opacity}%</Label>
+                <input type="range" min={0} max={100} value={opacity} onChange={e => setOpacity(+e.target.value)} className="w-full mt-2" />
+              </div>
+              <div>
+                <Label>위치 (프로토타입에서는 슬라이더)</Label>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <span className="text-xs text-muted-foreground">X</span>
+                    <input type="range" min={0} max={100} value={pos.x} onChange={e => setPos({...pos, x: +e.target.value})} className="w-full" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Y</span>
+                    <input type="range" min={0} max={100} value={pos.y} onChange={e => setPos({...pos, y: +e.target.value})} className="w-full" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Page · Admin
+    // ========================================
+    function AdminScreen({ onNav }) {
+      const [accounts, setAccounts] = useState([
+        { id: 'u-001', email: 'jihye.minsu@marian.kr', status: 'active',   expiresAt: '2026-06-09', quotaUsed: 7,  quotaTotal: 50 },
+        { id: 'u-002', email: 'soyeon.donghyun@marian.kr', status: 'active',   expiresAt: '2026-06-22', quotaUsed: 12, quotaTotal: 50 },
+        { id: 'u-003', email: 'eunji.taemin@marian.kr',  status: 'disabled', expiresAt: '2026-04-30', quotaUsed: 50, quotaTotal: 50 },
+      ]);
+      const [draft, setDraft] = useState({ email: '', expiresAt: '2026-06-09', quotaTotal: 50 });
+      const issue = () => {
+        if (!draft.email) return;
+        setAccounts(prev => [{
+          id: 'u-' + (Math.random()*1e4|0).toString(36),
+          email: draft.email, status: 'active',
+          expiresAt: draft.expiresAt, quotaUsed: 0, quotaTotal: draft.quotaTotal,
+        }, ...prev]);
+        setDraft({ email: '', expiresAt: '2026-06-09', quotaTotal: 50 });
+      };
+      const toggle = (id) => setAccounts(prev => prev.map(a =>
+        a.id === id ? { ...a, status: a.status === 'active' ? 'disabled' : 'active' } : a
+      ));
+      return (
+        <div className="min-h-screen">
+          <TopNav active="admin" onNav={onNav} />
+          <div className="max-w-[860px] mx-auto px-6 py-12 space-y-8">
+            <div>
+              <div className="eyebrow text-primary mb-2">Marian Admin</div>
+              <h1 className="display-bold text-3xl text-foreground">고객 계정 관리</h1>
+              <p className="text-sm text-muted-foreground mt-2">마리안 웨딩 신랑·신부에게만 발급. 자유 가입 없음. 슬기 운영자가 ID/PW·만료·할당량을 직접 관리합니다.</p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">계정 발급</CardTitle>
+                <CardDescription>발급 시 임시 비밀번호가 사용자 이메일로 발송됩니다 (Phase 4 연동).</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-12 sm:col-span-5 space-y-2">
+                    <Label>이메일</Label>
+                    <Input value={draft.email} onChange={e => setDraft({...draft, email: e.target.value})} placeholder="bride.groom@marian.kr" />
+                  </div>
+                  <div className="col-span-7 sm:col-span-4 space-y-2">
+                    <Label>만료일</Label>
+                    <Input value={draft.expiresAt} onChange={e => setDraft({...draft, expiresAt: e.target.value})} placeholder="YYYY-MM-DD" />
+                  </div>
+                  <div className="col-span-5 sm:col-span-2 space-y-2">
+                    <Label>할당량</Label>
+                    <Input type="number" value={draft.quotaTotal} onChange={e => setDraft({...draft, quotaTotal: +e.target.value})} />
+                  </div>
+                  <div className="col-span-12 sm:col-span-1 flex items-end">
+                    <Button className="w-full" onClick={issue}>발급</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">계정 목록 ({accounts.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-border">
+                  {accounts.map(a => (
+                    <div key={a.id} className="px-6 py-4 flex items-center gap-4 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate text-foreground">{a.email}</div>
+                        <div className="eyebrow text-muted-foreground mt-1">EXP {a.expiresAt} · {a.quotaUsed}/{a.quotaTotal}</div>
+                      </div>
+                      <Badge variant={a.status === 'active' ? 'default' : 'destructive'}>{a.status}</Badge>
+                      <Button variant="outline" size="sm" onClick={() => toggle(a.id)}>
+                        {a.status === 'active' ? '비활성' : '재활성'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Root
+    // ========================================
+    function App() {
+      const [view, setView] = useState('gallery'); // gallery | flow | admin
+      if (view === 'flow')  return <FlowScreen  onNav={setView} />;
+      if (view === 'admin') return <AdminScreen onNav={setView} />;
+      return <GalleryScreen onNav={setView} />;
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
