@@ -396,6 +396,150 @@ async function pollTranscript(transcriptId) {
   }
 }
 
+// AssemblyAI 전체 흐름 묶음 — upload → request → poll
+async function runAssemblyAI(filePath) {
+  if (!ASSEMBLYAI_API_KEY) return null;
+  const uploadUrl = await uploadToAssemblyAI(filePath);
+  const transcriptId = await requestTranscript(uploadUrl);
+  return await pollTranscript(transcriptId);
+}
+
+// 동영상/오디오 → Whisper용 압축 mp3 추출
+// - 모노 16kHz 32kbps mp3 (음성 인식엔 충분)
+// - 1분당 약 240KB → 25MB 한도 내에서 ~100분 가능
+async function extractAudioForWhisper(inputPath) {
+  const tmpDir = path.join(__dirname, 'tmp');
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  const outPath = path.join(tmpDir, `whisper-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`);
+
+  await execFileP('ffmpeg', [
+    '-y',
+    '-i', inputPath,
+    '-vn',                    // 비디오 스트림 제거
+    '-ac', '1',               // mono
+    '-ar', '16000',           // 16kHz
+    '-codec:a', 'libmp3lame',
+    '-b:a', '32k',            // 32kbps (음성용 충분)
+    outPath,
+  ], { timeout: 5 * 60 * 1000 });
+
+  return outPath;
+}
+
+// OpenAI Whisper API 호출 — 한국어 텍스트 정확도 + 문장 분할 + 단어 타임스탬프
+async function runWhisper(filePath) {
+  const key = (process.env.OPENAI_API_KEY || '').trim();
+  if (!key) return null;
+
+  // 1) 항상 ffmpeg로 mp3 추출 (동영상이든 오디오든) — 사이즈 작아지고 일관됨
+  let audioPath = filePath;
+  let cleanup = null;
+  try {
+    audioPath = await extractAudioForWhisper(filePath);
+    cleanup = audioPath;
+    const sz = fs.statSync(audioPath).size;
+    console.log(`[Whisper] 오디오 추출 완료 — ${(sz / 1024).toFixed(0)}KB`);
+  } catch (e) {
+    console.warn('[Whisper] ffmpeg 추출 실패, 원본 그대로 사용:', e.message);
+    audioPath = filePath;
+  }
+
+  try {
+    // 2) 25MB 한도 (1시간짜리 모노 mp3 32kbps도 약 14MB라 거의 안 걸림)
+    const stat = fs.statSync(audioPath);
+    if (stat.size > 25 * 1024 * 1024) {
+      console.warn(`[Whisper] 추출 후에도 25MB 초과 (${(stat.size / 1024 / 1024).toFixed(1)}MB) — Whisper 건너뜀`);
+      return null;
+    }
+
+    const fd = new FormData();
+    fd.append('file', new Blob([fs.readFileSync(audioPath)]), path.basename(audioPath));
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'ko');
+    fd.append('response_format', 'verbose_json');
+    fd.append('timestamp_granularities[]', 'segment');
+    fd.append('timestamp_granularities[]', 'word');
+
+    const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}` },
+      body: fd,
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      throw new Error(`Whisper HTTP ${r.status}: ${txt.slice(0, 200)}`);
+    }
+    const json = await r.json();
+    console.log(`[Whisper] 완료 — duration=${json.duration}s segments=${json.segments?.length || 0} words=${json.words?.length || 0}`);
+    return json;
+  } finally {
+    // 임시파일 정리
+    if (cleanup && fs.existsSync(cleanup)) {
+      try { fs.unlinkSync(cleanup); } catch (e) {}
+    }
+  }
+}
+
+// 두 결과를 합치기:
+// - 우선: Whisper segments(문장 단위) + 텍스트 + 단어 타임스탬프
+// - 발화자: 같은 시간대 AssemblyAI 단어들의 다수결로 결정
+// - Whisper만 있으면 모든 발화자를 'A'로 (사용자가 프리뷰에서 per-segment override)
+// - AssemblyAI만 있으면 기존 동작과 동일
+function mergeTranscripts(assemblyResult, whisperResult) {
+  // 1) Whisper 데이터 없으면 → AssemblyAI fallback
+  if (!whisperResult || !Array.isArray(whisperResult.segments) || whisperResult.segments.length === 0) {
+    return normalizeUtterances(assemblyResult?.utterances || []);
+  }
+
+  // 2) AssemblyAI 단어들 펼치기 → 화자 라벨 매핑용
+  const aaWords = [];
+  if (assemblyResult && Array.isArray(assemblyResult.utterances)) {
+    for (const u of assemblyResult.utterances) {
+      const speaker = u.speaker || 'A';
+      const ws = Array.isArray(u.words) ? u.words : [];
+      for (const w of ws) {
+        aaWords.push({
+          start: (w.start ?? 0) / 1000,
+          end: (w.end ?? 0) / 1000,
+          speaker,
+        });
+      }
+    }
+  }
+
+  // 3) Whisper segments → 우리 포맷으로 매핑
+  return whisperResult.segments.map((seg, idx) => {
+    const start = Number(seg.start ?? 0);
+    const end = Number(seg.end ?? 0);
+    // 이 segment 시간대에 들어간 AssemblyAI 단어들의 발화자 다수결
+    const counts = {};
+    for (const w of aaWords) {
+      if (w.end >= start - 0.15 && w.start <= end + 0.15) {
+        counts[w.speaker] = (counts[w.speaker] || 0) + 1;
+      }
+    }
+    const speaker = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'A';
+
+    // segment 안의 Whisper 단어들 (verbose_json의 .words는 전체 → 시간 범위로 필터)
+    const segWords = (whisperResult.words || [])
+      .filter((w) => Number(w.start) >= start - 0.05 && Number(w.end) <= end + 0.05)
+      .map((w) => ({
+        text: w.word || w.text || '',
+        start: Number((w.start ?? 0).toFixed(3)),
+        end: Number((w.end ?? 0).toFixed(3)),
+      }));
+
+    return {
+      id: idx,
+      start: Number(start.toFixed(3)),
+      end: Number(end.toFixed(3)),
+      text: (seg.text || '').trim(),
+      speaker,
+      words: segWords,
+    };
+  });
+}
+
 function normalizeUtterances(utterances) {
   if (!Array.isArray(utterances)) return [];
   return utterances.map((u, idx) => ({
@@ -404,6 +548,14 @@ function normalizeUtterances(utterances) {
     end: Number(((u.end ?? 0) / 1000).toFixed(3)),
     text: u.text || '',
     speaker: u.speaker || 'A',
+    // 단어별 타임스탬프 — 청크 분할 시 정확한 동기화용
+    words: Array.isArray(u.words)
+      ? u.words.map((w) => ({
+          text: w.text || '',
+          start: Number(((w.start ?? 0) / 1000).toFixed(3)),
+          end: Number(((w.end ?? 0) / 1000).toFixed(3)),
+        }))
+      : [],
   }));
 }
 
@@ -448,23 +600,32 @@ app.post('/api/transcribe', async (req, res) => {
       [jobId]
     );
 
-    // 3) AssemblyAI 호출
-    console.log(`[전사] jobId=${jobId} AssemblyAI 업로드 시작`);
-    const uploadUrl = await uploadToAssemblyAI(job.upload_path);
-    console.log(`[전사] jobId=${jobId} 업로드 완료 → transcript 요청`);
-    const transcriptId = await requestTranscript(uploadUrl);
-    console.log(`[전사] jobId=${jobId} transcriptId=${transcriptId} 폴링 시작`);
-    const result = await pollTranscript(transcriptId);
+    // 3) AssemblyAI(발화자 라벨) + Whisper(텍스트·문장 분할) 병렬 실행
+    console.log(`[전사] jobId=${jobId} AssemblyAI + Whisper 병렬 호출`);
+    const [assemblyResult, whisperResult] = await Promise.all([
+      runAssemblyAI(job.upload_path).catch((e) => {
+        console.warn('[전사] AssemblyAI 실패:', e.message);
+        return null;
+      }),
+      runWhisper(job.upload_path).catch((e) => {
+        console.warn('[전사] Whisper 실패:', e.message);
+        return null;
+      }),
+    ]);
 
-    const segments = normalizeUtterances(result.utterances);
+    if (!assemblyResult && !whisperResult) {
+      throw new Error('AssemblyAI / Whisper 둘 다 실패했습니다.');
+    }
+
+    // 4) 하이브리드 머지 — 가능하면 Whisper 텍스트·세그먼트 + AssemblyAI 발화자
+    const segments = mergeTranscripts(assemblyResult, whisperResult);
     if (segments.length === 0) {
-      // 일부 짧은 음성은 utterances가 비어있을 수 있음 — 경고만 하고 빈 배열 저장
-      console.warn(`[전사] jobId=${jobId} utterances가 비어있습니다.`);
+      console.warn(`[전사] jobId=${jobId} 결과 segments가 비어있습니다.`);
     }
     const speakerSet = new Set(segments.map((s) => s.speaker));
     const speakerCount = speakerSet.size;
-    const audioDuration = Number(result.audio_duration) || null; // 초
-    const confidence = Number(result.confidence) || null;        // 0~1
+    const audioDuration = Number(assemblyResult?.audio_duration) || (whisperResult?.duration ?? null);
+    const confidence = Number(assemblyResult?.confidence) || null;
 
     // 4) DB 저장
     await pool.query(
@@ -597,18 +758,23 @@ function validateCharacterMapping(cm) {
   return null;
 }
 
+const VALID_STYLES = new Set(['current', 'stickman', 'disney', 'webtoon', 'chimchak']);
+
 app.patch('/api/jobs/:id', async (req, res) => {
   const { id } = req.params;
-  const { roleMapping, characterMapping } = req.body || {};
+  const { roleMapping, characterMapping, characterStyle } = req.body || {};
 
-  if (roleMapping === undefined && characterMapping === undefined) {
-    return res.status(400).json({ success: false, message: 'roleMapping 또는 characterMapping 중 최소 하나는 필요합니다.' });
+  if (roleMapping === undefined && characterMapping === undefined && characterStyle === undefined) {
+    return res.status(400).json({ success: false, message: 'roleMapping, characterMapping, characterStyle 중 최소 하나는 필요합니다.' });
   }
 
   const rmErr = validateRoleMapping(roleMapping);
   if (rmErr) return res.status(400).json({ success: false, message: rmErr });
   const cmErr = validateCharacterMapping(characterMapping);
   if (cmErr) return res.status(400).json({ success: false, message: cmErr });
+  if (characterStyle !== undefined && !VALID_STYLES.has(characterStyle)) {
+    return res.status(400).json({ success: false, message: `characterStyle은 ${[...VALID_STYLES].join('/')} 중 하나여야 합니다.` });
+  }
 
   try {
     const { rows } = await pool.query(
@@ -633,6 +799,11 @@ app.patch('/api/jobs/:id', async (req, res) => {
       sets.push(`character_mapping = $${i++}::jsonb`);
       params.push(JSON.stringify(characterMapping));
     }
+    // characterStyle을 character_mapping JSONB 안에 { style: '...' } 형태로 저장
+    if (characterStyle !== undefined) {
+      sets.push(`character_mapping = $${i++}::jsonb`);
+      params.push(JSON.stringify({ style: characterStyle }));
+    }
     params.push(id);
 
     const updateSql = `
@@ -644,7 +815,7 @@ app.patch('/api/jobs/:id', async (req, res) => {
     const result = await pool.query(updateSql, params);
     const job = result.rows[0];
 
-    console.log(`[매핑] jobId=${id} roleMapping=${roleMapping ? '저장' : '-'} characterMapping=${characterMapping ? '저장' : '-'}`);
+    console.log(`[매핑] jobId=${id} roleMapping=${roleMapping ? '저장' : '-'} characterStyle=${characterStyle || (characterMapping ? '(legacy)' : '-')}`);
     res.json({
       success: true,
       data: {

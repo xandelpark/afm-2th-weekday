@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Soft Studio — 아기 카툰 쇼츠 메이커</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gamja+Flower&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -28,6 +31,7 @@
           fontFamily: {
             sans: ['Pretendard Variable', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
             serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+            cute: ['Gaegu', '"Gamja Flower"', 'Pretendard', 'cursive'],
           },
         }
       }
@@ -42,6 +46,69 @@
       -webkit-font-smoothing: antialiased;
       letter-spacing: -0.005em;
     }
+    /* 귀여운 말풍선 — 꼬리 포함 */
+    .bubble-cute {
+      font-family: 'Gaegu', 'Gamja Flower', 'Pretendard', cursive;
+      font-weight: 700;
+      font-size: 17px;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      background: #FFFDF7;
+      color: #1A1A1A;
+      border: 2.2px solid #1A1A1A;
+      border-radius: 22px;
+      padding: 8px 14px 10px;
+      position: relative;
+      max-width: 100%;
+      word-break: keep-all;
+      box-shadow: 0 1px 0 rgba(26,26,26,0.05);
+      animation: bubblePop 0.18s ease-out;
+    }
+    @keyframes bubblePop {
+      from { opacity: 0; transform: scale(0.92); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    /* 꼬리 — 왼쪽 (말풍선이 캐릭터의 오른쪽에 있을 때, 꼬리는 왼쪽으로 캐릭터 가리킴) */
+    .bubble-cute.tail-left::before,
+    .bubble-cute.tail-left::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0; height: 0;
+      border-style: solid;
+    }
+    .bubble-cute.tail-left::before {
+      left: -12px;
+      border-width: 9px 12px 9px 0;
+      border-color: transparent #1A1A1A transparent transparent;
+    }
+    .bubble-cute.tail-left::after {
+      left: -8px;
+      border-width: 7px 10px 7px 0;
+      border-color: transparent #FFFDF7 transparent transparent;
+    }
+    /* 꼬리 — 오른쪽 (말풍선이 캐릭터의 왼쪽에 있을 때) */
+    .bubble-cute.tail-right::before,
+    .bubble-cute.tail-right::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0; height: 0;
+      border-style: solid;
+    }
+    .bubble-cute.tail-right::before {
+      right: -12px;
+      border-width: 9px 0 9px 12px;
+      border-color: transparent transparent transparent #1A1A1A;
+    }
+    .bubble-cute.tail-right::after {
+      right: -8px;
+      border-width: 7px 0 7px 10px;
+      border-color: transparent transparent transparent #FFFDF7;
+    }
+
     /* 부드럽게 떠오르는 fade — 장식 최소화 */
     @keyframes softFadeIn {
       from { opacity: 0; transform: translateY(4px); }
@@ -244,10 +311,48 @@
       ],
     };
 
-    function Avatar({ role = 'dad', variant = 1, talking = false, idle = false, size = 96 }) {
+    // 5가지 그림체 스타일 메타
+    const CHAR_STYLES = [
+      { key: 'current',  label: '소프트 일러스트', hint: '지금 그림체' },
+      { key: 'stickman', label: '졸라맨 코믹',     hint: '단순선' },
+      { key: 'disney',   label: '디즈니풍',         hint: '3D 카툰' },
+      { key: 'webtoon',  label: '웹툰풍',           hint: '한국 만화' },
+      { key: 'chimchak', label: '침착맨풍',         hint: '굵은선 만화' },
+    ];
+
+    function Avatar({ role = 'dad', variant = 1, talking = false, idle = false, size = 96, fill = false, style = 'current' }) {
+      const wrapCls = talking ? 'avatar-talking' : (idle ? 'avatar-idle' : '');
+      const wrapStyle = fill
+        ? { display: 'block', width: '100%', height: '100%', lineHeight: 0 }
+        : { display: 'inline-block', width: size, height: size, lineHeight: 0 };
+
+      // PNG 기반 스타일 (디즈니/웹툰/침착맨) — public/characters/{style}/{role}.png
+      if (['disney', 'webtoon', 'chimchak'].includes(style)) {
+        return <ImageAvatar style={style} role={role} wrapCls={wrapCls} wrapStyle={wrapStyle} />;
+      }
+
+      // 졸라맨 SVG
+      if (style === 'stickman') {
+        return (
+          <div className={wrapCls} style={wrapStyle}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={fill ? '100%' : size}
+              height={fill ? '100%' : size}
+              viewBox="0 0 200 200"
+              preserveAspectRatio="xMidYMid meet"
+              aria-hidden="true"
+            >
+              <rect width="200" height="200" rx="24" fill="#FFFDF7" />
+              <StickmanContent role={role} talking={talking} />
+            </svg>
+          </div>
+        );
+      }
+
+      // current — 기존 소프트 일러스트
       const palette = PALETTE[role] || PALETTE.dad;
       const c = palette[Math.min(Math.max(variant - 1, 0), palette.length - 1)];
-      const wrapCls = talking ? 'avatar-talking' : (idle ? 'avatar-idle' : '');
       const mouthCls = talking ? 'mouth-talking' : '';
 
       // 공통 배경 둥근 카드
@@ -339,12 +444,13 @@
       }
 
       return (
-        <div className={wrapCls} style={{ display: 'inline-block', width: size, height: size, lineHeight: 0 }}>
+        <div className={wrapCls} style={wrapStyle}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width={size}
-            height={size}
+            width={fill ? '100%' : size}
+            height={fill ? '100%' : size}
             viewBox="0 0 200 200"
+            preserveAspectRatio="xMidYMid meet"
             aria-hidden="true"
           >
             {bg}
@@ -352,6 +458,257 @@
           </svg>
         </div>
       );
+    }
+
+    // PNG 이미지 + 로딩 실패 시 깔끔한 플레이스홀더
+    function ImageAvatar({ style, role, wrapCls, wrapStyle }) {
+      const [failed, setFailed] = useState(false);
+      const styleMeta = CHAR_STYLES.find((s) => s.key === style);
+      const roleMeta = ROLES.find((r) => r.key === role);
+
+      if (failed) {
+        const bg = style === 'disney' ? '#E8F1FA' : style === 'webtoon' ? '#FAF0E5' : '#F5F0E8';
+        return (
+          <div className={wrapCls} style={wrapStyle}>
+            <div style={{
+              width: '100%', height: '100%',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              gap: 4,
+              border: '2px dashed rgba(26,26,26,0.2)',
+              borderRadius: 12,
+              background: bg,
+              color: '#1A1A1A',
+              fontSize: 11,
+              padding: 8,
+              textAlign: 'center',
+              fontFamily: "'Pretendard', sans-serif",
+            }}>
+              <div style={{ fontSize: 28, opacity: 0.5 }}>🎨</div>
+              <div style={{ fontWeight: 600 }}>{styleMeta?.label}</div>
+              <div style={{ fontSize: 10, opacity: 0.6 }}>{roleMeta?.kr} · 준비 중</div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className={wrapCls} style={wrapStyle}>
+          <img
+            src={`/characters/${style}/${role}.png`}
+            alt={`${role}-${style}`}
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            onError={() => setFailed(true)}
+          />
+        </div>
+      );
+    }
+
+    // 졸라맨 SVG 컨텐츠 — 단순한 선과 동그라미로 구성
+    function StickmanContent({ role, talking }) {
+      const mouthCls = talking ? 'mouth-talking' : '';
+      const stroke = '#1A1A1A';
+      const sw = 4;
+
+      if (role === 'baby') {
+        // 머리 큼, 몸 짧게, 작은 손발
+        return (
+          <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+            {/* 큰 머리 */}
+            <circle cx="100" cy="80" r="44" fill="#FFF" />
+            {/* 머리카락 한 가닥 */}
+            <path d="M100 36 q-2 -8 0 -12" />
+            {/* 눈 */}
+            <circle cx="84" cy="78" r="3.5" fill={stroke} stroke="none" />
+            <circle cx="116" cy="78" r="3.5" fill={stroke} stroke="none" />
+            {/* 볼 */}
+            <circle cx="74" cy="92" r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
+            <circle cx="126" cy="92" r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
+            {/* 입 — O */}
+            <ellipse className={mouthCls} cx="100" cy="100" rx="6" ry="4.5" fill={stroke} stroke="none" />
+            {/* 짧은 몸통 */}
+            <line x1="100" y1="124" x2="100" y2="158" />
+            {/* 짧은 팔 */}
+            <line x1="100" y1="140" x2="78" y2="148" />
+            <line x1="100" y1="140" x2="122" y2="148" />
+            {/* 짧은 다리 */}
+            <line x1="100" y1="158" x2="86" y2="178" />
+            <line x1="100" y1="158" x2="114" y2="178" />
+          </g>
+        );
+      }
+      if (role === 'mom') {
+        // 어깨 길이 머리, 치마 라인
+        return (
+          <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+            {/* 머리 + 어깨 머리카락 (단순 곡선) */}
+            <circle cx="100" cy="58" r="22" fill="#FFF" />
+            <path d="M78 60 q-4 22 -2 36" />
+            <path d="M122 60 q4 22 2 36" />
+            {/* 앞머리 */}
+            <path d="M82 50 q18 -14 36 0" />
+            {/* 눈 */}
+            <line x1="91" y1="60" x2="95" y2="60" />
+            <line x1="105" y1="60" x2="109" y2="60" />
+            {/* 입 — 작은 미소 */}
+            <path className={mouthCls} d="M94 70 q6 4 12 0" />
+            {/* 몸통 */}
+            <line x1="100" y1="80" x2="100" y2="140" />
+            {/* 팔 */}
+            <line x1="100" y1="96" x2="72" y2="118" />
+            <line x1="100" y1="96" x2="128" y2="118" />
+            {/* 치마 (삼각) */}
+            <path d="M100 140 L 78 178 L 122 178 Z" />
+            {/* 다리 */}
+            <line x1="92" y1="178" x2="92" y2="190" />
+            <line x1="108" y1="178" x2="108" y2="190" />
+          </g>
+        );
+      }
+      // dad — 머리 짧게, 안경 추가, 어깨 넓게
+      return (
+        <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+          {/* 머리 */}
+          <circle cx="100" cy="58" r="22" fill="#FFF" />
+          {/* 짧은 머리 라인 */}
+          <path d="M82 46 q18 -8 36 0" />
+          {/* 안경 */}
+          <circle cx="91" cy="60" r="5" />
+          <circle cx="109" cy="60" r="5" />
+          <line x1="96" y1="60" x2="104" y2="60" />
+          {/* 입 — 살짝 미소 */}
+          <path className={mouthCls} d="M94 72 q6 3 12 0" />
+          {/* 어깨 + 몸통 */}
+          <line x1="80" y1="92" x2="120" y2="92" />
+          <line x1="100" y1="80" x2="100" y2="140" />
+          {/* 팔 */}
+          <line x1="80" y1="92" x2="64" y2="124" />
+          <line x1="120" y1="92" x2="136" y2="124" />
+          {/* 다리 */}
+          <line x1="100" y1="140" x2="84" y2="180" />
+          <line x1="100" y1="140" x2="116" y2="180" />
+        </g>
+      );
+    }
+
+    // 긴 자막을 "말하는 듯한" 청크로 쪼개기
+    // - 문장부호 우선, 그 다음 공백
+    // - 한 청크당 약 14자 이내 목표 (너무 짧지도 길지도 않게)
+    function chunkSpokenText(text, maxChars = 14) {
+      if (!text) return [];
+      const trimmed = String(text).trim();
+      if (trimmed.length <= maxChars) return [trimmed];
+      // 문장부호로 1차 분할
+      const parts = trimmed.split(/(?<=[.!?,~…])\s*/g).filter(Boolean);
+      const chunks = [];
+      for (const part of parts) {
+        const p = part.trim();
+        if (!p) continue;
+        if (p.length <= maxChars) {
+          chunks.push(p);
+        } else {
+          // 공백 기준 누적
+          const words = p.split(/\s+/);
+          let cur = '';
+          for (const w of words) {
+            const next = cur ? cur + ' ' + w : w;
+            if (next.length > maxChars && cur) {
+              chunks.push(cur);
+              cur = w;
+            } else {
+              cur = next;
+            }
+          }
+          if (cur) chunks.push(cur);
+          // 단일 어절이 maxChars보다 길면 글자수로 강제 분할
+          for (let i = chunks.length - 1; i >= 0; i--) {
+            if (chunks[i].length > maxChars + 4) {
+              const big = chunks.splice(i, 1)[0];
+              const sliced = [];
+              for (let j = 0; j < big.length; j += maxChars) {
+                sliced.push(big.slice(j, j + maxChars));
+              }
+              chunks.splice(i, 0, ...sliced);
+            }
+          }
+        }
+      }
+      return chunks.length > 0 ? chunks : [trimmed];
+    }
+
+    // 단어별 타임스탬프 → 청크 + 정확한 start/end
+    // 단어 데이터 없거나 텍스트가 편집된 경우엔 글자수 비례로 fallback
+    function buildTimedChunks(segment, displayText, maxChars = 14) {
+      if (!segment) return [];
+      const words = segment.words || [];
+      const isEdited = displayText !== undefined && displayText !== segment.text;
+
+      // Fallback: 글자수 비례 분배 (단어 데이터 없거나 편집된 경우)
+      if (words.length === 0 || isEdited) {
+        const chunks = chunkSpokenText(displayText !== undefined ? displayText : segment.text, maxChars);
+        const totalChars = chunks.reduce((s, c) => s + c.length, 0) || 1;
+        const dur = Math.max(0.001, segment.end - segment.start);
+        const result = [];
+        let cum = 0;
+        for (const c of chunks) {
+          const start = segment.start + (cum / totalChars) * dur;
+          cum += c.length;
+          const end = segment.start + (cum / totalChars) * dur;
+          result.push({ text: c, start, end });
+        }
+        return result;
+      }
+
+      // 정확 모드: 단어 단위로 누적해서 청크 빌드
+      const result = [];
+      let buf = [];
+      let bufLen = 0;
+      const flush = () => {
+        if (buf.length === 0) return;
+        result.push({
+          text: buf.map((x) => x.text).join(' '),
+          start: buf[0].start,
+          end: buf[buf.length - 1].end,
+        });
+        buf = [];
+        bufLen = 0;
+      };
+      for (const w of words) {
+        const wText = (w.text || '').trim();
+        if (!wText) continue;
+        const wLen = wText.length;
+        // maxChars 초과 시 flush (다만 buf가 비어있지 않을 때만)
+        if (bufLen + wLen + (buf.length > 0 ? 1 : 0) > maxChars && buf.length > 0) {
+          flush();
+        }
+        buf.push(w);
+        bufLen += wLen + (buf.length > 1 ? 1 : 0);
+        // 문장부호로 끝나는 단어 → 자연스러운 청크 경계
+        if (/[.!?,~…]$/.test(wText)) flush();
+      }
+      flush();
+      // 마지막 청크의 end를 segment.end로 확장 — 단어 타임스탬프가 segment.end보다 짧을 때 자막이 뚝 끊기는 거 방지
+      if (result.length > 0) {
+        const last = result[result.length - 1];
+        if (last.end < segment.end) last.end = segment.end;
+      }
+      return result;
+    }
+
+    // currentTime이 어느 청크에 있는지 찾기
+    function findActiveChunk(timedChunks, currentTime) {
+      if (!timedChunks || timedChunks.length === 0) return '';
+      // currentTime 범위에 들어가는 청크
+      for (const c of timedChunks) {
+        if (currentTime >= c.start && currentTime <= c.end) return c.text;
+      }
+      // 갭 구간이면 직전 청크 유지 (없으면 빈 문자열)
+      let last = '';
+      for (const c of timedChunks) {
+        if (c.end <= currentTime) last = c.text;
+        else break;
+      }
+      return last;
     }
 
     // 캐릭터 id ("dad-3") → { role, variant } 파싱
@@ -612,7 +969,9 @@
         return map;
       }, [segments]);
 
-      const usedRoles = Object.values(roleMapping).filter(Boolean);
+      // 중복 체크는 실제 segments가 있는 화자만 — 유령 화자(C가 데이터에 없는데 default에 박혀있는 경우) 제외
+      const activeSpeakers = SPEAKER_KEYS.filter((k) => speakerSegments[k] && speakerSegments[k].length > 0);
+      const usedRoles = activeSpeakers.map((sp) => roleMapping[sp]).filter(Boolean);
       const hasDuplicate = usedRoles.length !== new Set(usedRoles).size;
 
       return (
@@ -716,7 +1075,15 @@
                         <button
                           key={r.key}
                           type="button"
-                          onClick={() => setRoleMapping({ ...roleMapping, [sp]: r.key })}
+                          onClick={() => {
+                            // 다른 화자에서 같은 역할이 이미 쓰이고 있으면 자동 해제 (유령 매핑도 같이 정리)
+                            const next = { ...roleMapping };
+                            Object.keys(next).forEach((k) => {
+                              if (k !== sp && next[k] === r.key) delete next[k];
+                            });
+                            next[sp] = r.key;
+                            setRoleMapping(next);
+                          }}
                           className={`py-2.5 rounded-lg text-[12px] font-medium border transition
                             ${selected
                               ? 'bg-ink text-cream border-ink'
@@ -742,71 +1109,71 @@
     }
 
     // ========================================
-    // Page — CharacterStep
+    // Page — CharacterStep (5스타일 세트 — 아빠/엄마/아기 1세트로 묶음)
     // ========================================
-    function CharacterStep({ roleMapping, characterMapping, setCharacterMapping }) {
-      const mappedRoles = useMemo(() => {
-        const used = new Set(Object.values(roleMapping).filter(Boolean));
-        if (used.size === 0) return ROLES.map((r) => r.key);
-        return ROLES.map((r) => r.key).filter((k) => used.has(k));
-      }, [roleMapping]);
-
+    function CharacterStep({ roleMapping, characterStyle, setCharacterStyle }) {
       return (
         <div className="px-6 py-7 space-y-5 anim-fade-in">
           <div className="space-y-1.5">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">03 — Character</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">03 — Style</div>
             <h2 className="font-serif text-[26px] leading-[1.15] text-ink">
-              캐릭터를<br/>골라주세요.
+              그림체를<br/>골라주세요.
             </h2>
             <p className="text-[13px] text-muted leading-relaxed pt-1">
-              각 역할마다 5종 중 1개. 현재는 1번만 사용 가능, 나머지는 곧 풀립니다.
+              5가지 그림체 중 1개. 아빠 · 엄마 · 아기가 같은 화풍의 한 세트로 묶입니다.
             </p>
           </div>
 
-          {mappedRoles.map((roleKey) => {
-            const role = ROLES.find((r) => r.key === roleKey);
-            if (!role) return null;
-            return (
-              <div key={roleKey} className="space-y-3">
-                <div className="flex items-baseline gap-2 px-1">
-                  <h3 className="text-[14px] font-medium text-ink">{role.kr}</h3>
-                  <span className="text-[10px] uppercase tracking-[0.16em] text-faint">{role.label}</span>
-                </div>
-
-                <div className="grid grid-cols-5 gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => {
-                    const charId = `${roleKey}-${n}`;
-                    const isLocked = false; // 5종 모두 사용 가능 (variant는 색감 변형)
-                    const isSelected = characterMapping[roleKey] === charId;
-                    return (
-                      <button
-                        key={charId}
-                        type="button"
-                        disabled={isLocked}
-                        onClick={() => !isLocked && setCharacterMapping({ ...characterMapping, [roleKey]: charId })}
-                        className={`relative aspect-square rounded-lg border flex flex-col items-center justify-center p-1.5 transition
-                          ${isSelected
-                            ? 'bg-cream border-ink ring-2 ring-ink'
-                            : 'bg-paper border-hairline hover:border-ink/40 cursor-pointer'}`}
-                        aria-pressed={isSelected}
-                        aria-label={`${role.kr} 캐릭터 ${n}번`}
-                      >
-                        <Avatar role={roleKey} variant={n} size={48} idle={isSelected} />
-                        <div className={`text-[9px] uppercase tracking-[0.12em] mt-1 num ${isSelected ? 'text-ink' : 'text-faint'}`}>
-                          0{n}
+          <div className="space-y-3">
+            {CHAR_STYLES.map((s) => {
+              const isSelected = characterStyle === s.key;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => setCharacterStyle(s.key)}
+                  className={`relative w-full text-left rounded-xl border-2 p-3 transition
+                    ${isSelected
+                      ? 'border-ink bg-cream'
+                      : 'border-hairline bg-paper hover:border-ink/30'}`}
+                  aria-pressed={isSelected}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* 3-캐릭터 미리보기 */}
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      {['dad', 'mom', 'baby'].map((r) => (
+                        <div key={r} className="w-14 h-14 rounded-md bg-paper border border-hairline overflow-hidden flex items-center justify-center">
+                          <Avatar role={r} style={s.key} size={56} />
                         </div>
-                        {isSelected && (
-                          <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-ink text-cream flex items-center justify-center">
-                            <Icon.check size={10} />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+                      ))}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <h3 className="text-[14px] font-medium text-ink">{s.label}</h3>
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-faint">{s.hint}</span>
+                      </div>
+                      <p className="text-[11px] text-muted mt-0.5 leading-snug">
+                        {s.key === 'current' && '부드러운 파스텔톤 · 둥근 도형'}
+                        {s.key === 'stickman' && '얇은 검정선 · 흰 배경'}
+                        {s.key === 'disney' && '3D 카툰 · 부드러운 색감'}
+                        {s.key === 'webtoon' && '한국 웹툰 라인아트'}
+                        {s.key === 'chimchak' && '굵은 검정선 · 코믹'}
+                      </p>
+                    </div>
+                    {isSelected && (
+                      <div className="w-6 h-6 rounded-full bg-ink text-cream flex items-center justify-center flex-shrink-0">
+                        <Icon.check size={14} />
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="px-3 py-2 rounded-lg border border-hairline text-[11px] text-muted leading-relaxed">
+            ⓘ 디즈니/웹툰/침착맨 스타일은 AI 이미지 — 처음 한 번 생성 후 캐시됩니다. 이미지가 안 보이면 곧 준비될 거예요.
+          </div>
         </div>
       );
     }
@@ -815,7 +1182,7 @@
     // Page — PreviewStep
     //   진짜 오디오 재생 + 시간 동기화 + 화자별 캐릭터 talking 애니메이션
     // ========================================
-    function PreviewStep({ jobId, segments, roleMapping, characterMapping, editedSegments, setEditedSegments }) {
+    function PreviewStep({ jobId, segments, roleMapping, setRoleMapping, segmentRoleOverrides, setSegmentRoleOverrides, characterStyle, editedSegments, setEditedSegments }) {
       const audioRef = useRef(null);
       const [editingId, setEditingId] = useState(null);
       const [isPlaying, setIsPlaying] = useState(false);
@@ -824,10 +1191,19 @@
       const [audioError, setAudioError] = useState("");
 
       const getText = (s) => editedSegments[s.id] !== undefined ? editedSegments[s.id] : s.text;
+      // 우선순위: segment override → speaker mapping
+      const getRoleForSegment = (s) => segmentRoleOverrides[s.id] || roleMapping[s.speaker];
       const getRoleForSpeaker = (sp) => roleMapping[sp];
-      const getRoleLabelForSpeaker = (sp) => {
-        const role = ROLES.find((r) => r.key === getRoleForSpeaker(sp));
-        return role ? role.kr : `사람 ${sp}`;
+
+      // 한 segment의 역할만 변경 (다른 segment에 영향 없음)
+      const setSegmentRole = (segmentId, roleKey) => {
+        setSegmentRoleOverrides({ ...segmentRoleOverrides, [segmentId]: roleKey });
+      };
+      // 오버라이드 해제 — speaker 기본값으로 복귀
+      const clearSegmentRole = (segmentId) => {
+        const next = { ...segmentRoleOverrides };
+        delete next[segmentId];
+        setSegmentRoleOverrides(next);
       };
 
       const onTextChange = (id, val) => {
@@ -844,9 +1220,10 @@
         return prev || null;
       }, [segments, currentTime]);
 
+      // segment.end 직후 0.4초 버퍼 — 마지막 음절·자막이 뚝 끊기지 않게 (잔향 자연스러움)
       const speakingNow = useMemo(() => {
         if (!currentSegment) return false;
-        return isPlaying && currentTime >= currentSegment.start && currentTime < currentSegment.end;
+        return isPlaying && currentTime >= currentSegment.start && currentTime < currentSegment.end + 0.4;
       }, [currentSegment, isPlaying, currentTime]);
 
       // 오디오 이벤트 바인딩
@@ -891,11 +1268,20 @@
         audio.currentTime = Math.max(0, Math.min(audio.duration || sec, sec));
       };
 
-      // 현재 segment에 매칭된 캐릭터
-      const currentRoleKey = currentSegment ? getRoleForSpeaker(currentSegment.speaker) : null;
-      const currentCharId = currentRoleKey ? characterMapping[currentRoleKey] : null;
-      const currentChar = parseCharId(currentCharId);
+      // 현재 segment에 매칭된 역할
+      const currentRoleKey = currentSegment ? getRoleForSegment(currentSegment) : null;
       const currentText = currentSegment ? getText(currentSegment) : "";
+
+      // 등장 인물 (역할 기준) — segment 오버라이드 포함, dad → mom → baby 순서
+      const uniqueRoles = useMemo(() => {
+        const present = new Set();
+        for (const s of segments) {
+          const r = segmentRoleOverrides[s.id] || roleMapping[s.speaker];
+          if (r) present.add(r);
+        }
+        return ROLES.map(r => r.key).filter(k => present.has(k));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [segments, segmentRoleOverrides, roleMapping]);
       const totalDur = duration || segments.reduce((m, s) => Math.max(m, s.end), 0) || 0;
       const progressPct = totalDur > 0 ? Math.min(100, (currentTime / totalDur) * 100) : 0;
 
@@ -908,45 +1294,92 @@
             </h2>
           </div>
 
-          {/* Preview surface — 캐릭터 + 자막 + 진행 바 */}
+          {/* Preview surface — 9:16 (Reels/Shorts 공통) + 안전영역 */}
           <Card className="!p-0 overflow-hidden">
-            <div className="aspect-video bg-cream relative flex items-center justify-center border-b border-hairline overflow-hidden">
+            <div
+              className="relative bg-cream border-b border-hairline overflow-hidden mx-auto"
+              style={{ aspectRatio: '9 / 16', maxWidth: 360 }}
+            >
               {/* 배경 톤 */}
               <div className="absolute inset-0 bg-gradient-to-b from-[#FDF8F1] to-[#F2E5D6]" />
 
-              {/* 캐릭터 — 현재 segment의 화자 */}
-              {currentSegment ? (
-                <div className="relative z-10">
-                  <Avatar
-                    role={currentChar.role}
-                    variant={currentChar.variant}
-                    talking={speakingNow}
-                    idle={!speakingNow}
-                    size={156}
-                  />
-                </div>
-              ) : (
-                <div className="relative z-10 text-center text-faint">
-                  <div className="w-12 h-12 mx-auto mb-2 rounded-full border border-hairline flex items-center justify-center text-ink/40 bg-paper/70">
-                    <Icon.play size={18} />
+              {/* 안전영역 가이드 — Reels(상단 ~14%/하단 ~22%) + Shorts 공통 */}
+              {/* 상단 unsafe (작가/아이콘 영역) */}
+              <div className="absolute inset-x-0 top-0 h-[14%] bg-ink/[0.025] border-b border-dashed border-ink/10 pointer-events-none flex items-center justify-center">
+                <span className="text-[8px] uppercase tracking-[0.18em] text-ink/30 num">UNSAFE — top</span>
+              </div>
+              {/* 하단 unsafe (좋아요/공유/캡션 영역) */}
+              <div className="absolute inset-x-0 bottom-0 h-[22%] bg-ink/[0.025] border-t border-dashed border-ink/10 pointer-events-none flex items-center justify-center">
+                <span className="text-[8px] uppercase tracking-[0.18em] text-ink/30 num">UNSAFE — bottom</span>
+              </div>
+
+              {/* 안전영역 내부 — N분할 (좌/우 교차) */}
+              <div className="absolute left-[4%] right-[4%] top-[14%] bottom-[22%] flex flex-col gap-2">
+                {uniqueRoles.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-faint">
+                    <div className="w-12 h-12 mb-2 rounded-full border border-hairline flex items-center justify-center text-ink/40 bg-paper/70">
+                      <Icon.play size={18} />
+                    </div>
+                    <div className="text-[11px] uppercase tracking-[0.16em]">재생을 눌러 미리보기</div>
                   </div>
-                  <div className="text-[11px] uppercase tracking-[0.16em]">재생을 눌러 미리보기</div>
-                </div>
-              )}
+                ) : (
+                  uniqueRoles.map((roleKey, idx) => {
+                    const isSpeaking = currentRoleKey === roleKey && speakingNow;
+                    const roleLabel = ROLES.find(r => r.key === roleKey)?.kr || roleKey;
+                    // 짝수 index = 캐릭터 왼쪽 / 말풍선 오른쪽, 홀수 = 반대
+                    const avatarOnLeft = idx % 2 === 0;
+                    const timedChunks = isSpeaking && currentSegment
+                      ? buildTimedChunks(currentSegment, getText(currentSegment))
+                      : [];
+                    const activeChunk = isSpeaking ? findActiveChunk(timedChunks, currentTime) : '';
+                    return (
+                      <div
+                        key={roleKey}
+                        className={`flex-1 min-h-0 flex items-center gap-2 ${avatarOnLeft ? '' : 'flex-row-reverse'}`}
+                      >
+                        {/* 캐릭터 — 정사각형 비율 유지하면서 패널의 짧은 변에 맞춰 채우기 */}
+                        <div
+                          className={`relative transition-opacity ${currentRoleKey && currentRoleKey !== roleKey ? 'opacity-60' : ''}`}
+                          style={{
+                            height: '100%',
+                            aspectRatio: '1 / 1',
+                            maxWidth: uniqueRoles.length === 1 ? '70%' : '48%',
+                            flexShrink: 0
+                          }}
+                        >
+                          <Avatar
+                            role={roleKey}
+                            style={characterStyle}
+                            talking={isSpeaking}
+                            idle={!isSpeaking}
+                            fill={true}
+                          />
+                          {/* role 라벨 */}
+                          <span className={`absolute top-1 ${avatarOnLeft ? 'left-1' : 'right-1'} px-1.5 py-0.5 rounded text-[9px] uppercase tracking-[0.14em] z-10 ${
+                            isSpeaking ? 'bg-ink text-cream' : 'bg-paper/80 text-ink/60 border border-hairline'
+                          }`}>
+                            {roleLabel}
+                          </span>
+                        </div>
 
-              {/* 자막 — 하단 */}
-              {currentText && (
-                <div className="absolute z-10 bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-ink/90 text-cream text-[13px] rounded-md max-w-[88%] text-center leading-snug shadow-sm">
-                  {currentText}
-                </div>
-              )}
+                        {/* 말풍선 자리 — 말하고 있을 때만 등장 */}
+                        <div className="flex-1 min-w-0 h-full flex items-center justify-center">
+                          {activeChunk && (
+                            <div className={`bubble-cute ${avatarOnLeft ? 'tail-left' : 'tail-right'}`} key={activeChunk}>
+                              {activeChunk}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
 
-              {/* 역할 라벨 — 좌상단 */}
-              {currentSegment && currentRoleKey && (
-                <div className="absolute z-10 top-3 left-3 px-2 py-0.5 bg-paper/90 border border-hairline rounded-md text-[10px] uppercase tracking-[0.14em] text-ink/70">
-                  {ROLES.find((r) => r.key === currentRoleKey)?.kr || currentRoleKey}
-                </div>
-              )}
+              {/* 비율 가이드 — 우상단 */}
+              <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-[0.14em] text-ink/30 num bg-paper/60">
+                9:16
+              </div>
             </div>
 
             {/* 진행 바 — 클릭으로 seek */}
@@ -992,25 +1425,71 @@
 
           {/* 자막 리스트 */}
           <div>
-            <div className="flex items-baseline justify-between mb-3 px-1">
+            <div className="flex items-baseline justify-between mb-1 px-1">
               <h3 className="text-[13px] font-medium text-ink">자막</h3>
-              <span className="text-[11px] text-faint">탭하면 수정 가능</span>
+              <span className="text-[11px] text-faint">탭하면 자막 편집</span>
             </div>
+            <p className="text-[11px] text-muted px-1 mb-3 leading-relaxed">
+              라벨은 <span className="text-ink/80">한 발화씩 개별 변경</span>됩니다 — 같은 화자의 다른 발화엔 영향 없음. 변경된 발화엔 <span className="text-accent">↺ 복원</span> 버튼이 생겨요.
+            </p>
             <div className="bg-paper border border-hairline rounded-xl divide-y divide-hairline">
               {segments.map((s) => {
                 const isEditing = editingId === s.id;
                 const sp = SPEAKER_COLORS[s.speaker] || SPEAKER_COLORS.C;
-                const role = getRoleForSpeaker(s.speaker);
+                const role = getRoleForSegment(s);
+                const speakerDefaultRole = roleMapping[s.speaker];
+                const isOverridden = segmentRoleOverrides[s.id] !== undefined;
                 const isBaby = role === "baby";
+                const isCurrent = currentSegment && currentSegment.id === s.id;
                 return (
-                  <div key={s.id} className="px-4 py-3.5">
-                    <div className="flex items-center gap-2 mb-1.5">
+                  <div key={s.id} className={`px-4 py-3.5 transition-colors ${isCurrent ? 'bg-accentSoft/30' : ''}`}>
+                    <div className="flex items-center gap-2 mb-2">
                       <span className={`w-1.5 h-1.5 rounded-full ${sp.dot}`} />
-                      <span className="text-[12px] font-medium text-ink">{getRoleLabelForSpeaker(s.speaker)}</span>
-                      <span className="text-[10px] text-faint num ml-auto">
-                        {fmtTime(s.start)} — {fmtTime(s.end)}
-                      </span>
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-faint">사람 {s.speaker}</span>
+                      {isOverridden && (
+                        <button
+                          type="button"
+                          onClick={() => clearSegmentRole(s.id)}
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-accent/40 text-accent hover:bg-accent/10 transition"
+                          title="이 발화 라벨을 기본값으로 복원"
+                        >
+                          ↺ 복원
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => seekTo(s.start)}
+                        className="text-[10px] text-faint num ml-auto hover:text-ink transition"
+                        title="이 구간으로 이동"
+                      >
+                        ▸ {fmtTime(s.start)} — {fmtTime(s.end)}
+                      </button>
                     </div>
+
+                    {/* 역할 인라인 선택 — 이 발화 한 개만 변경 (다른 segment 영향 없음) */}
+                    <div className="flex gap-1 mb-2">
+                      {ROLES.map((r) => {
+                        const selected = role === r.key;
+                        const isSpeakerDefault = speakerDefaultRole === r.key && !isOverridden;
+                        return (
+                          <button
+                            key={r.key}
+                            type="button"
+                            onClick={() => setSegmentRole(s.id, r.key)}
+                            className={`text-[11px] px-2.5 py-1 rounded-full border transition
+                              ${selected
+                                ? (isOverridden
+                                    ? 'bg-accent text-cream border-accent'
+                                    : 'bg-ink text-cream border-ink')
+                                : 'bg-paper text-ink/60 border-hairline hover:border-ink/40'}`}
+                            title={isSpeakerDefault ? `사람 ${s.speaker} 기본값` : `이 발화만 ${r.kr}로`}
+                          >
+                            {r.kr}
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     {isEditing ? (
                       <input
                         type="text"
@@ -1179,9 +1658,11 @@
       const [file, setFile] = useState(null);
       const [fileName, setFileName] = useState("");
       const [consent, setConsent] = useState(false);
-      const [roleMapping, setRoleMapping] = useState({ A: "dad", B: "baby", C: "mom" });
-      const [characterMapping, setCharacterMapping] = useState({ dad: "dad-1", mom: "mom-1", baby: "baby-1" });
+      const [roleMapping, setRoleMapping] = useState({});
+      const [characterStyle, setCharacterStyle] = useState("current");
       const [editedSegments, setEditedSegments] = useState({});
+      // per-segment 역할 오버라이드 — AssemblyAI 발화자 구분이 틀린 segment 개별 정정
+      const [segmentRoleOverrides, setSegmentRoleOverrides] = useState({});
 
       // Day 2-6: 실제 백엔드 연동 상태
       const [segments, setSegments] = useState([]);
@@ -1206,11 +1687,11 @@
           return allMapped && noDup;
         }
         if (step === 3) {
-          const usedRoles = Object.values(roleMapping).filter(Boolean);
-          return usedRoles.every((r) => !!characterMapping[r]);
+          // 스타일은 항상 기본값이 있으므로 추가 검증 없이 통과
+          return !!characterStyle;
         }
         return true;
-      }, [step, segments, roleMapping, characterMapping]);
+      }, [step, segments, roleMapping, characterStyle]);
 
       const handleAnalyze = useCallback(async () => {
         if (!file || !consent) return;
@@ -1269,6 +1750,7 @@
           setFileName("");
           setConsent(false);
           setEditedSegments({});
+          setSegmentRoleOverrides({});
           setErrorMsg("");
           setTranscriptMeta(null);
           return;
@@ -1276,13 +1758,17 @@
         setErrorMsg("");
         setStep((s) => Math.max(1, s - 1));
       };
-      // Day 3: step 2 → 3 (roleMapping), step 3 → 4 (characterMapping) 저장 후 이동
+      // step 2 → 3 (roleMapping), step 3 → 4 (characterMapping),
+      // step 4 → 5 (프리뷰에서 라벨 바꾼 경우 roleMapping 재저장)
       const handleNext = useCallback(async () => {
-        if (jobId && (step === 2 || step === 3)) {
+        if (jobId && (step === 2 || step === 3 || step === 4)) {
           setSaving(true);
           setErrorMsg("");
           try {
-            const body = step === 2 ? { roleMapping } : { characterMapping };
+            let body;
+            if (step === 2) body = { roleMapping };
+            else if (step === 3) body = { characterStyle };
+            else body = { roleMapping }; // step 4 → 5
             const res = await fetch(`/api/jobs/${jobId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
@@ -1301,7 +1787,7 @@
           setSaving(false);
         }
         setStep((s) => Math.min(STEPS.length, s + 1));
-      }, [step, jobId, roleMapping, characterMapping]);
+      }, [step, jobId, roleMapping, characterStyle]);
       const onStepClick = (n) => {
         // 1단계는 항상 갈 수 있고, 그 외 단계는 segments가 있어야 갈 수 있음
         if (n > 1 && segments.length === 0) return;
@@ -1345,8 +1831,8 @@
               {step === 3 && (
                 <CharacterStep
                   roleMapping={roleMapping}
-                  characterMapping={characterMapping}
-                  setCharacterMapping={setCharacterMapping}
+                  characterStyle={characterStyle}
+                  setCharacterStyle={setCharacterStyle}
                 />
               )}
               {step === 4 && (
@@ -1354,7 +1840,10 @@
                   jobId={jobId}
                   segments={segments}
                   roleMapping={roleMapping}
-                  characterMapping={characterMapping}
+                  setRoleMapping={setRoleMapping}
+                  segmentRoleOverrides={segmentRoleOverrides}
+                  setSegmentRoleOverrides={setSegmentRoleOverrides}
+                  characterStyle={characterStyle}
                   editedSegments={editedSegments}
                   setEditedSegments={setEditedSegments}
                 />
