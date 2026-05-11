@@ -940,7 +940,11 @@ async function ensureTunedAudio(jobId, srcPath, segments, options = {}) {
     }
   }
 
-  const filterChain = [
+  // 2-pass loudnorm — 정확히 -14 LUFS에 맞추려면 측정(1차) 후 보정(2차) 필요.
+  //   1차: print_format=json 으로 stderr에 측정값 출력 (input_i, input_tp, input_lra, input_thresh, target_offset)
+  //   2차: 측정값을 measured_* 파라미터로 넘기고 linear=true 모드로 정확한 게인 적용
+  //   처리 시간 약 1.7~2배 늘지만 결과 LUFS가 ±0.1 이내로 정밀
+  const baseFilters = [
     ...speakerGainStages,
     ...trimStages,
     'highpass=f=80',
@@ -950,8 +954,44 @@ async function ensureTunedAudio(jobId, srcPath, segments, options = {}) {
     'equalizer=f=2500:t=q:w=1.2:g=3',
     'equalizer=f=200:t=q:w=1.0:g=-2',
     'dynaudnorm=f=300:g=15:p=0.95',
-    'loudnorm=I=-14:TP=-1.5:LRA=11',
-  ].join(',');
+  ];
+  const TARGET_I = -14, TARGET_TP = -1.5, TARGET_LRA = 11;
+
+  // 1차 측정 — null output으로 빠르게 (오디오는 분석만)
+  let measured = null;
+  try {
+    const pass1AfChain = [
+      ...baseFilters,
+      `loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}:print_format=json`,
+    ].join(',');
+    const { stderr } = await execFileP('ffmpeg', [
+      '-i', srcPath,
+      '-vn',
+      '-af', pass1AfChain,
+      '-f', 'null',
+      '-',
+    ], { timeout: 5 * 60 * 1000, maxBuffer: 20 * 1024 * 1024 });
+    // loudnorm은 stderr 끝에 JSON 블록을 찍어줌
+    const match = stderr.match(/\{\s*"input_i"[\s\S]*?\}/);
+    if (match) {
+      const m = JSON.parse(match[0]);
+      // 측정값이 -70 LUFS 같은 비정상이면 무시 (무음/너무 짧음)
+      if (m.input_i && parseFloat(m.input_i) > -70) {
+        measured = m;
+        console.log(`[튠] 1차 측정: I=${m.input_i} TP=${m.input_tp} LRA=${m.input_lra} thresh=${m.input_thresh} offset=${m.target_offset}`);
+      }
+    }
+    if (!measured) console.warn('[튠] 1차 측정 결과 파싱 실패 → 단일 패스로 fallback');
+  } catch (e) {
+    console.warn('[튠] 1차 측정 실패, 단일 패스로 fallback:', e.message);
+  }
+
+  // 2차 — 측정값 있으면 linear=true 정밀 모드, 없으면 fallback 단일 패스
+  const finalLoudnorm = measured
+    ? `loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}:measured_I=${measured.input_i}:measured_TP=${measured.input_tp}:measured_LRA=${measured.input_lra}:measured_thresh=${measured.input_thresh}:offset=${measured.target_offset || 0}:linear=true:print_format=summary`
+    : `loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}`;
+
+  const filterChain = [...baseFilters, finalLoudnorm].join(',');
 
   await execFileP('ffmpeg', [
     '-y',
@@ -963,7 +1003,7 @@ async function ensureTunedAudio(jobId, srcPath, segments, options = {}) {
     '-codec:a', 'libmp3lame',
     '-b:a', '192k',
     outPath,
-  ], { timeout: 5 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 });
+  ], { timeout: 5 * 60 * 1000, maxBuffer: 20 * 1024 * 1024 });
 
   return outPath;
 }
@@ -1205,8 +1245,9 @@ app.use((err, _req, res, _next) => {
   if (!ASSEMBLYAI_API_KEY) {
     console.warn('[경고] ASSEMBLYAI_API_KEY가 비어있습니다. /api/transcribe 호출 시 실패합니다.');
   }
-  app.listen(PORT, () => {
-    console.log(`Soft Studio — server up on ${BASE_URL}`);
+  // Railway/Render 등 컨테이너 호스트는 0.0.0.0 바인딩 필요 (localhost만 listen하면 헬스체크 실패)
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Soft Studio — server up on port ${PORT} (BASE_URL=${BASE_URL})`);
     console.log(`  uploads/  → ${UPLOAD_DIR}`);
     console.log(`  outputs/  → ${OUTPUT_DIR}`);
     console.log(`  public/   → ${PUBLIC_DIR}`);

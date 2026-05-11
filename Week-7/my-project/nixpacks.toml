@@ -1,0 +1,9 @@
+# Railway/Nixpacks 빌드 설정 — ffmpeg가 런타임에 필요 (오디오 분석/튠/녹화)
+[phases.setup]
+nixPkgs = ['nodejs_20', 'ffmpeg-full']
+
+[phases.install]
+cmds = ['npm ci --omit=dev']
+
+[start]
+cmd = 'node server.js'

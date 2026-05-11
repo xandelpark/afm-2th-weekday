@@ -52,27 +52,33 @@
       -webkit-font-smoothing: antialiased;
       letter-spacing: -0.005em;
     }
-    /* 귀여운 말풍선 — 꼬리 포함 */
+    /* 말풍선 — html2canvas/녹화에서 또렷하게 보이도록 굵은 글꼴 + 풀불투명 */
     .bubble-cute {
-      font-family: 'Gaegu', 'Gamja Flower', 'Pretendard', cursive;
-      font-weight: 700;
+      font-family: 'Noto Sans KR', 'Pretendard', system-ui, sans-serif;
+      font-weight: 900;
       font-size: 17px;
       line-height: 1.25;
       letter-spacing: -0.01em;
-      background: #FFFDF7;
-      color: #1A1A1A;
-      border: 2.2px solid #1A1A1A;
-      border-radius: 22px;
-      padding: 8px 14px 10px;
+      background: #FFFFFF;
+      color: #0A0A0A;
+      border: 2.5px solid #0A0A0A;
+      border-radius: 18px;
+      padding: 9px 14px 10px;
       position: relative;
       max-width: 100%;
       word-break: keep-all;
-      box-shadow: 0 1px 0 rgba(26,26,26,0.05);
-      animation: bubblePop 0.18s ease-out;
+      opacity: 1 !important;       /* 어떤 부모 transform/animation에도 영향 안 받게 */
+      box-shadow: 0 2px 0 rgba(10,10,10,0.85);
+      /* bubblePop 제거 — 녹화 시 transform: scale 단계에서 흐릿하게 캡처되는 원인 */
+      animation: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: geometricPrecision;
     }
-    @keyframes bubblePop {
-      from { opacity: 0; transform: scale(0.92); }
-      to   { opacity: 1; transform: scale(1); }
+    /* 첫 등장만 살짝 fade — scale 변환은 빼서 sub-pixel 흐림 방지 */
+    @keyframes bubbleFadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
     /* 꼬리 — 왼쪽 (말풍선이 캐릭터의 오른쪽에 있을 때, 꼬리는 왼쪽으로 캐릭터 가리킴) */
     .bubble-cute.tail-left::before,
@@ -317,138 +323,18 @@
       ],
     };
 
-    // 5가지 그림체 스타일 메타
+    // 단일 그림체 — 졸라맨만 사용
     const CHAR_STYLES = [
-      { key: 'current',  label: '소프트 일러스트', hint: '지금 그림체' },
-      { key: 'stickman', label: '졸라맨 코믹',     hint: '단순선' },
-      { key: 'disney',   label: '디즈니풍',         hint: '3D 카툰' },
-      { key: 'webtoon',  label: '웹툰풍',           hint: '한국 만화' },
-      { key: 'chimchak', label: '침착맨풍',         hint: '굵은선 만화' },
+      { key: 'stickman', label: '졸라맨 코믹', hint: '단순선' },
     ];
 
-    function Avatar({ role = 'dad', variant = 1, talking = false, idle = false, size = 96, fill = false, style = 'current' }) {
+    function Avatar({ role = 'dad', variant = 1, talking = false, idle = false, size = 96, fill = false, style = 'stickman', expression = 'neutral' }) {
       const wrapCls = talking ? 'avatar-talking' : (idle ? 'avatar-idle' : '');
       const wrapStyle = fill
         ? { display: 'block', width: '100%', height: '100%', lineHeight: 0 }
         : { display: 'inline-block', width: size, height: size, lineHeight: 0 };
 
-      // PNG 기반 스타일 (디즈니/웹툰/침착맨) — public/characters/{style}/{role}.png
-      if (['disney', 'webtoon', 'chimchak'].includes(style)) {
-        return <ImageAvatar style={style} role={role} wrapCls={wrapCls} wrapStyle={wrapStyle} />;
-      }
-
-      // 졸라맨 SVG
-      if (style === 'stickman') {
-        return (
-          <div className={wrapCls} style={wrapStyle}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width={fill ? '100%' : size}
-              height={fill ? '100%' : size}
-              viewBox="0 0 200 200"
-              preserveAspectRatio="xMidYMid meet"
-              aria-hidden="true"
-            >
-              <rect width="200" height="200" rx="24" fill="#FFFDF7" />
-              <StickmanContent role={role} talking={talking} />
-            </svg>
-          </div>
-        );
-      }
-
-      // current — 기존 소프트 일러스트
-      const palette = PALETTE[role] || PALETTE.dad;
-      const c = palette[Math.min(Math.max(variant - 1, 0), palette.length - 1)];
-      const mouthCls = talking ? 'mouth-talking' : '';
-
-      // 공통 배경 둥근 카드
-      const bg = (
-        <>
-          <rect width="200" height="200" rx="24" fill="#FFF6EE" />
-          <circle cx="100" cy="200" r="120" fill="#F5E5D6" opacity="0.55" />
-        </>
-      );
-
-      let content = null;
-
-      if (role === 'baby') {
-        // 큰 머리 / 작은 몸통 / 머리카락 한 가닥 / 큰 눈
-        content = (
-          <g>
-            {/* 몸통 (작게) */}
-            <ellipse cx="100" cy="172" rx="44" ry="22" fill={c.skin} />
-            <rect x="62" y="158" width="76" height="32" rx="14" fill="#C8DACF" />
-            {/* 머리 — 매우 둥글게 */}
-            <circle cx="100" cy="100" r="60" fill={c.skin} />
-            {/* 머리카락 한 가닥 (위로 삐친) */}
-            <path d="M100 38 q-4 -10 0 -16 q4 6 0 16 z" fill={c.hair} />
-            <path d="M70 60 q8 -14 30 -16" stroke={c.hair} strokeWidth="3" fill="none" strokeLinecap="round" />
-            {/* 볼 발그레 */}
-            <circle cx="68" cy="115" r="9" fill={c.cheek} opacity="0.65" />
-            <circle cx="132" cy="115" r="9" fill={c.cheek} opacity="0.65" />
-            {/* 눈 — 크고 동그란 점 */}
-            <circle cx="78" cy="98" r="5.5" fill="#1A1A1A" />
-            <circle cx="122" cy="98" r="5.5" fill="#1A1A1A" />
-            <circle cx="79.5" cy="96" r="1.6" fill="#FFF" />
-            <circle cx="123.5" cy="96" r="1.6" fill="#FFF" />
-            {/* 입 — 작은 O */}
-            <ellipse className={mouthCls} cx="100" cy="128" rx="6" ry="5" fill="#7A3A28" />
-          </g>
-        );
-      } else if (role === 'mom') {
-        content = (
-          <g>
-            {/* 몸통 + 옷 */}
-            <ellipse cx="100" cy="178" rx="60" ry="20" fill="#D9C5DA" />
-            <path d="M50 178 q-2 -28 16 -34 h68 q18 6 16 34 z" fill="#D9C5DA" />
-            {/* 머리카락 (어깨 길이) — 머리 뒤 */}
-            <path d="M44 110 q-2 -52 56 -56 q58 4 56 56 q-2 28 -10 42 q-8 -8 -10 -22 q-6 18 -36 22 q-30 -4 -36 -22 q-2 14 -10 22 q-8 -14 -10 -42 z" fill={c.hair} />
-            {/* 얼굴 */}
-            <ellipse cx="100" cy="100" rx="44" ry="48" fill={c.skin} />
-            {/* 앞머리 — 살짝 가린 */}
-            <path d="M58 78 q14 -22 42 -22 q28 0 42 22 q-10 -6 -22 -2 q-8 -10 -20 -10 q-12 0 -20 10 q-12 -4 -22 2 z" fill={c.hair} />
-            {/* 볼 */}
-            <circle cx="68" cy="116" r="7" fill={c.cheek} opacity="0.55" />
-            <circle cx="132" cy="116" r="7" fill={c.cheek} opacity="0.55" />
-            {/* 눈 */}
-            <path d="M76 100 q4 -4 8 0" stroke="#1A1A1A" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-            <path d="M116 100 q4 -4 8 0" stroke="#1A1A1A" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-            {/* 입 — 미소 */}
-            <path className={mouthCls} d="M88 130 q12 8 24 0" stroke="#7A3A28" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-          </g>
-        );
-      } else {
-        // dad
-        content = (
-          <g>
-            {/* 몸통 */}
-            <ellipse cx="100" cy="180" rx="62" ry="20" fill="#A9C0BF" />
-            <path d="M48 180 q-2 -28 18 -34 h68 q20 6 18 34 z" fill="#A9C0BF" />
-            {/* 머리 (각진 느낌) */}
-            <path d="M56 96 q4 -52 44 -52 q40 0 44 52 q0 32 -10 50 q-10 -4 -14 -16 q-6 14 -20 18 q-14 -4 -20 -18 q-4 12 -14 16 q-10 -18 -10 -50 z" fill={c.skin} />
-            {/* 머리카락 (짧게) */}
-            <path d="M58 80 q4 -34 42 -36 q38 2 42 36 q-10 -10 -22 -8 q-8 -8 -20 -8 q-12 0 -20 8 q-12 -2 -22 8 z" fill={c.hair} />
-            {/* 수염 (점) */}
-            <circle cx="86" cy="138" r="0.8" fill={c.hair} opacity="0.6" />
-            <circle cx="92" cy="142" r="0.8" fill={c.hair} opacity="0.6" />
-            <circle cx="100" cy="143" r="0.8" fill={c.hair} opacity="0.6" />
-            <circle cx="108" cy="142" r="0.8" fill={c.hair} opacity="0.6" />
-            <circle cx="114" cy="138" r="0.8" fill={c.hair} opacity="0.6" />
-            {/* 볼 */}
-            <circle cx="68" cy="118" r="6" fill={c.cheek} opacity="0.5" />
-            <circle cx="132" cy="118" r="6" fill={c.cheek} opacity="0.5" />
-            {/* 눈 */}
-            <circle cx="80" cy="104" r="3" fill="#1A1A1A" />
-            <circle cx="120" cy="104" r="3" fill="#1A1A1A" />
-            {/* 눈썹 */}
-            <path d="M72 92 q8 -3 16 0" stroke={c.hair} strokeWidth="2.4" fill="none" strokeLinecap="round" />
-            <path d="M112 92 q8 -3 16 0" stroke={c.hair} strokeWidth="2.4" fill="none" strokeLinecap="round" />
-            {/* 입 */}
-            <path className={mouthCls} d="M88 128 q12 6 24 0" stroke="#7A3A28" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-          </g>
-        );
-      }
-
+      // 졸라맨 SVG만 사용 (다른 스타일은 제거)
       return (
         <div className={wrapCls} style={wrapStyle}>
           <svg
@@ -459,111 +345,213 @@
             preserveAspectRatio="xMidYMid meet"
             aria-hidden="true"
           >
-            {bg}
-            {content}
+            <rect width="200" height="200" rx="24" fill="#FFFDF7" />
+            <StickmanContent role={role} talking={talking} expression={expression} />
           </svg>
         </div>
       );
     }
 
-    // PNG 이미지 + 로딩 실패 시 깔끔한 플레이스홀더
-    function ImageAvatar({ style, role, wrapCls, wrapStyle }) {
-      const [failed, setFailed] = useState(false);
-      const styleMeta = CHAR_STYLES.find((s) => s.key === style);
-      const roleMeta = ROLES.find((r) => r.key === role);
-
-      if (failed) {
-        const bg = style === 'disney' ? '#E8F1FA' : style === 'webtoon' ? '#FAF0E5' : '#F5F0E8';
-        return (
-          <div className={wrapCls} style={wrapStyle}>
-            <div style={{
-              width: '100%', height: '100%',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              gap: 4,
-              border: '2px dashed rgba(26,26,26,0.2)',
-              borderRadius: 12,
-              background: bg,
-              color: '#1A1A1A',
-              fontSize: 11,
-              padding: 8,
-              textAlign: 'center',
-              fontFamily: "'Pretendard', sans-serif",
-            }}>
-              <div style={{ fontSize: 28, opacity: 0.5 }}>🎨</div>
-              <div style={{ fontWeight: 600 }}>{styleMeta?.label}</div>
-              <div style={{ fontSize: 10, opacity: 0.6 }}>{roleMeta?.kr} · 준비 중</div>
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className={wrapCls} style={wrapStyle}>
-          <img
-            src={`/characters/${style}/${role}.png`}
-            alt={`${role}-${style}`}
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            onError={() => setFailed(true)}
-          />
-        </div>
-      );
+    // 대화 텍스트에서 감정/표정 추정
+    //   순위: laugh > love > question > excited > sad > neutral
+    function detectExpression(text) {
+      if (!text) return 'neutral';
+      const t = String(text).toLowerCase();
+      if (/ㅋ{2,}|ㅎ{2,}|하하|히히|호호|크크|꺄/.test(t)) return 'laugh';
+      if (/사랑|좋아해|예뻐|예쁘|귀여|뽀뽀|💕|❤️/.test(t)) return 'love';
+      if (/[?？]|뭐(야|지)?|왜|어디|어떻게|얼마|무슨|누구/.test(t)) return 'question';
+      if (/[!！]|와\b|와우|오\b|짜잔|대박|우와|어머|아이고|놀라/.test(t)) return 'excited';
+      if (/슬프|울어|울지|눈물|미안|아쉽|싫어|싫다|T_T|ㅠ{1,}|ㅜ{1,}/.test(t)) return 'sad';
+      return 'neutral';
     }
 
-    // 졸라맨 SVG 컨텐츠 — 단순한 선과 동그라미로 구성
-    function StickmanContent({ role, talking }) {
+    // 졸라맨 SVG — role × expression × talking 으로 표정/액션 변화
+    //   stroke 굵게 (sw=5)해서 녹화 시 또렷, fill='#FFF' 명료
+    //   expression 별 변화:
+    //     neutral  — 기본
+    //     laugh    — 눈 ∩ 곡선, 입 활짝, 손 가까이
+    //     love     — 머리 위 ❤
+    //     question — 머리 위 ?, 약간 기울어진 머리
+    //     excited  — 한 팔 위로, 입 동그랗게
+    //     sad      — 눈썹 ↘↙, 입 ⌒(아래로)
+    function StickmanContent({ role, talking, expression = 'neutral' }) {
       const mouthCls = talking ? 'mouth-talking' : '';
-      const stroke = '#1A1A1A';
-      const sw = 4;
+      const stroke = '#0A0A0A';
+      const sw = 5;            // 굵게 (녹화에서 또렷)
+      const E = expression;
+
+      // 공통 헤드 위 데코 (love / question)
+      const headDeco = (cx, cy) => {
+        if (E === 'love') {
+          return <path d={`M ${cx-9} ${cy} q -2 -8 6 -8 q 4 0 3 6 q 1 -6 5 -6 q 8 0 6 8 q -2 6 -14 14 q -12 -8 -14 -14 z`} fill="#FF5577" stroke="none" />;
+        }
+        if (E === 'question') {
+          return (
+            <g fill={stroke} stroke="none">
+              <path d={`M ${cx-5} ${cy-6} q 5 -10 12 -2 q 2 4 -2 6 l -5 4 v 4`} stroke={stroke} strokeWidth="3" fill="none" strokeLinecap="round" />
+              <circle cx={cx+5} cy={cy+10} r="1.5" />
+            </g>
+          );
+        }
+        return null;
+      };
+
+      // 눈 SVG — 표정별
+      const renderEyes = (left, right, baseY, eyeColor = stroke) => {
+        if (E === 'laugh') {
+          // ∩ 곡선 — 웃는 눈
+          return (
+            <g stroke={eyeColor} strokeWidth={sw - 1} fill="none" strokeLinecap="round">
+              <path d={`M ${left-4} ${baseY+2} q 4 -6 8 0`} />
+              <path d={`M ${right-4} ${baseY+2} q 4 -6 8 0`} />
+            </g>
+          );
+        }
+        if (E === 'love') {
+          // 작은 하트 모양 눈
+          return (
+            <g fill="#FF5577" stroke="none">
+              <path d={`M ${left} ${baseY+1} l -3 -3 q -2 -2 0 -4 q 3 -2 3 1 q 0 -3 3 -1 q 2 2 0 4 z`} />
+              <path d={`M ${right} ${baseY+1} l -3 -3 q -2 -2 0 -4 q 3 -2 3 1 q 0 -3 3 -1 q 2 2 0 4 z`} />
+            </g>
+          );
+        }
+        if (E === 'sad') {
+          // 작은 점 + 눈물
+          return (
+            <g>
+              <circle cx={left} cy={baseY} r="2.5" fill={eyeColor} stroke="none" />
+              <circle cx={right} cy={baseY} r="2.5" fill={eyeColor} stroke="none" />
+              <ellipse cx={right+4} cy={baseY+8} rx="2" ry="3.5" fill="#4FA8E0" stroke="none" opacity="0.85" />
+            </g>
+          );
+        }
+        if (E === 'question') {
+          // 한쪽 눈 약간 작게
+          return (
+            <g fill={eyeColor} stroke="none">
+              <circle cx={left} cy={baseY} r="2.5" />
+              <circle cx={right} cy={baseY-1} r="3" />
+            </g>
+          );
+        }
+        if (E === 'excited') {
+          // 큰 눈
+          return (
+            <g fill={eyeColor} stroke="none">
+              <circle cx={left} cy={baseY} r="4" />
+              <circle cx={right} cy={baseY} r="4" />
+              <circle cx={left+1} cy={baseY-1} r="1.2" fill="#FFF" />
+              <circle cx={right+1} cy={baseY-1} r="1.2" fill="#FFF" />
+            </g>
+          );
+        }
+        // neutral — 기본 점 눈
+        return (
+          <g fill={eyeColor} stroke="none">
+            <circle cx={left} cy={baseY} r="3" />
+            <circle cx={right} cy={baseY} r="3" />
+          </g>
+        );
+      };
+
+      // 입 SVG — 표정 × talking
+      const renderMouth = (cx, cy, w = 12, color = stroke) => {
+        // talking일 땐 mouthCls 애니메이션 적용
+        const cls = mouthCls;
+        if (E === 'laugh') {
+          // 활짝 — 큰 D 모양
+          return <path className={cls} d={`M ${cx-w} ${cy-2} q ${w} ${w+4} ${w*2} 0 z`} fill={color} stroke={color} strokeWidth="2" strokeLinejoin="round" />;
+        }
+        if (E === 'sad') {
+          return <path className={cls} d={`M ${cx-w*0.6} ${cy+3} q ${w*0.6} -6 ${w*1.2} 0`} stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" />;
+        }
+        if (E === 'excited') {
+          return <ellipse className={cls} cx={cx} cy={cy} rx={w*0.55} ry={w*0.45} fill={color} stroke="none" />;
+        }
+        if (E === 'love') {
+          return <path className={cls} d={`M ${cx-w*0.6} ${cy} q ${w*0.6} 6 ${w*1.2} 0`} stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" />;
+        }
+        if (E === 'question') {
+          // 작게 한쪽 올림
+          return <path className={cls} d={`M ${cx-w*0.5} ${cy+1} l ${w} -2`} stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" />;
+        }
+        // neutral — 살짝 미소
+        return <path className={cls} d={`M ${cx-w*0.5} ${cy} q ${w*0.5} 4 ${w} 0`} stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" />;
+      };
+
+      // 한쪽 팔 위로 (excited) — 양옆 팔 그릴 때 분기
+      const armUp = E === 'excited';
 
       if (role === 'baby') {
         // 머리 큼, 몸 짧게, 작은 손발
+        const headCx = 100, headCy = E === 'question' ? 82 : 80;
+        const headRotate = E === 'question' ? 'rotate(-6 100 100)' : '';
         return (
           <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-            {/* 큰 머리 */}
-            <circle cx="100" cy="80" r="44" fill="#FFF" />
-            {/* 머리카락 한 가닥 */}
-            <path d="M100 36 q-2 -8 0 -12" />
-            {/* 눈 */}
-            <circle cx="84" cy="78" r="3.5" fill={stroke} stroke="none" />
-            <circle cx="116" cy="78" r="3.5" fill={stroke} stroke="none" />
-            {/* 볼 */}
-            <circle cx="74" cy="92" r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
-            <circle cx="126" cy="92" r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
-            {/* 입 — O */}
-            <ellipse className={mouthCls} cx="100" cy="100" rx="6" ry="4.5" fill={stroke} stroke="none" />
+            <g transform={headRotate}>
+              {/* 큰 머리 */}
+              <circle cx={headCx} cy={headCy} r="44" fill="#FFF" />
+              {/* 머리카락 한 가닥 */}
+              <path d={`M${headCx} ${headCy-44} q-2 -8 0 -12`} />
+              {/* 볼 */}
+              <circle cx={headCx-26} cy={headCy+12} r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
+              <circle cx={headCx+26} cy={headCy+12} r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
+              {/* 눈 */}
+              {renderEyes(headCx-16, headCx+16, headCy-2)}
+              {/* 입 */}
+              {renderMouth(headCx, headCy+20, 7)}
+            </g>
+            {/* 헤드 위 데코 */}
+            {headDeco(headCx, headCy-50)}
             {/* 짧은 몸통 */}
             <line x1="100" y1="124" x2="100" y2="158" />
-            {/* 짧은 팔 */}
-            <line x1="100" y1="140" x2="78" y2="148" />
-            <line x1="100" y1="140" x2="122" y2="148" />
-            {/* 짧은 다리 */}
+            {/* 팔 — excited면 한쪽 위로 */}
+            {armUp
+              ? <>
+                  <line x1="100" y1="138" x2="78" y2="116" />
+                  <line x1="100" y1="140" x2="122" y2="148" />
+                </>
+              : <>
+                  <line x1="100" y1="140" x2="78" y2="148" />
+                  <line x1="100" y1="140" x2="122" y2="148" />
+                </>}
+            {/* 다리 */}
             <line x1="100" y1="158" x2="86" y2="178" />
             <line x1="100" y1="158" x2="114" y2="178" />
           </g>
         );
       }
       if (role === 'mom') {
-        // 어깨 길이 머리, 치마 라인
+        const headRotate = E === 'question' ? 'rotate(-5 100 100)' : '';
         return (
           <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-            {/* 머리 + 어깨 머리카락 (단순 곡선) */}
-            <circle cx="100" cy="58" r="22" fill="#FFF" />
-            <path d="M78 60 q-4 22 -2 36" />
-            <path d="M122 60 q4 22 2 36" />
-            {/* 앞머리 */}
-            <path d="M82 50 q18 -14 36 0" />
-            {/* 눈 */}
-            <line x1="91" y1="60" x2="95" y2="60" />
-            <line x1="105" y1="60" x2="109" y2="60" />
-            {/* 입 — 작은 미소 */}
-            <path className={mouthCls} d="M94 70 q6 4 12 0" />
+            <g transform={headRotate}>
+              <circle cx="100" cy="58" r="22" fill="#FFF" />
+              {/* 어깨 길이 머리카락 */}
+              <path d="M78 60 q-4 22 -2 36" />
+              <path d="M122 60 q4 22 2 36" />
+              {/* 앞머리 */}
+              <path d="M82 50 q18 -14 36 0" />
+              {/* 눈 */}
+              {renderEyes(93, 107, 60)}
+              {/* 입 */}
+              {renderMouth(100, 70, 8)}
+            </g>
+            {headDeco(100, 22)}
             {/* 몸통 */}
             <line x1="100" y1="80" x2="100" y2="140" />
             {/* 팔 */}
-            <line x1="100" y1="96" x2="72" y2="118" />
-            <line x1="100" y1="96" x2="128" y2="118" />
-            {/* 치마 (삼각) */}
+            {armUp
+              ? <>
+                  <line x1="100" y1="96" x2="78" y2="64" />
+                  <line x1="100" y1="96" x2="128" y2="118" />
+                </>
+              : <>
+                  <line x1="100" y1="96" x2="72" y2="118" />
+                  <line x1="100" y1="96" x2="128" y2="118" />
+                </>}
+            {/* 치마 */}
             <path d="M100 140 L 78 178 L 122 178 Z" />
             {/* 다리 */}
             <line x1="92" y1="178" x2="92" y2="190" />
@@ -571,25 +559,46 @@
           </g>
         );
       }
-      // dad — 머리 짧게, 안경 추가, 어깨 넓게
+      // dad — 안경 + 넥타이
+      const headRotate = E === 'question' ? 'rotate(-5 100 100)' : '';
       return (
         <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-          {/* 머리 */}
-          <circle cx="100" cy="58" r="22" fill="#FFF" />
-          {/* 짧은 머리 라인 */}
-          <path d="M82 46 q18 -8 36 0" />
-          {/* 안경 */}
-          <circle cx="91" cy="60" r="5" />
-          <circle cx="109" cy="60" r="5" />
-          <line x1="96" y1="60" x2="104" y2="60" />
-          {/* 입 — 살짝 미소 */}
-          <path className={mouthCls} d="M94 72 q6 3 12 0" />
+          <g transform={headRotate}>
+            <circle cx="100" cy="58" r="22" fill="#FFF" />
+            {/* 짧은 머리 라인 */}
+            <path d="M82 46 q18 -8 36 0" />
+            {/* 안경 (laugh일 땐 눈 가리지 않게 살짝 위로) */}
+            {E !== 'laugh' && E !== 'love' && (
+              <>
+                <circle cx="91" cy="60" r="6" fill="#FFF" />
+                <circle cx="109" cy="60" r="6" fill="#FFF" />
+                <line x1="97" y1="60" x2="103" y2="60" />
+              </>
+            )}
+            {/* 눈 — 안경 안쪽으로 */}
+            {renderEyes(91, 109, 60)}
+            {/* 입 */}
+            {renderMouth(100, 72, 8)}
+          </g>
+          {headDeco(100, 22)}
           {/* 어깨 + 몸통 */}
           <line x1="80" y1="92" x2="120" y2="92" />
           <line x1="100" y1="80" x2="100" y2="140" />
-          {/* 팔 */}
-          <line x1="80" y1="92" x2="64" y2="124" />
-          <line x1="120" y1="92" x2="136" y2="124" />
+          {/* 넥타이 — 두 줄 정도 V + 직사각형 (어깨 아래에 매달림) */}
+          <g fill="#C84B3F" stroke="#7A2A22" strokeWidth="2" strokeLinejoin="round">
+            <path d="M96 94 L 100 102 L 104 94 Z" />
+            <path d="M97 102 L 100 130 L 103 130 L 103 102 Z" />
+          </g>
+          {/* 팔 — excited면 한쪽 위로 */}
+          {armUp
+            ? <>
+                <line x1="80" y1="92" x2="58" y2="62" />
+                <line x1="120" y1="92" x2="136" y2="124" />
+              </>
+            : <>
+                <line x1="80" y1="92" x2="64" y2="124" />
+                <line x1="120" y1="92" x2="136" y2="124" />
+              </>}
           {/* 다리 */}
           <line x1="100" y1="140" x2="84" y2="180" />
           <line x1="100" y1="140" x2="116" y2="180" />
@@ -644,8 +653,13 @@
 
     // 단어별 타임스탬프 → 청크 + 정확한 start/end
     // 단어 데이터 없거나 텍스트가 편집된 경우엔 글자수 비례로 fallback
-    function buildTimedChunks(segment, displayText, maxChars = 14) {
+    //
+    // 가독성 보정:
+    //   maxChars 22 — 짧은 청크가 너무 빨리 휙휙 지나가는 거 방지
+    //   MIN_DURATION 1.0s — 청크 노출 시간이 짧으면 다음 청크와 합치거나 끝을 늘림
+    function buildTimedChunks(segment, displayText, maxChars = 22) {
       if (!segment) return [];
+      const MIN_DURATION = 1.0; // 한 청크 최소 노출 시간 (초)
       const words = segment.words || [];
       const isEdited = displayText !== undefined && displayText !== segment.text;
 
@@ -662,7 +676,7 @@
           const end = segment.start + (cum / totalChars) * dur;
           result.push({ text: c, start, end });
         }
-        return result;
+        return enforceMinChunkDuration(result, segment.end, MIN_DURATION);
       }
 
       // 정확 모드: 단어 단위로 누적해서 청크 빌드
@@ -683,22 +697,50 @@
         const wText = (w.text || '').trim();
         if (!wText) continue;
         const wLen = wText.length;
-        // maxChars 초과 시 flush (다만 buf가 비어있지 않을 때만)
         if (bufLen + wLen + (buf.length > 0 ? 1 : 0) > maxChars && buf.length > 0) {
           flush();
         }
         buf.push(w);
         bufLen += wLen + (buf.length > 1 ? 1 : 0);
-        // 문장부호로 끝나는 단어 → 자연스러운 청크 경계
-        if (/[.!?,~…]$/.test(wText)) flush();
+        // 문장 끝 부호로 끝나는 단어만 강제 flush (쉼표/물결은 자연스럽게 묶이게)
+        if (/[.!?…]$/.test(wText)) flush();
       }
       flush();
-      // 마지막 청크의 end를 segment.end로 확장 — 단어 타임스탬프가 segment.end보다 짧을 때 자막이 뚝 끊기는 거 방지
       if (result.length > 0) {
         const last = result[result.length - 1];
         if (last.end < segment.end) last.end = segment.end;
       }
-      return result;
+      return enforceMinChunkDuration(result, segment.end, MIN_DURATION);
+    }
+
+    // 너무 짧은 청크는 (a) 다음 청크와 합치거나 (b) end를 연장해서 최소 노출시간 보장
+    function enforceMinChunkDuration(chunks, segmentEnd, minDur) {
+      if (!chunks || chunks.length === 0) return chunks;
+      const out = [];
+      for (let i = 0; i < chunks.length; i++) {
+        const c = { ...chunks[i] };
+        const dur = c.end - c.start;
+        if (dur < minDur) {
+          const next = chunks[i + 1];
+          if (next) {
+            // 다음 청크와 글자수가 합쳐도 너무 길지 않으면 합치기 (32자 이하)
+            const combined = c.text + ' ' + next.text;
+            if (combined.length <= 32) {
+              c.text = combined;
+              c.end = next.end;
+              i += 1; // next 소비
+            } else {
+              // 다음 청크 start까지 end 연장 (겹치진 않게)
+              c.end = Math.min(next.start, c.start + minDur);
+            }
+          } else {
+            // 마지막 청크 — segment.end까지 연장, 그래도 짧으면 그냥 둠
+            c.end = Math.max(c.end, Math.min(segmentEnd, c.start + minDur));
+          }
+        }
+        out.push(c);
+      }
+      return out;
     }
 
     // currentTime이 어느 청크에 있는지 찾기
@@ -1118,67 +1160,61 @@
     // Page — CharacterStep (5스타일 세트 — 아빠/엄마/아기 1세트로 묶음)
     // ========================================
     function CharacterStep({ roleMapping, characterStyle, setCharacterStyle }) {
+      // 졸라맨만 사용 — 마운트 시 자동 선택
+      useEffect(() => {
+        if (characterStyle !== 'stickman') setCharacterStyle('stickman');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
       return (
         <div className="px-6 py-7 space-y-5 anim-fade-in">
           <div className="space-y-1.5">
             <div className="text-[10px] uppercase tracking-[0.18em] text-accent num">03 — Style</div>
             <h2 className="font-serif text-[26px] leading-[1.15] text-ink">
-              그림체를<br/>골라주세요.
+              졸라맨 스타일.
             </h2>
             <p className="text-[13px] text-muted leading-relaxed pt-1">
-              5가지 그림체 중 1개. 아빠 · 엄마 · 아기가 같은 화풍의 한 세트로 묶입니다.
+              심플한 검정선 · 흰 배경. 표정과 작은 액션은 대화 내용에 맞춰 자동으로 바뀝니다.
             </p>
           </div>
 
+          {/* 미리보기 — 아빠/엄마/아기 + 5가지 표정 */}
           <div className="space-y-3">
-            {CHAR_STYLES.map((s) => {
-              const isSelected = characterStyle === s.key;
-              return (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => setCharacterStyle(s.key)}
-                  className={`relative w-full text-left rounded-xl border-2 p-3 transition
-                    ${isSelected
-                      ? 'border-ink bg-cream'
-                      : 'border-hairline bg-paper hover:border-ink/30'}`}
-                  aria-pressed={isSelected}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* 3-캐릭터 미리보기 */}
-                    <div className="flex gap-1.5 flex-shrink-0">
-                      {['dad', 'mom', 'baby'].map((r) => (
-                        <div key={r} className="w-14 h-14 rounded-md bg-paper border border-hairline overflow-hidden flex items-center justify-center">
-                          <Avatar role={r} style={s.key} size={56} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <h3 className="text-[14px] font-medium text-ink">{s.label}</h3>
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-faint">{s.hint}</span>
-                      </div>
-                      <p className="text-[11px] text-muted mt-0.5 leading-snug">
-                        {s.key === 'current' && '부드러운 파스텔톤 · 둥근 도형'}
-                        {s.key === 'stickman' && '얇은 검정선 · 흰 배경'}
-                        {s.key === 'disney' && '3D 카툰 · 부드러운 색감'}
-                        {s.key === 'webtoon' && '한국 웹툰 라인아트'}
-                        {s.key === 'chimchak' && '굵은 검정선 · 코믹'}
-                      </p>
-                    </div>
-                    {isSelected && (
-                      <div className="w-6 h-6 rounded-full bg-ink text-cream flex items-center justify-center flex-shrink-0">
-                        <Icon.check size={14} />
-                      </div>
-                    )}
+            <div className="text-[10px] uppercase tracking-[0.14em] text-ink/50">캐릭터</div>
+            <div className="grid grid-cols-3 gap-2">
+              {['dad', 'mom', 'baby'].map((r) => (
+                <div key={r} className="rounded-xl bg-paper border border-hairline p-2 flex flex-col items-center gap-1">
+                  <div className="w-full aspect-square">
+                    <Avatar role={r} style="stickman" size={96} fill />
                   </div>
-                </button>
-              );
-            })}
+                  <div className="text-[11px] text-ink/70">
+                    {ROLES.find(x => x.key === r)?.kr}{r === 'dad' && ' (넥타이)'}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-[10px] uppercase tracking-[0.14em] text-ink/50 pt-2">표정 자동 인식</div>
+            <div className="grid grid-cols-6 gap-1.5">
+              {[
+                { e: 'neutral', label: '기본' },
+                { e: 'laugh', label: 'ㅋㅋ' },
+                { e: 'excited', label: '!' },
+                { e: 'question', label: '?' },
+                { e: 'love', label: '♥' },
+                { e: 'sad', label: 'ㅠㅠ' },
+              ].map(({ e, label }) => (
+                <div key={e} className="rounded-md bg-paper border border-hairline p-1 flex flex-col items-center">
+                  <div className="w-full aspect-square">
+                    <Avatar role="baby" style="stickman" expression={e} talking={false} idle={false} fill />
+                  </div>
+                  <div className="text-[9px] text-ink/60 num">{label}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="px-3 py-2 rounded-lg border border-hairline text-[11px] text-muted leading-relaxed">
-            ⓘ 디즈니/웹툰/침착맨 스타일은 AI 이미지 — 처음 한 번 생성 후 캐시됩니다. 이미지가 안 보이면 곧 준비될 거예요.
+            ⓘ 자막에 `!`, `?`, `ㅋㅋ`, `사랑해`, `미안` 같은 단어가 들어가면 자동으로 표정이 바뀝니다.
           </div>
         </div>
       );
@@ -2420,6 +2456,7 @@
                             talking={isSpeaking}
                             idle={!isSpeaking}
                             fill={true}
+                            expression={isSpeaking && currentSegment ? detectExpression(getText(currentSegment)) : 'neutral'}
                           />
                           {/* role 라벨 */}
                           <span className={`absolute top-1 ${avatarOnLeft ? 'left-1' : 'right-1'} px-1.5 py-0.5 rounded text-[9px] uppercase tracking-[0.14em] z-10 ${
@@ -2751,7 +2788,7 @@
       const [fileName, setFileName] = useState("");
       const [consent, setConsent] = useState(false);
       const [roleMapping, setRoleMapping] = useState({});
-      const [characterStyle, setCharacterStyle] = useState("current");
+      const [characterStyle, setCharacterStyle] = useState("stickman");
       const [editedSegments, setEditedSegments] = useState({});
       // per-segment 역할 오버라이드 — AssemblyAI 발화자 구분이 틀린 segment 개별 정정
       const [segmentRoleOverrides, setSegmentRoleOverrides] = useState({});
