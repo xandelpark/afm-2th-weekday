@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/prototype-v1.html" }
+    { "source": "/", "destination": "/prototype-v1" }
   ],
   "cleanUrls": true,
   "trailingSlash": false
