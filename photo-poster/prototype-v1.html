@@ -490,16 +490,29 @@
 
     // 카드 밑 컴팩트 슬라이더 한 줄
     function SliderRow({ label, value, min, max, suffix = '', onChange, disabled }) {
+      const numeric = typeof value === 'number' ? value : Number(value) || 0;
+      const display = Math.round(numeric);
+      const pct = max === min ? 50 : ((numeric - min) / (max - min)) * 100;
+      const clampedPct = Math.max(4, Math.min(96, pct));
       return (
-        <div className={cn('flex items-center gap-2 text-[10px] min-w-0', disabled ? 'opacity-40' : 'text-muted-foreground')}>
-          <span className="w-4 eyebrow shrink-0">{label}</span>
-          <input
-            type="range" min={min} max={max} value={value}
-            disabled={disabled}
-            onChange={(e) => onChange(+e.target.value)}
-            className="flex-1 min-w-0 accent-primary"
-          />
-          <span className="w-12 shrink-0 text-right tabular-nums">{value}{suffix}</span>
+        <div className={cn('text-[10px] pb-4 min-w-0', disabled ? 'opacity-40' : 'text-muted-foreground')}>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-4 eyebrow shrink-0">{label}</span>
+            <div className="relative flex-1 min-w-0">
+              <input
+                type="range" min={min} max={max} value={numeric}
+                disabled={disabled}
+                onChange={(e) => onChange(+e.target.value)}
+                className="w-full accent-primary block"
+              />
+              <div
+                className="absolute top-full mt-0 text-[9px] tabular-nums pointer-events-none whitespace-nowrap text-foreground"
+                style={{ left: `${clampedPct}%`, transform: 'translateX(-50%)' }}
+              >
+                {display}{suffix}
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
