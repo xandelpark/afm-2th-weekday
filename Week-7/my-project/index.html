@@ -12,6 +12,12 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- html2canvas: 미리보기 영역을 매 프레임 canvas로 그려서 영상 녹화 -->
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- 한글 영상 자막용 폰트 패밀리 (제목/캡션 스타일 프리셋용) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Gaegu:wght@700&family=Noto+Serif+KR:wght@700;900&family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
   <script>
     // Tailwind 토큰 확장 — Editorial Cream 팔레트
     tailwind.config = {
@@ -909,7 +915,7 @@
               ) : (
                 <>
                   <div className="text-[13px] text-ink">파일을 드래그하거나 선택하세요</div>
-                  <div className="text-[11px] text-muted">최대 100MB · mp4, mov, m4a, mp3</div>
+                  <div className="text-[11px] text-muted">최대 300MB · mp4, mov, m4a, mp3</div>
                 </>
               )}
             </div>
@@ -1182,13 +1188,266 @@
     // Page — PreviewStep
     //   진짜 오디오 재생 + 시간 동기화 + 화자별 캐릭터 talking 애니메이션
     // ========================================
+    // 텍스트 스타일 프리셋 — Reels/Shorts 가독성 우선 (강한 외곽선 + 굵은 폰트)
+    // 색상은 별도 colorScheme로 분리 (스타일 × 컬러 = 12가지 조합)
+    const TEXT_STYLES = {
+      hook: {
+        label: '후킹',
+        sub: '굵고 임팩트',
+        family: '"Black Han Sans", "Noto Sans KR", sans-serif',
+        weight: 900,
+        letterSpacing: '-0.01em',
+        // 후킹은 더 큼직하게
+        titleScale: 1.15,
+        subtitleScale: 0.7,
+      },
+      bold: {
+        label: '강조',
+        sub: '두꺼운 산세리프',
+        family: '"Noto Sans KR", system-ui, sans-serif',
+        weight: 900,
+        letterSpacing: '-0.005em',
+        titleScale: 1,
+        subtitleScale: 0.75,
+      },
+      magazine: {
+        label: '매거진',
+        sub: '세리프 클래식',
+        family: '"Noto Serif KR", serif',
+        weight: 900,
+        letterSpacing: '-0.005em',
+        titleScale: 0.95,
+        subtitleScale: 0.78,
+      },
+      hand: {
+        label: '손글씨',
+        sub: '귀여운 캐주얼',
+        family: '"Gaegu", "Gowun Dodum", cursive',
+        weight: 700,
+        letterSpacing: '0',
+        titleScale: 1.1,
+        subtitleScale: 0.78,
+      },
+    };
+
+    // 컬러 프리셋 — 가독성 우선 (외곽선 stroke 필수)
+    const COLOR_SCHEMES = {
+      darkOnLight: {
+        label: '검정글씨',
+        sub: '흰 외곽선',
+        color: '#1A1612',
+        stroke: '#FFFFFF',
+      },
+      whiteOnDark: {
+        label: '흰글씨',
+        sub: '검정 외곽선',
+        color: '#FFFFFF',
+        stroke: '#000000',
+      },
+      yellow: {
+        label: '노랑',
+        sub: 'YouTube 후킹 컬러',
+        color: '#FFE100',
+        stroke: '#000000',
+      },
+      pink: {
+        label: '핑크',
+        sub: '말랑 톤',
+        color: '#FF7AA8',
+        stroke: '#FFFFFF',
+      },
+    };
+
+    // 사이즈 — Z축은 슬라이더로 연속 조절 (제목/부제목 각각)
+    //   원본 1080×1920 출력 기준 px. 미리보기(360px)는 0.42배율로 자동 축소.
+    //   Reels/Shorts 안전영역에서 충분히 커질 수 있도록 max를 넉넉하게 (100/70).
+    const SIZE_DEFAULTS = { title: 36, subtitle: 22 };
+    const SIZE_RANGE = { titleMin: 16, titleMax: 110, subMin: 10, subMax: 72 };
+
+    // 데코레이션 — 마리안웨딩 땡큐카드 풍 (4개 모서리에 1개씩)
+    //   key는 위치, emoji는 표시할 이모지
+    const DECORATIONS = {
+      heart:     { emoji: '💕', label: '하트',   defaultPos: 'tl' },
+      sparkle:   { emoji: '✨', label: '반짝',   defaultPos: 'tr' },
+      music:     { emoji: '🎵', label: '음표',   defaultPos: 'bl' },
+      subscribe: { emoji: '🔔', label: '구독벨', defaultPos: 'br' },
+    };
+    const DECO_POSITIONS = {
+      tl: { top: '4%',    left: '5%',           right: 'auto', bottom: 'auto' },
+      tr: { top: '4%',    right: '5%',          left: 'auto',  bottom: 'auto' },
+      bl: { bottom: '4%', left: '5%',           top: 'auto',   right: 'auto' },
+      br: { bottom: '4%', right: '5%',          top: 'auto',   left: 'auto'  },
+    };
+
+    // 글자에 외곽선(stroke)을 깔끔하게 — 8방향 text-shadow로 webkit-text-stroke보다 자연스러움
+    function buildTextStroke(strokeColor, width = 2) {
+      const w = width;
+      const offsets = [
+        [-w, -w], [0, -w], [w, -w],
+        [-w,  0],          [w,  0],
+        [-w,  w], [0,  w], [w,  w],
+      ];
+      return offsets.map(([x, y]) => `${x}px ${y}px 0 ${strokeColor}`).join(', ')
+        + `, 0 2px 6px rgba(0,0,0,0.25)`;
+    }
+
+    // 플랫폼 프리셋 — 9:16 공통, 안전영역만 다름
+    //   Reels (Instagram): 상단 14% (UI/사운드 라벨), 하단 22% (캡션/좋아요/공유)
+    //   Shorts (YouTube):  상단 11% (제목/뒤로), 하단 17% (채널/좋아요/댓글)
+    // 플랫폼별 안전영역 + 권장 텍스트 기본값
+    //   출처(2026): Instagram Reels는 상단 108–200px·하단 280–320px 버퍼, 제목 200–600px from top.
+    //              YouTube Shorts는 상단 180–288px·하단 350–672px(채널명/제목 바), 우측 120px(액션).
+    //   1080×1920 기준 → 미리보기 360×640으로 0.333 배율.
+    const PLATFORM_PRESETS = {
+      reels: {
+        label: '릴스',
+        sub: 'Instagram Reels',
+        topUnsafe: 0.14,    // 269px from top — Reels 제목 권장 영역 시작 (200–600px)
+        bottomUnsafe: 0.22, // 422px from bottom — 좋아요/공유/캡션 영역 보호
+        titlePlaceholder: '오늘 아기가 처음 부른 노래 🎶',
+        subtitlePlaceholder: '#육아 #육아일상 #아기 #육아툰',
+        // 권장 기본 크기 (미리보기 px 기준 — 360 width)
+        defaults: {
+          titleSize: 36,        // Reels는 캡션 가독성 우선 → 중간 크기
+          subSize: 22,
+          titleY: 0,            // 안전영역 바로 안쪽이 권장
+          subY: 0,
+        },
+      },
+      shorts: {
+        label: '쇼츠',
+        sub: 'YouTube Shorts',
+        topUnsafe: 0.12,    // 230px from top — Shorts 상단 chrome (180–288px)
+        bottomUnsafe: 0.19, // 365px from bottom — 채널명/제목 바 (350px+) 안 걸리게
+        titlePlaceholder: '아기가 처음 한 말!?',
+        subtitlePlaceholder: '구독 + 좋아요 부탁해요',
+        // Shorts는 더 임팩트 있게 — 제목 크게, 부제도 약간 크게
+        defaults: {
+          titleSize: 50,
+          subSize: 26,
+          titleY: 8,            // 살짝 안쪽으로 밀어 시선 집중
+          subY: -4,
+        },
+      },
+    };
+
     function PreviewStep({ jobId, segments, roleMapping, setRoleMapping, segmentRoleOverrides, setSegmentRoleOverrides, characterStyle, editedSegments, setEditedSegments }) {
       const audioRef = useRef(null);
+      const stageRef = useRef(null);              // 녹화 대상 9:16 스테이지
+      const recCanvasRef = useRef(null);          // 녹화용 hidden canvas
+      const [recording, setRecording] = useState(false);
+      const [recProgress, setRecProgress] = useState(0); // 0~1
       const [editingId, setEditingId] = useState(null);
       const [isPlaying, setIsPlaying] = useState(false);
       const [currentTime, setCurrentTime] = useState(0);
       const [duration, setDuration] = useState(0);
       const [audioError, setAudioError] = useState("");
+      // 플랫폼/제목/부제목
+      const [platform, setPlatform] = useState('reels');  // 'reels' | 'shorts'
+      const [overlayTitle, setOverlayTitle] = useState('');
+      const [overlaySubtitle, setOverlaySubtitle] = useState('');
+      const preset = PLATFORM_PRESETS[platform];
+
+      // 텍스트 스타일 — 폰트(X) × 컬러(Y) × 사이즈(Z, 슬라이더로 제목/부제목 각각)
+      const [textStyle, setTextStyle] = useState('hook');               // X: 폰트
+      const [colorScheme, setColorScheme] = useState('darkOnLight');     // Y: 컬러 (검정이 가독성 좋음 → 기본)
+      const [titleSizePx, setTitleSizePx] = useState(SIZE_DEFAULTS.title);
+      const [subSizePx, setSubSizePx] = useState(SIZE_DEFAULTS.subtitle);
+      // 드래그 위치 — 미리보기 360px 좌표계 기준 px. 기본 위치(중앙·안전영역 끝)에서의 상대 오프셋.
+      const [titleOffset, setTitleOffset] = useState({ x: 0, y: 0 });
+      const [subOffset, setSubOffset] = useState({ x: 0, y: 0 });
+      const [decoOffsets, setDecoOffsets] = useState({
+        heart:     { x: 0, y: 0 },
+        sparkle:   { x: 0, y: 0 },
+        music:     { x: 0, y: 0 },
+        subscribe: { x: 0, y: 0 },
+      });
+      const [decorations, setDecorations] = useState({
+        heart: false, sparkle: false, music: false, subscribe: false,
+      });
+      // 드래그 상태 — 어느 요소를 끌고 있고 어떤 스냅 가이드가 활성인지
+      const dragRef = useRef(null); // { key, startClientX, startClientY, startOffX, startOffY }
+      const [dragging, setDragging] = useState(null);                    // 현재 드래그 중인 키
+      const [snaps, setSnaps] = useState({ vCenter: false, hCenter: false }); // 스냅 가이드 활성 여부
+      const tStyle = TEXT_STYLES[textStyle];
+      const tColor = COLOR_SCHEMES[colorScheme];
+
+      // 플랫폼 바뀔 때 그 플랫폼 권장 크기/위치로 자동 세팅
+      //   사용자가 텍스트는 유지하지만 사이즈/위치는 플랫폼 표준으로 맞춰주는 게 일반적인 UX
+      useEffect(() => {
+        const d = PLATFORM_PRESETS[platform].defaults;
+        setTitleSizePx(d.titleSize);
+        setSubSizePx(d.subSize);
+        setTitleOffset({ x: 0, y: d.titleY });
+        setSubOffset({ x: 0, y: d.subY });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [platform]);
+      // 음성 모드 — 'tuned' (화자별 정규화 + EQ + denoise + loudnorm) / 'original'
+      const [audioMode, setAudioMode] = useState('tuned');
+      const [tunedPreparing, setTunedPreparing] = useState(false);
+      // 침묵 자르기 — 'keep' (그대로) / 'trim' (긴 침묵 0.3초로 단축)
+      const [silenceMode, setSilenceMode] = useState('keep');
+      const [maxGapSec, setMaxGapSec] = useState(0.3);
+      const [compactInfo, setCompactInfo] = useState(null); // { segments, totalNewDuration, savedSec }
+      const [compactLoading, setCompactLoading] = useState(false);
+
+      // 침묵 자르기 모드 켜질 때 / maxGap 바뀔 때 — 서버에 새 segments 요청
+      useEffect(() => {
+        if (silenceMode !== 'trim' || !jobId) {
+          setCompactInfo(null);
+          return;
+        }
+        let cancelled = false;
+        setCompactLoading(true);
+        fetch(`/api/jobs/${jobId}/compact-info?maxGap=${maxGapSec}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (cancelled) return;
+            if (data.ok) {
+              setCompactInfo(data);
+            } else {
+              setCompactInfo(null);
+              setAudioError(data.message || '침묵 자르기 계산 실패');
+            }
+          })
+          .catch((err) => { if (!cancelled) setAudioError('침묵 자르기 요청 실패: ' + err.message); })
+          .finally(() => { if (!cancelled) setCompactLoading(false); });
+        return () => { cancelled = true; };
+      }, [silenceMode, maxGapSec, jobId]);
+
+      // 효과적 segments / audio URL — 모드에 따라 결정
+      //   trim 모드면 compact-info의 새 segments + audio-tuned?compact=1 사용
+      const effectiveSegments = (silenceMode === 'trim' && compactInfo?.segments) ? compactInfo.segments : segments;
+      const effectiveAudioUrl = useMemo(() => {
+        if (!jobId) return '';
+        if (silenceMode === 'trim') {
+          return `/api/jobs/${jobId}/audio-tuned?compact=1&maxGap=${maxGapSec}`;
+        }
+        return audioMode === 'tuned'
+          ? `/api/jobs/${jobId}/audio-tuned`
+          : `/api/jobs/${jobId}/audio`;
+      }, [jobId, audioMode, silenceMode, maxGapSec]);
+
+      // jobId / 모드 변경 시 element 리마운트하지 않고 src만 갱신
+      //   element 그대로 유지 → AudioContext source 끊기지 않음 = 싱크 일관성 유지
+      useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio || !effectiveAudioUrl) return;
+        const newSrc = `${window.location.origin}${effectiveAudioUrl}`;
+        if (audio.src === newSrc) return;
+        audio.src = newSrc;
+        audio.load();
+        try { audio.currentTime = 0; } catch (_) {}
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setAudioLevel(0);
+      }, [effectiveAudioUrl]);
+      // 오디오 진폭 (0~1) — 무음 구간이라도 노래/옹알이로 소리가 있으면 입 움직이도록
+      const [audioLevel, setAudioLevel] = useState(0);
+      const audioCtxRef = useRef(null);
+      const analyserRef = useRef(null);
+      // 진폭이 큰 시점에 segment가 없으면 기본 화자(보통 '아기')로 입 움직임 처리
+      const [voiceFallbackRole, setVoiceFallbackRole] = useState('baby');
 
       const getText = (s) => editedSegments[s.id] !== undefined ? editedSegments[s.id] : s.text;
       // 우선순위: segment override → speaker mapping
@@ -1210,44 +1469,122 @@
         setEditedSegments({ ...editedSegments, [id]: val });
       };
 
-      // 현재 재생 시간에 해당하는 segment 찾기
+      // 현재 재생 시간에 해당하는 segment 찾기 (silenceMode에 따라 effectiveSegments 사용)
       const currentSegment = useMemo(() => {
-        if (!segments.length) return null;
-        const found = segments.find((s) => currentTime >= s.start && currentTime < s.end);
+        const segs = effectiveSegments;
+        if (!segs.length) return null;
+        const found = segs.find((s) => currentTime >= s.start && currentTime < s.end);
         if (found) return found;
-        // 갭 구간일 땐 가장 가까운 직전 segment 유지 (캐릭터가 사라졌다 나타나는 깜빡임 방지)
-        const prev = [...segments].reverse().find((s) => s.end <= currentTime);
+        const prev = [...segs].reverse().find((s) => s.end <= currentTime);
         return prev || null;
-      }, [segments, currentTime]);
+      }, [effectiveSegments, currentTime]);
 
-      // segment.end 직후 0.4초 버퍼 — 마지막 음절·자막이 뚝 끊기지 않게 (잔향 자연스러움)
+      // segment.end 직후 0.12초 버퍼 — 자연스러움과 자막 늦음 사이의 균형
       const speakingNow = useMemo(() => {
         if (!currentSegment) return false;
-        return isPlaying && currentTime >= currentSegment.start && currentTime < currentSegment.end + 0.4;
+        return isPlaying && currentTime >= currentSegment.start && currentTime < currentSegment.end + 0.12;
       }, [currentSegment, isPlaying, currentTime]);
 
-      // 오디오 이벤트 바인딩
+      // 노래/옹알이/긴 침묵 등으로 segment가 없어도 소리가 있으면 입을 움직이게
+      // (RMS > 0.08 정도면 사람이 듣기에 명확한 소리)
+      const audioActive = isPlaying && audioLevel > 0.08;
+      const fallbackSpeaking = audioActive && !speakingNow;
+
+      // 오디오 이벤트 바인딩 — currentTime은 rAF로 60fps 폴링
+      //   + AnalyserNode로 매 프레임 RMS (노래/옹알이용 입 움직임)
+      //   + audioContext.outputLatency만큼 보정 → 사용자가 실제로 듣는 시점에 자막이 일치
       useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
-        const onTime = () => setCurrentTime(audio.currentTime);
+        let rafId = 0;
+        let running = false;
+
+        // AudioContext / Analyser — 같은 element에 한 번만 createMediaElementSource 가능
+        // element를 리마운트하지 않게 했으므로 이 effect는 1회만 동작 (deps [])
+        const ensureAnalyser = () => {
+          if (analyserRef.current) return;
+          try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            const ctx = new Ctx({ latencyHint: 'interactive' });
+            const src = ctx.createMediaElementSource(audio);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 1024;
+            analyser.smoothingTimeConstant = 0.6;
+            src.connect(analyser);
+            analyser.connect(ctx.destination);
+            audioCtxRef.current = ctx;
+            analyserRef.current = analyser;
+            console.log('[AudioCtx] outputLatency=', ctx.outputLatency?.toFixed(4), 'baseLatency=', ctx.baseLatency?.toFixed(4));
+          } catch (e) {
+            console.warn('[AudioCtx] init 실패', e.message);
+          }
+        };
+
+        const buf = new Uint8Array(1024);
+        const computeLevel = () => {
+          const an = analyserRef.current;
+          if (!an) return 0;
+          an.getByteTimeDomainData(buf);
+          let sumSq = 0;
+          for (let i = 0; i < buf.length; i++) {
+            const v = (buf[i] - 128) / 128;
+            sumSq += v * v;
+          }
+          const rms = Math.sqrt(sumSq / buf.length);
+          return Math.min(1, rms * 4);
+        };
+
+        // 출력 지연 보정 — 사용자가 실제 듣는 시점은 audio.currentTime - latency
+        const getCompensatedTime = () => {
+          const ctx = audioCtxRef.current;
+          // outputLatency: 시스템 오디오 큐 → 스피커. baseLatency: AudioContext 자체 처리 지연.
+          // Bluetooth/USB 헤드폰 등에서 outputLatency가 100ms 이상 나올 수 있음 → 자막이 음성보다 살짝 빨라짐 → 보정으로 정렬
+          const latency = ctx ? ((ctx.outputLatency || 0) + (ctx.baseLatency || 0)) : 0;
+          return Math.max(0, audio.currentTime - latency);
+        };
+
+        const tick = () => {
+          if (!running) return;
+          setCurrentTime(getCompensatedTime());
+          setAudioLevel(computeLevel());
+          rafId = requestAnimationFrame(tick);
+        };
+        const startTick = () => {
+          if (running) return;
+          ensureAnalyser();
+          if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+            audioCtxRef.current.resume().catch(() => {});
+          }
+          running = true;
+          rafId = requestAnimationFrame(tick);
+        };
+        const stopTick = () => {
+          running = false;
+          if (rafId) cancelAnimationFrame(rafId);
+          rafId = 0;
+          setCurrentTime(getCompensatedTime());
+          setAudioLevel(0);
+        };
         const onLoaded = () => { setDuration(audio.duration || 0); setAudioError(""); };
-        const onPlay = () => setIsPlaying(true);
-        const onPause = () => setIsPlaying(false);
-        const onEnded = () => setIsPlaying(false);
+        const onPlay = () => { setIsPlaying(true); startTick(); };
+        const onPause = () => { setIsPlaying(false); stopTick(); };
+        const onEnded = () => { setIsPlaying(false); stopTick(); };
+        const onSeeked = () => setCurrentTime(audio.currentTime);
         const onErr = () => setAudioError("오디오를 불러오지 못했습니다. 다시 분석을 시도해주세요.");
-        audio.addEventListener('timeupdate', onTime);
         audio.addEventListener('loadedmetadata', onLoaded);
         audio.addEventListener('play', onPlay);
         audio.addEventListener('pause', onPause);
         audio.addEventListener('ended', onEnded);
+        audio.addEventListener('seeked', onSeeked);
         audio.addEventListener('error', onErr);
         return () => {
-          audio.removeEventListener('timeupdate', onTime);
+          stopTick();
           audio.removeEventListener('loadedmetadata', onLoaded);
           audio.removeEventListener('play', onPlay);
           audio.removeEventListener('pause', onPause);
           audio.removeEventListener('ended', onEnded);
+          audio.removeEventListener('seeked', onSeeked);
           audio.removeEventListener('error', onErr);
         };
       }, []);
@@ -1256,6 +1593,11 @@
         const audio = audioRef.current;
         if (!audio) return;
         if (audio.paused) {
+          // AudioContext가 suspended 상태면 resume — 일관된 재생을 위해 매번 시도
+          const ctx = audioCtxRef.current;
+          if (ctx && ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
           audio.play().catch((err) => setAudioError(`재생 오류: ${err.message}`));
         } else {
           audio.pause();
@@ -1268,21 +1610,246 @@
         audio.currentTime = Math.max(0, Math.min(audio.duration || sec, sec));
       };
 
+      // 드래그로 자유 위치 이동 + 점선 자석 가이드라인
+      //   key: 'title' | 'subtitle' | `deco:${decoKey}`
+      //   stage 좌표계(현재 보이는 px) 기준으로 dx, dy 누적 → state에 저장
+      const SNAP_THRESHOLD = 6; // px 이내면 스냅
+      const getOffsetFor = (key) => {
+        if (key === 'title') return titleOffset;
+        if (key === 'subtitle') return subOffset;
+        if (key.startsWith('deco:')) return decoOffsets[key.slice(5)];
+        return { x: 0, y: 0 };
+      };
+      const setOffsetFor = (key, off) => {
+        if (key === 'title') setTitleOffset(off);
+        else if (key === 'subtitle') setSubOffset(off);
+        else if (key.startsWith('deco:')) {
+          const k = key.slice(5);
+          setDecoOffsets((d) => ({ ...d, [k]: off }));
+        }
+      };
+
+      const onDragStart = (key) => (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const stage = stageRef.current;
+        if (!stage) return;
+        const rect = stage.getBoundingClientRect();
+        const off = getOffsetFor(key);
+        dragRef.current = {
+          key,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startOffX: off.x,
+          startOffY: off.y,
+          stageWidth: rect.width,
+          stageHeight: rect.height,
+        };
+        setDragging(key);
+        // pointer capture 대신 window 레벨로 listen — 빠르게 움직여도 놓치지 않음
+        window.addEventListener('pointermove', onDragMove);
+        window.addEventListener('pointerup', onDragEnd);
+        window.addEventListener('pointercancel', onDragEnd);
+      };
+
+      // 매 프레임 드래그 — useCallback 없이 함수 참조 유지하기 위해 useRef 패턴
+      const dragHandlersRef = useRef({});
+      const onDragMove = (e) => dragHandlersRef.current.move?.(e);
+      const onDragEnd = (e) => dragHandlersRef.current.end?.(e);
+
+      // dragHandlersRef를 매 렌더 갱신 — 클로저 안의 setState가 최신 state 못 잡는 문제 방지
+      useEffect(() => {
+        dragHandlersRef.current.move = (e) => {
+          const drag = dragRef.current;
+          if (!drag) return;
+          const dx = e.clientX - drag.startClientX;
+          const dy = e.clientY - drag.startClientY;
+          let newX = drag.startOffX + dx;
+          let newY = drag.startOffY + dy;
+
+          // 가로 중앙 스냅 — newX 절대값이 임계 이하면 0으로 (정확히 중앙)
+          let vCenter = false;
+          if (Math.abs(newX) <= SNAP_THRESHOLD) {
+            newX = 0;
+            vCenter = true;
+          }
+          // 세로 중앙 스냅 — 실제 stage 중앙 기준이 아니라 요소 기본 위치 기준
+          //   요소의 기본 위치에서 stageHeight/2 - element.basePosY 만큼 떨어진 곳이 중앙
+          //   여기선 단순히 dy=0인 곳이 기본 위치라 가정. 별도 가운데 스냅은 생략 (제목/부제목 각각 다른 base).
+          //   대신 데코는 자기 모서리 기본 위치로 돌아갈 때 스냅 (newY 0 근처).
+          let hCenter = false;
+          if (drag.key.startsWith('deco:') && Math.abs(newY) <= SNAP_THRESHOLD) {
+            newY = 0;
+            hCenter = true;
+          }
+
+          setSnaps({ vCenter, hCenter });
+          setOffsetFor(drag.key, { x: newX, y: newY });
+        };
+        dragHandlersRef.current.end = () => {
+          dragRef.current = null;
+          setDragging(null);
+          setSnaps({ vCenter: false, hCenter: false });
+          window.removeEventListener('pointermove', onDragMove);
+          window.removeEventListener('pointerup', onDragEnd);
+          window.removeEventListener('pointercancel', onDragEnd);
+        };
+      });
+
+      // 더블클릭으로 위치 리셋 — 드래그 후 원위치 복귀 빠르게
+      const onDragDoubleClick = (key) => () => {
+        setOffsetFor(key, { x: 0, y: 0 });
+      };
+
+      // 비디오 다운로드 — 미리보기 stage를 매 프레임 html2canvas로 그려서 canvas 캡처,
+      //   audio element의 trackStream을 같이 묶어 MediaRecorder로 녹화 → webm 파일로 저장.
+      // 단점: html2canvas 비용으로 30fps 정도가 한계. 5분 이내 영상이라 충분히 동작함.
+      const downloadVideo = async () => {
+        const audio = audioRef.current;
+        const stage = stageRef.current;
+        const canvas = recCanvasRef.current;
+        if (!audio || !stage || !canvas) {
+          setAudioError('녹화 준비가 되지 않았습니다.');
+          return;
+        }
+        if (typeof window.html2canvas !== 'function') {
+          setAudioError('녹화 라이브러리(html2canvas)가 아직 로드되지 않았어요. 잠시 후 다시 시도해주세요.');
+          return;
+        }
+        if (!('captureStream' in HTMLCanvasElement.prototype)) {
+          setAudioError('이 브라우저는 캔버스 녹화를 지원하지 않습니다. (Chrome/Edge 권장)');
+          return;
+        }
+        // 9:16 — 1080x1920 출력
+        const W = 1080, H = 1920;
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        // 첫 프레임 칠해서 canvas가 실제 데이터 가지도록
+        ctx.fillStyle = '#FDF8F1'; ctx.fillRect(0, 0, W, H);
+
+        // 녹화 시작 — 처음으로 돌리고 재생
+        try { audio.pause(); } catch (e) {}
+        audio.currentTime = 0;
+        // 오디오 캡처 — videoElement.captureStream()은 비디오/오디오 트랙 둘 다 줌. 우린 오디오만 사용.
+        let audioStream;
+        if (typeof audio.captureStream === 'function') {
+          audioStream = audio.captureStream();
+        } else if (typeof audio.mozCaptureStream === 'function') {
+          audioStream = audio.mozCaptureStream();
+        } else {
+          setAudioError('이 브라우저는 오디오 캡처를 지원하지 않습니다.');
+          return;
+        }
+        const audioTracks = audioStream.getAudioTracks();
+        const videoStream = canvas.captureStream(30);
+        const combined = new MediaStream([...videoStream.getVideoTracks(), ...audioTracks]);
+
+        // MediaRecorder 코덱 — webm/vp9 우선, 호환성 떨어지면 webm/vp8, 마지막으로 webm
+        const candidates = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+        ];
+        const mime = candidates.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+        const recorder = new MediaRecorder(combined, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined);
+        const chunks = [];
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mime || 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          a.download = `${platform}-${stamp}.webm`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        };
+
+        setRecording(true);
+        setRecProgress(0);
+
+        // 매 프레임 stage를 html2canvas로 그려서 녹화 canvas에 그리기
+        let stopped = false;
+        const drawLoop = async () => {
+          if (stopped) return;
+          try {
+            // html2canvas — backgroundColor null로 하면 transparent 처리
+            //   useCORS true: 외부 이미지(없지만 안전하게)
+            const tmp = await window.html2canvas(stage, {
+              backgroundColor: null,
+              scale: W / stage.offsetWidth,
+              logging: false,
+              useCORS: true,
+            });
+            ctx.fillStyle = '#FDF8F1';
+            ctx.fillRect(0, 0, W, H);
+            ctx.drawImage(tmp, 0, 0, W, H);
+          } catch (e) {
+            // 한 프레임 실패해도 다음 프레임 계속
+          }
+          if (!stopped) requestAnimationFrame(drawLoop);
+        };
+        drawLoop();
+
+        // 진행률 갱신
+        const progressInterval = setInterval(() => {
+          if (audio.duration > 0) setRecProgress(Math.min(1, audio.currentTime / audio.duration));
+        }, 250);
+
+        // 재생 종료 시 녹화 종료
+        const onEnded = () => {
+          stopped = true;
+          clearInterval(progressInterval);
+          // 마지막 프레임이 들어가도록 살짝 지연
+          setTimeout(() => {
+            try { recorder.stop(); } catch (e) {}
+            audioTracks.forEach((t) => t.stop());
+            videoStream.getVideoTracks().forEach((t) => t.stop());
+            audio.removeEventListener('ended', onEnded);
+            setRecording(false);
+            setRecProgress(1);
+          }, 300);
+        };
+        audio.addEventListener('ended', onEnded);
+
+        recorder.start(1000); // 1초마다 청크
+        try {
+          await audio.play();
+        } catch (e) {
+          stopped = true;
+          clearInterval(progressInterval);
+          try { recorder.stop(); } catch (_) {}
+          setRecording(false);
+          setAudioError('녹화 중 재생을 시작할 수 없습니다: ' + e.message);
+        }
+      };
+
       // 현재 segment에 매칭된 역할
       const currentRoleKey = currentSegment ? getRoleForSegment(currentSegment) : null;
       const currentText = currentSegment ? getText(currentSegment) : "";
 
+      // 청크 타이밍 — segment/편집 텍스트 바뀔 때만 재계산 (rAF 60fps에서 매번 다시 만들면 낭비)
+      const activeChunks = useMemo(() => {
+        if (!currentSegment) return [];
+        return buildTimedChunks(currentSegment, getText(currentSegment));
+      }, [currentSegment, editedSegments]);
+
       // 등장 인물 (역할 기준) — segment 오버라이드 포함, dad → mom → baby 순서
+      // + voiceFallbackRole(노래/옹알이용 기본 화자)도 항상 포함 — 영상에 그 사람이 안 보이면 어색
       const uniqueRoles = useMemo(() => {
         const present = new Set();
-        for (const s of segments) {
+        for (const s of effectiveSegments) {
           const r = segmentRoleOverrides[s.id] || roleMapping[s.speaker];
           if (r) present.add(r);
         }
+        if (voiceFallbackRole) present.add(voiceFallbackRole);
         return ROLES.map(r => r.key).filter(k => present.has(k));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [segments, segmentRoleOverrides, roleMapping]);
-      const totalDur = duration || segments.reduce((m, s) => Math.max(m, s.end), 0) || 0;
+      }, [effectiveSegments, segmentRoleOverrides, roleMapping, voiceFallbackRole]);
+      const totalDur = duration || effectiveSegments.reduce((m, s) => Math.max(m, s.end), 0) || 0;
       const progressPct = totalDur > 0 ? Math.min(100, (currentTime / totalDur) * 100) : 0;
 
       return (
@@ -1294,27 +1861,527 @@
             </h2>
           </div>
 
+          {/* 플랫폼 토글 + 제목·부제목 입력 — 미리보기 위에 고정 */}
+          <Card className="!p-3 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-ink/50">플랫폼</div>
+                <div className="text-[10px] text-ink/40 mt-0.5">
+                  {platform === 'reels'
+                    ? '제목 200–600px 영역 / 하단 320px 캡션 보호'
+                    : '제목 180–288px 영역 / 하단 350px 채널바 보호'}
+                </div>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-hairline bg-paper p-0.5 select-none">
+                {Object.entries(PLATFORM_PRESETS).map(([key, p]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPlatform(key)}
+                    className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition ${
+                      platform === key ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                    }`}
+                    title={p.sub}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-ink/50">
+                음성 {tunedPreparing && audioMode === 'tuned' && silenceMode === 'keep' && <span className="text-accent normal-case tracking-normal ml-1">· 처리 중...</span>}
+              </div>
+              <div className="inline-flex items-center rounded-full border border-hairline bg-paper p-0.5 select-none">
+                <button
+                  type="button"
+                  onClick={() => { setAudioMode('original'); setSilenceMode('keep'); }}
+                  disabled={silenceMode === 'trim'}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition ${
+                    audioMode === 'original' && silenceMode === 'keep' ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                  } disabled:opacity-30 disabled:cursor-not-allowed`}
+                  title="원본 음성 그대로"
+                >
+                  원본
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAudioMode('tuned')}
+                  disabled={silenceMode === 'trim'}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition ${
+                    audioMode === 'tuned' && silenceMode === 'keep' ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                  } disabled:opacity-30 disabled:cursor-not-allowed`}
+                  title="화자별 음량 정규화 + EQ + denoise + loudnorm -14 LUFS"
+                >
+                  튠 ✨
+                </button>
+              </div>
+            </div>
+
+            {/* 침묵 자르기 — 발화 사이 긴 텀을 자동으로 단축 (자막 타임스탬프도 함께 보정) */}
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-hairline">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-ink/50">
+                  침묵 자르기
+                  {compactLoading && <span className="text-accent normal-case tracking-normal ml-1">· 계산 중</span>}
+                  {silenceMode === 'trim' && compactInfo && (
+                    <span className="text-ink/50 normal-case tracking-normal ml-1 num">
+                      · {compactInfo.totalOrigDuration.toFixed(1)}s → {compactInfo.totalNewDuration.toFixed(1)}s
+                      <span className="text-accent ml-1">−{compactInfo.savedSec.toFixed(1)}s</span>
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] text-ink/40 mt-0.5">발화 사이 긴 텀을 자동 단축 · 자막 싱크 자동 보정</div>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-hairline bg-paper p-0.5 select-none">
+                <button
+                  type="button"
+                  onClick={() => setSilenceMode('keep')}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition ${
+                    silenceMode === 'keep' ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                  }`}
+                  title="원본 길이 유지"
+                >
+                  유지
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSilenceMode('trim'); setAudioMode('tuned'); }}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition ${
+                    silenceMode === 'trim' ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                  }`}
+                  title="긴 침묵 구간을 maxGap초로 단축"
+                >
+                  자르기 ✂︎
+                </button>
+              </div>
+            </div>
+
+            {/* maxGap 슬라이더 — trim 모드일 때만 표시 */}
+            {silenceMode === 'trim' && (
+              <div className="space-y-1 pt-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] text-ink/60">최대 허용 침묵</span>
+                  <span className="text-[10px] num text-ink/40">{maxGapSec.toFixed(2)}s</span>
+                </div>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1.5}
+                  step={0.05}
+                  value={maxGapSec}
+                  onChange={(e) => setMaxGapSec(parseFloat(e.target.value))}
+                  className="w-full h-1 accent-ink"
+                />
+                <div className="text-[9px] text-ink/30">짧을수록 빠른 템포 · 너무 짧으면 부자연스러움 (0.3s 권장)</div>
+              </div>
+            )}
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-[0.14em] text-ink/50">상단 제목 / 후킹</label>
+                <input
+                  type="text"
+                  value={overlayTitle}
+                  onChange={(e) => setOverlayTitle(e.target.value.slice(0, 60))}
+                  placeholder={preset.titlePlaceholder}
+                  className="w-full px-3 py-2 text-[13px] bg-paper border border-hairline rounded-md focus:outline-none focus:border-ink/40"
+                  maxLength={60}
+                />
+                <div className="text-[9px] text-ink/30 text-right num">{overlayTitle.length}/60</div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-[0.14em] text-ink/50">하단 부제목 / 캡션</label>
+                <input
+                  type="text"
+                  value={overlaySubtitle}
+                  onChange={(e) => setOverlaySubtitle(e.target.value.slice(0, 80))}
+                  placeholder={preset.subtitlePlaceholder}
+                  className="w-full px-3 py-2 text-[13px] bg-paper border border-hairline rounded-md focus:outline-none focus:border-ink/40"
+                  maxLength={80}
+                />
+                <div className="text-[9px] text-ink/30 text-right num">{overlaySubtitle.length}/80</div>
+              </div>
+            </div>
+          </Card>
+
+          {/* 텍스트 스타일 — X(폰트) × Y(컬러) × Z(크기) + 데코레이션 */}
+          <Card className="!p-3 space-y-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-ink/50">자막 스타일</div>
+
+            {/* X축 — 폰트 */}
+            <div className="space-y-1.5">
+              <div className="text-[9px] uppercase tracking-[0.14em] text-ink/40 num">X · 폰트</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {Object.entries(TEXT_STYLES).map(([key, s]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTextStyle(key)}
+                    className={`px-2 py-1.5 rounded-md text-[11px] border transition ${
+                      textStyle === key ? 'border-ink bg-ink text-cream' : 'border-hairline bg-paper text-ink/70 hover:border-ink/40'
+                    }`}
+                    title={s.sub}
+                    style={textStyle === key ? {} : { fontFamily: s.family, fontWeight: s.weight }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Y축 — 컬러 */}
+            <div className="space-y-1.5">
+              <div className="text-[9px] uppercase tracking-[0.14em] text-ink/40 num">Y · 컬러</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {Object.entries(COLOR_SCHEMES).map(([key, c]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setColorScheme(key)}
+                    className={`px-2 py-1.5 rounded-md text-[11px] border-2 transition relative overflow-hidden ${
+                      colorScheme === key ? 'border-ink' : 'border-transparent hover:border-hairline'
+                    }`}
+                    style={{
+                      background: c.stroke === '#FFFFFF' ? '#F2E5D6' : '#1A1612',
+                      color: c.color,
+                      textShadow: `1px 1px 0 ${c.stroke}, -1px -1px 0 ${c.stroke}, 1px -1px 0 ${c.stroke}, -1px 1px 0 ${c.stroke}`,
+                      fontWeight: 900,
+                    }}
+                    title={c.sub}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Z축 — 크기 (제목/부제목 각각 슬라이더) */}
+            <div className="space-y-2">
+              <div className="text-[9px] uppercase tracking-[0.14em] text-ink/40 num">Z · 크기</div>
+
+              <div className="space-y-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] text-ink/60">제목</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] num text-ink/30">{titleSizePx}px</span>
+                    <button
+                      type="button"
+                      onClick={() => setTitleSizePx(SIZE_DEFAULTS.title)}
+                      className="text-[9px] text-ink/30 hover:text-ink underline-offset-2 hover:underline"
+                      title="기본값"
+                    >reset</button>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={SIZE_RANGE.titleMin}
+                  max={SIZE_RANGE.titleMax}
+                  step={1}
+                  value={titleSizePx}
+                  onChange={(e) => setTitleSizePx(parseInt(e.target.value, 10))}
+                  className="w-full h-1 accent-ink"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] text-ink/60">부제목</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] num text-ink/30">{subSizePx}px</span>
+                    <button
+                      type="button"
+                      onClick={() => setSubSizePx(SIZE_DEFAULTS.subtitle)}
+                      className="text-[9px] text-ink/30 hover:text-ink underline-offset-2 hover:underline"
+                      title="기본값"
+                    >reset</button>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={SIZE_RANGE.subMin}
+                  max={SIZE_RANGE.subMax}
+                  step={1}
+                  value={subSizePx}
+                  onChange={(e) => setSubSizePx(parseInt(e.target.value, 10))}
+                  className="w-full h-1 accent-ink"
+                />
+              </div>
+            </div>
+
+            {/* 데코레이션 — 4개 모서리 */}
+            <div className="space-y-1.5">
+              <div className="text-[9px] uppercase tracking-[0.14em] text-ink/40 num">데코</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {Object.entries(DECORATIONS).map(([key, d]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setDecorations({ ...decorations, [key]: !decorations[key] })}
+                    className={`px-2 py-1.5 rounded-md text-[15px] border transition flex items-center justify-center gap-1 ${
+                      decorations[key] ? 'border-ink bg-ink/5' : 'border-hairline bg-paper hover:border-ink/40 opacity-50'
+                    }`}
+                    title={d.label}
+                  >
+                    <span>{d.emoji}</span>
+                    <span className="text-[9px] text-ink/50 num">{d.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 위치 슬라이더 — 제목/부제목 X·Y 각각 (드래그와 양방향 동기화) */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[9px] uppercase tracking-[0.14em] text-ink/40 num">위치</span>
+                <span className="text-[9px] text-ink/30">미리보기에서 직접 드래그도 가능 · 더블클릭 리셋</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[10px] text-ink/60">제목 X</span>
+                    <span className="text-[9px] num text-ink/30">{titleOffset.x}px</span>
+                  </div>
+                  <input type="range" min={-120} max={120} step={1} value={titleOffset.x}
+                    onChange={(e) => setTitleOffset({ ...titleOffset, x: parseInt(e.target.value, 10) })}
+                    className="w-full h-1 accent-ink" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[10px] text-ink/60">제목 Y</span>
+                    <span className="text-[9px] num text-ink/30">{titleOffset.y}px</span>
+                  </div>
+                  <input type="range" min={-200} max={200} step={1} value={titleOffset.y}
+                    onChange={(e) => setTitleOffset({ ...titleOffset, y: parseInt(e.target.value, 10) })}
+                    className="w-full h-1 accent-ink" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[10px] text-ink/60">부제 X</span>
+                    <span className="text-[9px] num text-ink/30">{subOffset.x}px</span>
+                  </div>
+                  <input type="range" min={-120} max={120} step={1} value={subOffset.x}
+                    onChange={(e) => setSubOffset({ ...subOffset, x: parseInt(e.target.value, 10) })}
+                    className="w-full h-1 accent-ink" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[10px] text-ink/60">부제 Y</span>
+                    <span className="text-[9px] num text-ink/30">{subOffset.y}px</span>
+                  </div>
+                  <input type="range" min={-200} max={200} step={1} value={subOffset.y}
+                    onChange={(e) => setSubOffset({ ...subOffset, y: parseInt(e.target.value, 10) })}
+                    className="w-full h-1 accent-ink" />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTitleOffset({ x: 0, y: 0 });
+                  setSubOffset({ x: 0, y: 0 });
+                  setDecoOffsets({ heart: {x:0,y:0}, sparkle: {x:0,y:0}, music: {x:0,y:0}, subscribe: {x:0,y:0} });
+                }}
+                className="text-[9px] text-ink/40 hover:text-ink underline-offset-2 hover:underline"
+              >
+                위치 전체 리셋
+              </button>
+            </div>
+
+            {/* 노래/옹알이 fallback 화자 */}
+            <div className="pt-1 border-t border-hairline">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[9px] uppercase tracking-[0.14em] text-ink/40">
+                  노래·옹알이 입모양
+                  <div className="text-[9px] normal-case tracking-normal text-ink/30 mt-0.5">자막 없는 구간 진폭 감지</div>
+                </div>
+                <div className="inline-flex items-center rounded-full border border-hairline bg-paper p-0.5 select-none">
+                  {ROLES.map(r => (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={() => setVoiceFallbackRole(r.key)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition ${
+                        voiceFallbackRole === r.key ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                      }`}
+                    >
+                      {r.kr}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setVoiceFallbackRole(null)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition ${
+                      !voiceFallbackRole ? 'bg-ink text-cream' : 'text-ink/40 hover:text-ink'
+                    }`}
+                    title="자동 입모양 끄기"
+                  >
+                    OFF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Preview surface — 9:16 (Reels/Shorts 공통) + 안전영역 */}
           <Card className="!p-0 overflow-hidden">
             <div
+              ref={stageRef}
               className="relative bg-cream border-b border-hairline overflow-hidden mx-auto"
               style={{ aspectRatio: '9 / 16', maxWidth: 360 }}
             >
               {/* 배경 톤 */}
               <div className="absolute inset-0 bg-gradient-to-b from-[#FDF8F1] to-[#F2E5D6]" />
 
-              {/* 안전영역 가이드 — Reels(상단 ~14%/하단 ~22%) + Shorts 공통 */}
-              {/* 상단 unsafe (작가/아이콘 영역) */}
-              <div className="absolute inset-x-0 top-0 h-[14%] bg-ink/[0.025] border-b border-dashed border-ink/10 pointer-events-none flex items-center justify-center">
-                <span className="text-[8px] uppercase tracking-[0.18em] text-ink/30 num">UNSAFE — top</span>
-              </div>
-              {/* 하단 unsafe (좋아요/공유/캡션 영역) */}
-              <div className="absolute inset-x-0 bottom-0 h-[22%] bg-ink/[0.025] border-t border-dashed border-ink/10 pointer-events-none flex items-center justify-center">
-                <span className="text-[8px] uppercase tracking-[0.18em] text-ink/30 num">UNSAFE — bottom</span>
-              </div>
+              {/* 상단 제목 — 드래그 가능 + 입력 비어있으면 가제목(placeholder) 미리보기
+                  녹화 중엔 빈 텍스트는 안 그림 (가제목이 영상에 들어가지 않게) */}
+              {(overlayTitle || (!recording && preset.titlePlaceholder)) && (
+                <div
+                  className="absolute inset-x-0 flex items-start justify-center px-4 z-20"
+                  style={{ top: `${preset.topUnsafe * 100}%`, paddingTop: '6px' }}
+                >
+                  <div
+                    onPointerDown={onDragStart('title')}
+                    onDoubleClick={onDragDoubleClick('title')}
+                    className={`text-center select-none ${recording ? '' : 'cursor-move'} ${dragging === 'title' ? 'ring-2 ring-accent/50' : ''}`}
+                    style={{
+                      fontFamily: tStyle.family,
+                      fontWeight: tStyle.weight,
+                      letterSpacing: tStyle.letterSpacing,
+                      fontSize: `${titleSizePx * tStyle.titleScale * 0.42}px`,
+                      lineHeight: 1.15,
+                      color: tColor.color,
+                      textShadow: buildTextStroke(tColor.stroke, 1.5),
+                      maxWidth: '94%',
+                      WebkitTextStroke: '0',
+                      transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
+                      touchAction: 'none',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      opacity: overlayTitle ? 1 : 0.38, // 가제목은 흐리게
+                    }}
+                    title={overlayTitle ? '드래그로 위치 이동 · 더블클릭 리셋' : '가제목 미리보기 (입력 시 대체)'}
+                  >
+                    {overlayTitle || preset.titlePlaceholder}
+                  </div>
+                </div>
+              )}
+
+              {/* 하단 부제목 — 드래그 가능 + placeholder 미리보기 */}
+              {(overlaySubtitle || (!recording && preset.subtitlePlaceholder)) && (
+                <div
+                  className="absolute inset-x-0 flex items-end justify-center px-4 z-20"
+                  style={{ bottom: `${preset.bottomUnsafe * 100}%`, paddingBottom: '6px' }}
+                >
+                  <div
+                    onPointerDown={onDragStart('subtitle')}
+                    onDoubleClick={onDragDoubleClick('subtitle')}
+                    className={`text-center select-none ${recording ? '' : 'cursor-move'} ${dragging === 'subtitle' ? 'ring-2 ring-accent/50' : ''}`}
+                    style={{
+                      fontFamily: tStyle.family,
+                      fontWeight: Math.max(700, tStyle.weight - 100),
+                      letterSpacing: tStyle.letterSpacing,
+                      fontSize: `${subSizePx * tStyle.subtitleScale * 0.45}px`,
+                      lineHeight: 1.3,
+                      color: tColor.color,
+                      textShadow: buildTextStroke(tColor.stroke, 1.2),
+                      maxWidth: '94%',
+                      transform: `translate(${subOffset.x}px, ${subOffset.y}px)`,
+                      touchAction: 'none',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      opacity: overlaySubtitle ? 1 : 0.38, // 가부제목 흐리게
+                    }}
+                    title={overlaySubtitle ? '드래그로 위치 이동 · 더블클릭 리셋' : '가부제목 미리보기 (입력 시 대체)'}
+                  >
+                    {overlaySubtitle || preset.subtitlePlaceholder}
+                  </div>
+                </div>
+              )}
+
+              {/* 데코레이션 — 4개 모서리 기본 위치, 드래그로 자유 이동 */}
+              {Object.entries(DECORATIONS).map(([key, d]) => {
+                if (!decorations[key]) return null;
+                const pos = DECO_POSITIONS[d.defaultPos];
+                const off = decoOffsets[key];
+                const dragKey = `deco:${key}`;
+                return (
+                  <div
+                    key={key}
+                    onPointerDown={onDragStart(dragKey)}
+                    onDoubleClick={onDragDoubleClick(dragKey)}
+                    className={`absolute z-20 select-none ${recording ? '' : 'cursor-move'} ${dragging === dragKey ? 'ring-2 ring-accent/50 rounded-md' : ''}`}
+                    style={{
+                      ...pos,
+                      fontSize: '22px',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.18))',
+                      animation: dragging === dragKey ? 'none' : 'avatar-idle 2.5s ease-in-out infinite',
+                      transform: `translate(${off.x}px, ${off.y}px)`,
+                      touchAction: 'none',
+                      padding: '4px',
+                    }}
+                    title={`${d.label} · 드래그로 위치 이동 · 더블클릭 리셋`}
+                  >
+                    {d.emoji}
+                  </div>
+                );
+              })}
+
+              {/* 스냅 가이드라인 — 드래그 중 정렬되면 점선 표시 (자석 효과) */}
+              {dragging && !recording && (
+                <>
+                  {/* 가로 중앙 (세로 점선) — vCenter 활성 시 진한 색 */}
+                  <div
+                    className="absolute pointer-events-none z-30"
+                    style={{
+                      left: '50%',
+                      top: 0,
+                      bottom: 0,
+                      width: 0,
+                      borderLeft: `1px dashed ${snaps.vCenter ? '#C57854' : 'rgba(26,22,18,0.18)'}`,
+                      transform: 'translateX(-0.5px)',
+                      transition: 'border-color 80ms',
+                    }}
+                  />
+                  {/* 세로 중앙 (가로 점선) — 데코 드래그 + hCenter 활성 시 진한 색 */}
+                  {dragging.startsWith('deco:') && (
+                    <div
+                      className="absolute pointer-events-none z-30"
+                      style={{
+                        top: '50%',
+                        left: 0,
+                        right: 0,
+                        height: 0,
+                        borderTop: `1px dashed ${snaps.hCenter ? '#C57854' : 'rgba(26,22,18,0.18)'}`,
+                        transform: 'translateY(-0.5px)',
+                        transition: 'border-color 80ms',
+                      }}
+                    />
+                  )}
+                  {/* 안전영역 경계선 — 가이드용 점선 (제목/부제 정렬에 도움) */}
+                  <div className="absolute pointer-events-none z-30 inset-x-0" style={{ top: `${preset.topUnsafe * 100}%`, height: 0, borderTop: '1px dashed rgba(26,22,18,0.18)' }} />
+                  <div className="absolute pointer-events-none z-30 inset-x-0" style={{ bottom: `${preset.bottomUnsafe * 100}%`, height: 0, borderTop: '1px dashed rgba(26,22,18,0.18)' }} />
+                </>
+              )}
+
+              {/* 안전영역 가이드 — 플랫폼별 다름 (녹화 중엔 hidden) */}
+              {!recording && (
+                <>
+                  <div
+                    className="absolute inset-x-0 top-0 bg-ink/[0.025] border-b border-dashed border-ink/10 pointer-events-none flex items-center justify-center"
+                    style={{ height: `${preset.topUnsafe * 100}%` }}
+                  >
+                    <span className="text-[8px] uppercase tracking-[0.18em] text-ink/30 num">UNSAFE — top · {preset.label}</span>
+                  </div>
+                  <div
+                    className="absolute inset-x-0 bottom-0 bg-ink/[0.025] border-t border-dashed border-ink/10 pointer-events-none flex items-center justify-center"
+                    style={{ height: `${preset.bottomUnsafe * 100}%` }}
+                  >
+                    <span className="text-[8px] uppercase tracking-[0.18em] text-ink/30 num">UNSAFE — bottom · {preset.label}</span>
+                  </div>
+                </>
+              )}
 
               {/* 안전영역 내부 — N분할 (좌/우 교차) */}
-              <div className="absolute left-[4%] right-[4%] top-[14%] bottom-[22%] flex flex-col gap-2">
+              <div className="absolute left-[4%] right-[4%] flex flex-col gap-2" style={{ top: `${preset.topUnsafe * 100}%`, bottom: `${preset.bottomUnsafe * 100}%` }}>
                 {uniqueRoles.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-faint">
                     <div className="w-12 h-12 mb-2 rounded-full border border-hairline flex items-center justify-center text-ink/40 bg-paper/70">
@@ -1324,14 +2391,14 @@
                   </div>
                 ) : (
                   uniqueRoles.map((roleKey, idx) => {
-                    const isSpeaking = currentRoleKey === roleKey && speakingNow;
+                    const isSegmentSpeaker = currentRoleKey === roleKey && speakingNow;
+                    // segment가 비어있는 구간(노래/옹알이 등)에 진폭이 있으면 voiceFallbackRole로 입 움직임
+                    const isFallbackSpeaker = fallbackSpeaking && roleKey === voiceFallbackRole;
+                    const isSpeaking = isSegmentSpeaker || isFallbackSpeaker;
                     const roleLabel = ROLES.find(r => r.key === roleKey)?.kr || roleKey;
                     // 짝수 index = 캐릭터 왼쪽 / 말풍선 오른쪽, 홀수 = 반대
                     const avatarOnLeft = idx % 2 === 0;
-                    const timedChunks = isSpeaking && currentSegment
-                      ? buildTimedChunks(currentSegment, getText(currentSegment))
-                      : [];
-                    const activeChunk = isSpeaking ? findActiveChunk(timedChunks, currentTime) : '';
+                    const activeChunk = isSpeaking ? findActiveChunk(activeChunks, currentTime) : '';
                     return (
                       <div
                         key={roleKey}
@@ -1376,10 +2443,12 @@
                 )}
               </div>
 
-              {/* 비율 가이드 — 우상단 */}
-              <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-[0.14em] text-ink/30 num bg-paper/60">
-                9:16
-              </div>
+              {/* 비율 가이드 — 우상단 (녹화 중엔 hidden) */}
+              {!recording && (
+                <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-[0.14em] text-ink/30 num bg-paper/60 z-10">
+                  9:16 · {preset.label}
+                </div>
+              )}
             </div>
 
             {/* 진행 바 — 클릭으로 seek */}
@@ -1401,23 +2470,46 @@
             </div>
 
             <div className="p-4 flex items-center justify-between gap-3">
-              <Button variant={isPlaying ? "secondary" : "primary"} size="md" onClick={togglePlay} disabled={!jobId}>
+              <Button variant={isPlaying ? "secondary" : "primary"} size="md" onClick={togglePlay} disabled={!jobId || recording}>
                 {isPlaying ? <><Icon.pause /> 일시정지</> : <><Icon.play /> 재생</>}
               </Button>
-              <span className="text-[10px] uppercase tracking-[0.14em] text-faint text-right">실제 합성은 다음 단계에서</span>
+              <Button variant="accent" size="md" onClick={downloadVideo} disabled={!jobId || recording || tunedPreparing}>
+                {recording
+                  ? <>녹화 중 {Math.round(recProgress * 100)}%</>
+                  : <>📥 {preset.label}용 영상 다운로드</>
+                }
+              </Button>
             </div>
+
+            {recording && (
+              <div className="px-4 pb-3">
+                <div className="h-1 bg-hairline rounded-full overflow-hidden">
+                  <div className="h-full bg-accent transition-[width] duration-200" style={{ width: `${recProgress * 100}%` }} />
+                </div>
+                <div className="text-[10px] text-faint mt-1 text-center">
+                  녹화가 끝날 때까지 이 탭을 활성 상태로 두세요
+                </div>
+              </div>
+            )}
 
             {audioError && (
               <div className="px-4 pb-3 text-[11px] text-[#7A3A28]">{audioError}</div>
             )}
 
-            {/* 숨겨진 video element — .mov / .mp4 / .m4a / .mp3 모두 지원 */}
+            {/* 녹화용 hidden canvas (1080x1920 9:16) */}
+            <canvas ref={recCanvasRef} style={{ display: 'none' }} />
+
+            {/* 숨겨진 video element — element는 항상 같은 인스턴스 유지 (key 없음)
+                → audioMode 바뀌어도 AudioContext source 끊기지 않음 = 싱크 정밀도 ↑
+                src 변경은 useEffect에서 수동 처리 (load() 호출). */}
             {jobId && (
               <video
                 ref={audioRef}
-                src={`/api/jobs/${jobId}/audio`}
                 preload="auto"
                 playsInline
+                crossOrigin="anonymous"
+                onLoadStart={() => audioMode === 'tuned' && setTunedPreparing(true)}
+                onCanPlay={() => setTunedPreparing(false)}
                 style={{ display: 'none' }}
               />
             )}
@@ -1433,7 +2525,7 @@
               라벨은 <span className="text-ink/80">한 발화씩 개별 변경</span>됩니다 — 같은 화자의 다른 발화엔 영향 없음. 변경된 발화엔 <span className="text-accent">↺ 복원</span> 버튼이 생겨요.
             </p>
             <div className="bg-paper border border-hairline rounded-xl divide-y divide-hairline">
-              {segments.map((s) => {
+              {effectiveSegments.map((s) => {
                 const isEditing = editingId === s.id;
                 const sp = SPEAKER_COLORS[s.speaker] || SPEAKER_COLORS.C;
                 const role = getRoleForSegment(s);

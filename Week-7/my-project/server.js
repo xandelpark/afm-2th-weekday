@@ -36,7 +36,7 @@ const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 const CHARACTERS_DIR = path.join(PUBLIC_DIR, 'characters');
 
 // 업로드 제한
-const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
+const MAX_FILE_SIZE_BYTES = 300 * 1024 * 1024; // 300MB — 동영상 첨부 여유 확보 (음성만 추출해서 분석)
 const ALLOWED_MIMES = new Set([
   'audio/mp4',
   'audio/mpeg',
@@ -709,6 +709,361 @@ app.get('/api/jobs/:id/audio', async (req, res) => {
   } catch (err) {
     console.error('[오디오 스트리밍 오류]', err.message);
     res.status(500).json({ success: false, message: '오디오를 불러올 수 없습니다.' });
+  }
+});
+
+// =====================================================================
+// 7-1.5) 튠된 오디오 — 화자별 음량 정규화 + 명료화 + 라우드니스 -14 LUFS
+//   GET /api/jobs/:id/audio-tuned
+//
+//   파이프라인 (segments 있을 때):
+//     0) 화자별 RMS 측정 (volumedetect로 발화자 ranges만 분석)
+//     1) 화자별 makeup gain — 작게 들리는 화자는 +N dB, 크게 들리는 화자는 -N dB → 모든 사람 동일 데시벨
+//     2) highpass 80Hz   — 저주파 럼블 제거
+//     3) afftdn          — 정상상태 노이즈 감쇠
+//     4) compand         — 음성 다이내믹 압축
+//     5) equalizer 2.5kHz +3dB / 200Hz -2dB — 자음 명료/저음 정리
+//     6) dynaudnorm      — 동적 정규화 (남은 음량 편차 보정)
+//     7) loudnorm I=-14  — YouTube/Reels 표준 최종 라우드니스
+//
+//   캐시: outputs/tuned-{jobId}-{segHash}.mp3 — segments 바뀌면 새 파일
+// =====================================================================
+const crypto = require('crypto');
+
+function hashSegments(segments) {
+  if (!Array.isArray(segments) || segments.length === 0) return 'nosegs';
+  const compact = segments.map((s) => [
+    Number((s.start || 0).toFixed(2)),
+    Number((s.end || 0).toFixed(2)),
+    s.speaker || '?',
+  ]);
+  return crypto.createHash('md5').update(JSON.stringify(compact)).digest('hex').slice(0, 10);
+}
+
+// 화자별 발화 구간 합치기 — 너무 짧은 segment는 제외
+function groupRangesBySpeaker(segments) {
+  const map = {};
+  for (const s of segments || []) {
+    if (!s || !s.speaker) continue;
+    const dur = (s.end ?? 0) - (s.start ?? 0);
+    if (dur < 0.2) continue; // 0.2초 미만은 측정 신뢰도 낮아 제외
+    if (!map[s.speaker]) map[s.speaker] = [];
+    map[s.speaker].push([s.start, s.end]);
+  }
+  return map;
+}
+
+// 특정 시간 범위들의 mean_volume(dB) 측정 — ffmpeg volumedetect
+async function measureMeanVolume(srcPath, ranges) {
+  if (!ranges || ranges.length === 0) return null;
+  // aselect로 해당 범위만 골라낸 뒤 volumedetect
+  const selectExpr = ranges.map(([s, e]) => `between(t,${s.toFixed(3)},${e.toFixed(3)})`).join('+');
+  try {
+    const { stderr } = await execFileP('ffmpeg', [
+      '-i', srcPath,
+      '-vn',
+      '-af', `aselect='${selectExpr}',asetpts=N/SR/TB,volumedetect`,
+      '-f', 'null',
+      '-',
+    ], { timeout: 60 * 1000, maxBuffer: 10 * 1024 * 1024 });
+    const m = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
+    return m ? parseFloat(m[1]) : null;
+  } catch (e) {
+    console.warn('[volumedetect 실패]', e.message);
+    return null;
+  }
+}
+
+// 한 segment 가 너무 길게 이어지면 enable 식이 거대해져 ffmpeg 오류 → 합치기로 압축
+function mergeAdjacentRanges(ranges, gap = 0.3) {
+  if (!ranges || ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
+  const out = [sorted[0].slice()];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = out[out.length - 1];
+    if (sorted[i][0] - last[1] <= gap) {
+      last[1] = Math.max(last[1], sorted[i][1]);
+    } else {
+      out.push(sorted[i].slice());
+    }
+  }
+  return out;
+}
+
+// 침묵 구간 자르기 계획 — segments 기반으로 keep ranges 생성 + 새 타임스탬프 매핑
+//   maxGap: 발화 사이 최대 허용 침묵 (초). 그 이상은 잘라냄.
+//   padding: 각 segment 앞뒤로 살릴 여유 시간 (초) — 자른 자리에서 첫음·끝음이 잘리지 않게.
+//   leadTrim: 첫 발화 전 침묵도 maxGap까지만 허용.
+function buildTrimPlan(segments, options = {}) {
+  const maxGap = options.maxGap ?? 0.3;
+  const padding = options.padding ?? 0.08;
+  const leadTrim = options.leadTrim ?? true;
+
+  if (!Array.isArray(segments) || segments.length === 0) return null;
+  const sorted = [...segments].sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+
+  // 1) padding 입힌 발화 범위들 — 인접/중첩 합치기
+  const speechRanges = [];
+  for (const seg of sorted) {
+    const start = Math.max(0, (seg.start ?? 0) - padding);
+    const end = (seg.end ?? 0) + padding;
+    if (speechRanges.length && start <= speechRanges[speechRanges.length - 1].end) {
+      const last = speechRanges[speechRanges.length - 1];
+      last.end = Math.max(last.end, end);
+    } else {
+      speechRanges.push({ start, end });
+    }
+  }
+
+  // 2) keep ranges — 발화 + 잘라낸 짧은 갭
+  const keepRanges = [];
+  // 앞부분 침묵 처리
+  if (leadTrim && speechRanges[0].start > maxGap) {
+    keepRanges.push({ from: speechRanges[0].start - maxGap, to: speechRanges[0].start });
+  } else if (speechRanges[0].start > 0) {
+    keepRanges.push({ from: 0, to: speechRanges[0].start });
+  }
+  // 발화 + 갭 반복
+  for (let i = 0; i < speechRanges.length; i++) {
+    keepRanges.push({ from: speechRanges[i].start, to: speechRanges[i].end });
+    if (i < speechRanges.length - 1) {
+      const gap = speechRanges[i + 1].start - speechRanges[i].end;
+      const truncated = Math.min(gap, maxGap);
+      if (truncated > 0.001) {
+        keepRanges.push({ from: speechRanges[i].end, to: speechRanges[i].end + truncated });
+      }
+    }
+  }
+
+  // 3) 각 keep range의 누적 offset 계산 (그 이전에 잘려나간 시간 합)
+  let cumOffset = 0;
+  let prevOrigEnd = 0;
+  const krWithOffset = [];
+  for (const kr of keepRanges) {
+    if (kr.from > prevOrigEnd) cumOffset += kr.from - prevOrigEnd;
+    krWithOffset.push({ ...kr, offset: cumOffset });
+    prevOrigEnd = kr.to;
+  }
+  const totalNewDuration = prevOrigEnd - cumOffset;
+  const totalOrigDuration = prevOrigEnd; // approx
+  const savedSec = cumOffset;
+
+  // 4) 시간 매핑 함수 — 원본 t → 새 timeline t
+  const mapTime = (t) => {
+    for (const kr of krWithOffset) {
+      if (t >= kr.from && t <= kr.to) {
+        return Math.max(0, t - kr.offset);
+      }
+    }
+    // 잘려나간 갭에 들어간 t — 인접한 keep range로 스냅
+    let nearest = krWithOffset[0];
+    let minDist = Math.min(Math.abs(t - nearest.from), Math.abs(t - nearest.to));
+    for (const kr of krWithOffset) {
+      const d = Math.min(Math.abs(t - kr.from), Math.abs(t - kr.to));
+      if (d < minDist) { minDist = d; nearest = kr; }
+    }
+    if (t < nearest.from) return Math.max(0, nearest.from - nearest.offset);
+    return Math.max(0, nearest.to - nearest.offset);
+  };
+
+  // 5) 새 segments 생성
+  const newSegments = sorted.map((seg, idx) => ({
+    ...seg,
+    id: idx,
+    start: Number(mapTime(seg.start ?? 0).toFixed(3)),
+    end:   Number(mapTime(seg.end ?? 0).toFixed(3)),
+    words: Array.isArray(seg.words)
+      ? seg.words.map((w) => ({
+          text: w.text || '',
+          start: Number(mapTime(w.start ?? 0).toFixed(3)),
+          end:   Number(mapTime(w.end ?? 0).toFixed(3)),
+        }))
+      : [],
+  }));
+
+  // 6) ffmpeg aselect 표현식 — 너무 길면 ffmpeg 한도 초과. CHUNK 단위로 처리
+  const exprs = keepRanges.map((kr) => `between(t,${kr.from.toFixed(3)},${kr.to.toFixed(3)})`);
+  const selectExpr = exprs.join('+');
+
+  return {
+    keepRanges,
+    krWithOffset,
+    selectExpr,
+    newSegments,
+    totalNewDuration: Number(totalNewDuration.toFixed(3)),
+    totalOrigDuration: Number(totalOrigDuration.toFixed(3)),
+    savedSec: Number(savedSec.toFixed(3)),
+  };
+}
+
+async function ensureTunedAudio(jobId, srcPath, segments, options = {}) {
+  const compact = !!options.compact;
+  const maxGap = options.maxGap ?? 0.3;
+  const segHash = hashSegments(segments);
+  const compactSuffix = compact ? `-c${(maxGap * 100).toFixed(0)}` : '';
+  const outPath = path.join(OUTPUT_DIR, `tuned-${jobId}-${segHash}${compactSuffix}.mp3`);
+  if (fs.existsSync(outPath) && fs.statSync(outPath).size > 0) {
+    return outPath;
+  }
+
+  // 1) 화자별 RMS 측정 → 게인 계산 (원본 타임라인 기준)
+  const TARGET_DB = -22;
+  const speakerGainStages = [];
+  if (Array.isArray(segments) && segments.length > 0) {
+    const grouped = groupRangesBySpeaker(segments);
+    for (const [speaker, ranges] of Object.entries(grouped)) {
+      const merged = mergeAdjacentRanges(ranges);
+      const meanDb = await measureMeanVolume(srcPath, merged);
+      if (meanDb == null) continue;
+      const rawGain = TARGET_DB - meanDb;
+      const gain = Math.max(-15, Math.min(15, rawGain));
+      const CHUNK = 120;
+      for (let i = 0; i < merged.length; i += CHUNK) {
+        const chunk = merged.slice(i, i + CHUNK);
+        const exp = chunk.map(([s, e]) => `between(t,${s.toFixed(3)},${e.toFixed(3)})`).join('+');
+        speakerGainStages.push(`volume=enable='${exp}':volume=${gain.toFixed(2)}dB`);
+      }
+      console.log(`[튠] 화자 ${speaker} mean=${meanDb.toFixed(1)}dB → gain=${gain.toFixed(2)}dB (ranges=${merged.length})`);
+    }
+  } else {
+    console.log('[튠] segments 없음 → 단순 정규화만 적용');
+  }
+
+  // 2) 침묵 자르기 — 화자 게인 다음에 aselect (게인은 원본 타임라인에서 적용되어야 함)
+  let trimStages = [];
+  if (compact) {
+    const plan = buildTrimPlan(segments, { maxGap });
+    if (plan && plan.selectExpr) {
+      trimStages.push(`aselect='${plan.selectExpr}'`);
+      trimStages.push('asetpts=N/SR/TB'); // PTS 재정렬 — 잘라낸 자리의 시간 연속성
+      console.log(`[튠 compact] 원본 ${plan.totalOrigDuration}s → ${plan.totalNewDuration}s (${plan.savedSec.toFixed(1)}s 단축)`);
+    }
+  }
+
+  const filterChain = [
+    ...speakerGainStages,
+    ...trimStages,
+    'highpass=f=80',
+    'lowpass=f=12000',
+    'afftdn=nr=12:nf=-25',
+    'compand=attacks=0.05:decays=0.4:points=-80/-80|-50/-15|-30/-9|-10/-5|0/-3',
+    'equalizer=f=2500:t=q:w=1.2:g=3',
+    'equalizer=f=200:t=q:w=1.0:g=-2',
+    'dynaudnorm=f=300:g=15:p=0.95',
+    'loudnorm=I=-14:TP=-1.5:LRA=11',
+  ].join(',');
+
+  await execFileP('ffmpeg', [
+    '-y',
+    '-i', srcPath,
+    '-vn',
+    '-af', filterChain,
+    '-ac', '2',
+    '-ar', '44100',
+    '-codec:a', 'libmp3lame',
+    '-b:a', '192k',
+    outPath,
+  ], { timeout: 5 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 });
+
+  return outPath;
+}
+
+// 오래된 튠 파일 정리 — 새 segments로 다시 튠하면 옛 파일 잔존
+function cleanupOldTunedFiles(jobId, exceptPath) {
+  try {
+    const files = fs.readdirSync(OUTPUT_DIR).filter((f) => f.startsWith(`tuned-${jobId}-`) && f.endsWith('.mp3'));
+    for (const f of files) {
+      const p = path.join(OUTPUT_DIR, f);
+      if (p !== exceptPath) {
+        try { fs.unlinkSync(p); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+}
+
+app.get('/api/jobs/:id/audio-tuned', async (req, res) => {
+  const { id } = req.params;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return res.status(400).json({ success: false, message: '잘못된 jobId 형식입니다.' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, upload_path, expires_at, segments FROM baby_cartoon.jobs WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '작업을 찾을 수 없습니다.' });
+    }
+    const job = rows[0];
+    if (new Date(job.expires_at).getTime() < Date.now()) {
+      return res.status(410).json({ success: false, message: '작업이 만료되었습니다.' });
+    }
+    if (!job.upload_path || !fs.existsSync(job.upload_path)) {
+      return res.status(404).json({ success: false, message: '원본 파일이 없습니다.' });
+    }
+    const resolved = path.resolve(job.upload_path);
+    if (!resolved.startsWith(path.resolve(UPLOAD_DIR))) {
+      return res.status(400).json({ success: false, message: '경로가 올바르지 않습니다.' });
+    }
+
+    const segments = Array.isArray(job.segments) ? job.segments : null;
+    const compact = req.query.compact === '1';
+    const maxGap = Math.max(0.05, Math.min(2, parseFloat(req.query.maxGap) || 0.3));
+    const tunedPath = await ensureTunedAudio(id, resolved, segments, { compact, maxGap });
+    cleanupOldTunedFiles(id, tunedPath);
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    if (req.query.download === '1') {
+      const tag = compact ? `-compact-${maxGap.toFixed(2)}` : '';
+      res.setHeader('Content-Disposition', `attachment; filename="tuned-${id.slice(0, 8)}${tag}.mp3"`);
+    }
+    return res.sendFile(tunedPath);
+  } catch (err) {
+    console.error('[튠 오디오 오류]', err.message);
+    res.status(500).json({ success: false, message: `오디오 튜닝에 실패했습니다: ${err.message}` });
+  }
+});
+
+// =====================================================================
+// 7-1.6) 침묵 자르기 정보 — segments 기반 trim plan 미리 계산해서 반환
+//   GET /api/jobs/:id/compact-info?maxGap=0.3
+//   → { ok: true, segments: [...새 타임스탬프...], totalNewDuration, totalOrigDuration, savedSec }
+//   클라이언트는 이걸 받아서 자막용 segments를 갈아끼우고, 영상 src도 ?compact=1로 변경.
+// =====================================================================
+app.get('/api/jobs/:id/compact-info', async (req, res) => {
+  const { id } = req.params;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return res.status(400).json({ success: false, message: '잘못된 jobId 형식입니다.' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT segments FROM baby_cartoon.jobs WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '작업을 찾을 수 없습니다.' });
+    }
+    const segments = Array.isArray(rows[0].segments) ? rows[0].segments : [];
+    if (segments.length === 0) {
+      return res.json({ ok: false, message: '아직 자막이 분석되지 않았습니다.' });
+    }
+    const maxGap = Math.max(0.05, Math.min(2, parseFloat(req.query.maxGap) || 0.3));
+    const plan = buildTrimPlan(segments, { maxGap });
+    if (!plan) {
+      return res.json({ ok: false, message: '잘라낼 침묵 구간이 없습니다.' });
+    }
+    return res.json({
+      ok: true,
+      segments: plan.newSegments,
+      totalNewDuration: plan.totalNewDuration,
+      totalOrigDuration: plan.totalOrigDuration,
+      savedSec: plan.savedSec,
+      maxGap,
+    });
+  } catch (err) {
+    console.error('[compact-info 오류]', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
