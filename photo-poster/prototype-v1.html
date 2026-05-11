@@ -1131,10 +1131,10 @@
                         {busyKey === s.key ? '저장 준비 중…' : '사진 저장 (JPG)'}
                       </Button>
 
-                      {/* 카드별 편집 컨트롤 */}
-                      <div className="mt-4 border-t border-border pt-4 space-y-4">
+                      {/* 카드별 편집 컨트롤 — 모바일도 사진/텍스트를 양옆 반반으로 배치해 텍스트 입력칸이 위로 올라오게 */}
+                      <div className="mt-4 border-t border-border pt-4 grid grid-cols-2 gap-3">
                         {/* 사진 컨트롤 */}
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center justify-between mb-2">
                             <div className="eyebrow text-muted-foreground">Photo</div>
                             <button onClick={() => resetCardPhoto(cat, s.key)} className="eyebrow text-muted-foreground hover:text-primary">초기화</button>
@@ -1157,11 +1157,11 @@
                           </div>
                         </div>
 
-                        {/* 선택된 텍스트 컨트롤 */}
-                        <div>
+                        {/* 선택된 텍스트 컨트롤 — 양옆 분할에서 오른쪽 칼럼 */}
+                        <div className="min-w-0 sm:border-l sm:border-border sm:pl-3 border-l border-border pl-3">
                           <div className="flex items-center justify-between mb-2">
                             <div className="eyebrow text-muted-foreground">
-                              Text {selectedTextId ? <span className="text-foreground">· {selectedTextId}</span> : <span className="opacity-60">— 클릭으로 선택</span>}
+                              Text {selectedTextId ? <span className="text-foreground">· {selectedTextId}</span> : <span className="opacity-60">— 클릭</span>}
                             </div>
                             {selectedTextId && (
                               <button onClick={() => resetCardText(cat, s.key, selectedTextId)} className="eyebrow text-muted-foreground hover:text-primary">위치 초기화</button>
