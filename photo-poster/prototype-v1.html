@@ -702,7 +702,7 @@
         );
       }
     }
-    function PosterInvitation({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy, overlay }) {
+    function PosterInvitation({ category, photo, textEdits, selectedTextId, onSelectText, onChangeText, cardCopy, overlay, isSquare }) {
       const i = COPY[category].invitation;
       const src = photo?.url || PHOTOS[category];
       const imgStyle = applyPhotoStyle(photo);
@@ -716,6 +716,18 @@
           {children}
         </TextBlock>
       );
+      // 정방형(1080×1080)일 때 글자/패딩 축소 + 위아래 더 벌어져 가운데 사진 영역 확장
+      const sz = isSquare ? {
+        padT: 'pt-4', padB: 'pb-4', padX: 'px-6',
+        mono: 'text-[18px]', sub: 'text-[11px]', hero: 'text-[42px]',
+        thanksKr: 'text-[10px]', date: 'text-[10px]', venue: 'text-[9px]', couple: 'text-[11px]',
+        gapTop: 'mt-1.5', gapBottom: 'mt-2',
+      } : {
+        padT: 'pt-7', padB: 'pb-7', padX: 'px-7',
+        mono: 'text-[22px]', sub: 'text-[13px]', hero: 'text-[60px]',
+        thanksKr: 'text-[12px]', date: 'text-[11px]', venue: 'text-[10px]', couple: 'text-[12px]',
+        gapTop: 'mt-2', gapBottom: 'mt-3',
+      };
       // 마리안 웨딩 땡큐카드 격식형 · 풀블리드 사진 + 텍스트 오버레이
       {
         return (
@@ -724,40 +736,40 @@
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(122,58,49,0.55) 0%, rgba(0,0,0,0.05) 28%, rgba(0,0,0,0.05) 60%, rgba(90,47,41,0.78) 100%)' }} />
 
             {/* 상단 — 3블록 (모노그램, 서브헤드, Thank you) */}
-            <div className="absolute inset-x-0 top-0 px-7 pt-7 flex flex-col items-center text-center text-white" style={ov}>
+            <div className={cn('absolute inset-x-0 top-0 flex flex-col items-center text-center text-white', sz.padX, sz.padT)} style={ov}>
               {TB('mono', 'top-center', '', (
                 <div className="flex items-center gap-3">
                   <LeafSprig className="w-10 h-3 text-white/85" />
-                  <span className="font-cormorant italic text-[22px] tracking-wide leading-none text-white">{getCopy('mono', 'J & M')}</span>
+                  <span className={cn('font-cormorant italic tracking-wide leading-none text-white', sz.mono)}>{getCopy('mono', 'J & M')}</span>
                   <LeafSprig className="w-10 h-3 text-white/85" mirror />
                 </div>
               ))}
-              {TB('subhead', 'top-center', 'mt-2', (
-                <div className="font-cormorant italic text-[13px] text-white/90">{getCopy('subhead', i.thanksHeadEn)}</div>
+              {TB('subhead', 'top-center', sz.gapTop, (
+                <div className={cn('font-cormorant italic text-white/90', sz.sub)}>{getCopy('subhead', i.thanksHeadEn)}</div>
               ))}
-              {TB('hero', 'top-center', 'mt-2', (
-                <div className="font-script text-[60px] leading-[0.9] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]">{getCopy('hero', 'Thank you')}</div>
+              {TB('hero', 'top-center', sz.gapTop, (
+                <div className={cn('font-script leading-[0.9] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]', sz.hero)}>{getCopy('hero', 'Thank you')}</div>
               ))}
             </div>
 
             {/* 하단 — 4블록 (한국어, 디바이더, 일자/장소, 이름) */}
-            <div className="absolute inset-x-0 bottom-0 px-7 pb-7 flex flex-col items-center text-center text-white" style={ov}>
+            <div className={cn('absolute inset-x-0 bottom-0 flex flex-col items-center text-center text-white', sz.padX, sz.padB)} style={ov}>
               {TB('thanks_kr', 'bottom-left', '', (
-                <div className="font-serif-kr text-[12px] leading-[1.75] text-white/95">{getCopy('thanks_kr', i.thanksKr)}</div>
+                <div className={cn('font-serif-kr leading-[1.75] text-white/95', sz.thanksKr)}>{getCopy('thanks_kr', i.thanksKr)}</div>
               ))}
-              <div className="flex items-center gap-2 mt-3 text-white/80">
+              <div className={cn('flex items-center gap-2 text-white/80', sz.gapBottom)}>
                 <span className="w-8 h-px bg-current" />
                 <HeartTiny className="w-2.5 h-2.5" />
                 <span className="w-8 h-px bg-current" />
               </div>
-              {TB('datevenue', 'top-center', 'mt-3', (
+              {TB('datevenue', 'top-center', sz.gapBottom, (
                 <div>
-                  <div className="font-cormorant text-[11px] tracking-[0.22em] text-white/95">{getCopy('date', i.dateEn)}</div>
-                  <div className="font-serif-kr text-[10px] mt-1 text-white/80">{getCopy('venue', i.venueKr)}</div>
+                  <div className={cn('font-cormorant tracking-[0.22em] text-white/95', sz.date)}>{getCopy('date', i.dateEn)}</div>
+                  <div className={cn('font-serif-kr mt-1 text-white/80', sz.venue)}>{getCopy('venue', i.venueKr)}</div>
                 </div>
               ))}
-              {TB('couple', 'top-center', 'mt-2', (
-                <div className="font-cormorant italic text-[12px] tracking-wide text-white">{getCopy('couple', i.coupleEn)}</div>
+              {TB('couple', 'top-center', sz.gapTop, (
+                <div className={cn('font-cormorant italic tracking-wide text-white', sz.couple)}>{getCopy('couple', i.coupleEn)}</div>
               ))}
             </div>
           </PosterSurface>
@@ -1178,6 +1190,7 @@
                           onSelectText={(id) => setSelected({ cat, style: s.key, kind: 'text', id })}
                           onChangeText={(id, patch) => updateCardText(cat, s.key, id, patch)}
                           cardCopy={ce.copy}
+                          isSquare={size === '1080x1080'}
                         />
                       </div>
                       <Button
