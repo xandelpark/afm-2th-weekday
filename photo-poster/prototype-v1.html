@@ -491,15 +491,15 @@
     // 카드 밑 컴팩트 슬라이더 한 줄
     function SliderRow({ label, value, min, max, suffix = '', onChange, disabled }) {
       return (
-        <div className={cn('flex items-center gap-2 text-[10px]', disabled ? 'opacity-40' : 'text-muted-foreground')}>
-          <span className="w-5 eyebrow">{label}</span>
+        <div className={cn('flex items-center gap-2 text-[10px] min-w-0', disabled ? 'opacity-40' : 'text-muted-foreground')}>
+          <span className="w-4 eyebrow shrink-0">{label}</span>
           <input
             type="range" min={min} max={max} value={value}
             disabled={disabled}
             onChange={(e) => onChange(+e.target.value)}
-            className="flex-1 accent-primary"
+            className="flex-1 min-w-0 accent-primary"
           />
-          <span className="w-10 text-right tabular-nums">{value}{suffix}</span>
+          <span className="w-12 shrink-0 text-right tabular-nums">{value}{suffix}</span>
         </div>
       );
     }
@@ -1132,18 +1132,19 @@
                       </Button>
 
                       {/* 카드별 편집 컨트롤 — 모바일도 사진/텍스트를 양옆 반반으로 배치해 텍스트 입력칸이 위로 올라오게 */}
-                      <div className="mt-4 border-t border-border pt-4 grid grid-cols-2 gap-3">
+                      <div className="mt-4 border-t border-border pt-4">
+                        {!userPhotos.wedding && (
+                          <div className="text-[11px] text-muted-foreground italic mb-3 text-center">
+                            상단에서 본식 사진을 업로드하면 카드별로 위치·크롭을 조정할 수 있습니다.
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
                         {/* 사진 컨트롤 */}
                         <div className="min-w-0">
                           <div className="flex items-center justify-between mb-2">
                             <div className="eyebrow text-muted-foreground">Photo</div>
                             <button onClick={() => resetCardPhoto(cat, s.key)} className="eyebrow text-muted-foreground hover:text-primary">초기화</button>
                           </div>
-                          {!userPhotos.wedding && (
-                            <div className="text-[11px] text-muted-foreground italic mb-2">
-                              상단에서 본식 사진을 업로드하면 카드별로 위치·크롭을 조정할 수 있습니다.
-                            </div>
-                          )}
                           <div className="space-y-1.5 opacity-100">
                             <SliderRow label="X" value={ce.photo.x} min={0} max={100} suffix=""
                               disabled={!userPhotos.wedding}
@@ -1219,6 +1220,7 @@
                               })}
                             </div>
                           )}
+                        </div>
                         </div>
                       </div>
                     </CardContent>
