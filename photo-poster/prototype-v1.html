@@ -1148,7 +1148,7 @@
                             <SliderRow label="X" value={ce.photo.x} min={0} max={100} suffix=""
                               disabled={!userPhotos.wedding}
                               onChange={(v) => updateCardPhoto(cat, s.key, { x: v })} />
-                            <SliderRow label="Y" value={ce.photo.y} min={0} max={100} suffix=""
+                            <SliderRow label="Y" value={ce.photo.y} min={-100} max={200} suffix=""
                               disabled={!userPhotos.wedding}
                               onChange={(v) => updateCardPhoto(cat, s.key, { y: v })} />
                             <SliderRow label="Z" value={ce.photo.scale} min={100} max={250} suffix="%"
