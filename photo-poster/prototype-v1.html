@@ -19,6 +19,7 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -630,7 +631,7 @@
           <PosterSurface className="lovely-cream">
             {/* 상단 72% — 풀너비 사진 */}
             <div className="absolute inset-x-0 top-0 h-[72%] overflow-hidden">
-              <img src={src} className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+              <img src={src} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
             </div>
             {/* 하단 28% — 누드 핑크 띠 + 컴팩트 캡션 */}
             <div className="absolute inset-x-0 bottom-0 h-[28%] flex flex-col items-center justify-center text-center px-6" style={ov}>
@@ -674,7 +675,7 @@
       {
         return (
           <PosterSurface className="bg-zinc-900">
-            <img src={src} className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+            <img src={src} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(122,58,49,0.55) 0%, rgba(0,0,0,0.05) 28%, rgba(0,0,0,0.05) 60%, rgba(90,47,41,0.78) 100%)' }} />
 
             {/* 상단 — 3블록 (모노그램, 서브헤드, Thank you) */}
@@ -737,7 +738,7 @@
         const ink = '#f6efe6';
         return (
           <PosterSurface className="bg-zinc-900">
-            <img src={src} className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+            <img src={src} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
             <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.66) 100%)' }} />
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.40) 100%)' }} />
 
@@ -896,6 +897,52 @@
         });
       };
 
+      // ─ 카드 → JPG 저장 (iOS Photos 공유 시트 지원, 데스크톱은 일반 다운로드)
+      const cardRefs = useRef(new Map());
+      const [busyKey, setBusyKey] = useState(null);
+      const downloadCard = async (styleKey, label) => {
+        const node = cardRefs.current.get(styleKey);
+        if (!node || !window.html2canvas) {
+          alert('아직 준비 중입니다. 잠시 후 다시 시도해 주세요.');
+          return;
+        }
+        setBusyKey(styleKey);
+        try {
+          const canvas = await window.html2canvas(node, {
+            backgroundColor: null,
+            scale: 3,
+            useCORS: true,
+            logging: false,
+          });
+          await new Promise(resolve => {
+            canvas.toBlob(async (blob) => {
+              if (!blob) { resolve(); return; }
+              const filename = `marian-thankyou-${styleKey}-${Date.now()}.jpg`;
+              const file = new File([blob], filename, { type: 'image/jpeg' });
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                  await navigator.share({ files: [file], title: '마리안 웨딩 땡큐카드', text: label });
+                  resolve(); return;
+                } catch (err) {
+                  if (err && err.name === 'AbortError') { resolve(); return; }
+                  // 실패 시 일반 다운로드로 폴백
+                }
+              }
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; a.download = filename;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+              resolve();
+            }, 'image/jpeg', 0.95);
+          });
+        } catch (e) {
+          alert('카드 저장 실패: ' + (e?.message || e));
+        } finally {
+          setBusyKey(null);
+        }
+      };
+
       const getCardEdit = (cat, style) => cardEdits[cat]?.[style] || { photo: { x: 50, y: 50, scale: 100 }, texts: {}, copy: {} };
       const ensureCard = (prev, cat, style) => prev[cat]?.[style] || { photo: { x: 50, y: 50, scale: 100 }, texts: {}, copy: {} };
       const updateCardPhoto = (cat, style, patch) => {
@@ -1002,7 +1049,7 @@
                         <li>본식 스냅 한 장 업로드</li>
                         <li>3 카드(미니멀 · 격식 · 감성)가 자동 생성</li>
                         <li>카드별 밑 컨트롤로 사진 크롭·텍스트 이동·문구 수정</li>
-                        <li>PNG 다운로드 후 신랑·신부에게 전송</li>
+                        <li>"사진 저장 (JPG)" 버튼으로 폰 갤러리에 저장 → 하객분들께 바로 전송</li>
                         <li>한 아이디로 사진 5장까지 가능. 추가로 필요하시면 마리안 운영자에 요청해 주세요.</li>
                       </ol>
                     </div>
@@ -1059,6 +1106,10 @@
                     </CardHeader>
                     <CardContent className="p-4 sm:p-5">
                       <div
+                        ref={(el) => {
+                          if (el) cardRefs.current.set(s.key, el);
+                          else cardRefs.current.delete(s.key);
+                        }}
                         className={cn('overflow-hidden border border-border', ratioCls)}
                         onPointerDown={() => setSelected(null)}
                       >
@@ -1072,6 +1123,13 @@
                           cardCopy={ce.copy}
                         />
                       </div>
+                      <Button
+                        className="w-full mt-4"
+                        disabled={!userPhotos.wedding || busyKey === s.key}
+                        onClick={() => downloadCard(s.key, weddingMeta.label)}
+                      >
+                        {busyKey === s.key ? '저장 준비 중…' : '사진 저장 (JPG)'}
+                      </Button>
 
                       {/* 카드별 편집 컨트롤 */}
                       <div className="mt-4 border-t border-border pt-4 space-y-4">
