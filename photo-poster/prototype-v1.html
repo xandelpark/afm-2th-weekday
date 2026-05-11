@@ -254,7 +254,7 @@
       const [guides, setGuides] = useState([]);
       return (
         <SurfaceContext.Provider value={{ surfaceRef, setGuides }}>
-          <div ref={surfaceRef} className={cn('aspect-[4/5] w-full relative overflow-hidden poster-surface', className)}>
+          <div ref={surfaceRef} className={cn('h-full w-full relative overflow-hidden poster-surface', className)}>
             {children}
             {guides.length > 0 && (
               <div className="pointer-events-none absolute inset-0 z-50">
@@ -1421,7 +1421,7 @@
                   </div>
                 </CardHeader>
                 <CardContent className="p-5 space-y-4">
-                  <div className="overflow-hidden border border-border">
+                  <div className="overflow-hidden border border-border aspect-[4/5]">
                     <s.Render category={category} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -1448,7 +1448,7 @@
             <button onClick={onBack} className="eyebrow text-muted-foreground hover:text-primary">← 결과로</button>
             <Badge variant="outline">{Style.label} · 텍스트만 조정</Badge>
           </div>
-          <div className="overflow-hidden border border-border">
+          <div className="overflow-hidden border border-border aspect-[4/5]">
             <Style.Render category={category} overlay={{ x: pos.x, y: pos.y, color, opacity }} />
           </div>
           <Card>
