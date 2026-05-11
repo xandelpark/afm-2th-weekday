@@ -1432,7 +1432,7 @@
     // ========================================
     function AuthGate({ onLogin }) {
       const [mode, setMode] = useState('signup'); // signup | userLogin | adminLogin
-      const [signupForm, setSignupForm] = useState({ name: '', weddingDate: '' });
+      const [signupForm, setSignupForm] = useState({ name: '', weddingDate: '', phone4: '' });
       const [userForm, setUserForm] = useState({ name: '', weddingDate: '' });
       const [adminPw, setAdminPw] = useState('');
       const [msg, setMsg] = useState(null);
@@ -1440,8 +1440,13 @@
       const submitSignup = () => {
         const name = signupForm.name.trim();
         const weddingDate = signupForm.weddingDate;
-        if (!name || !weddingDate) {
-          setMsg({ type: 'error', text: '이름과 예식일자를 모두 입력해 주세요.' });
+        const phone4 = (signupForm.phone4 || '').trim();
+        if (!name || !weddingDate || !phone4) {
+          setMsg({ type: 'error', text: '이름·예식일자·전화번호 뒷자리를 모두 입력해 주세요.' });
+          return;
+        }
+        if (!/^\d{4}$/.test(phone4)) {
+          setMsg({ type: 'error', text: '전화번호 뒷자리 4자리(숫자)를 정확히 입력해 주세요.' });
           return;
         }
         const all = readSignups();
@@ -1450,9 +1455,9 @@
           return;
         }
         const id = 'u-' + Date.now().toString(36);
-        writeSignups([{ id, name, weddingDate, status: 'pending', appliedAt: new Date().toISOString() }, ...all]);
+        writeSignups([{ id, name, weddingDate, phone4, status: 'pending', appliedAt: new Date().toISOString() }, ...all]);
         setMsg({ type: 'ok', text: '신청 완료. 마리안 운영자 승인 후 로그인하실 수 있습니다.' });
-        setSignupForm({ name: '', weddingDate: '' });
+        setSignupForm({ name: '', weddingDate: '', phone4: '' });
       };
 
       const submitUserLogin = () => {
@@ -1526,6 +1531,17 @@
                   <div className="space-y-2">
                     <Label>예식일자</Label>
                     <Input type="date" value={signupForm.weddingDate} onChange={e => setSignupForm({ ...signupForm, weddingDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>전화번호 뒷자리 4개</Label>
+                    <Input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="예: 1234"
+                      value={signupForm.phone4}
+                      onChange={e => setSignupForm({ ...signupForm, phone4: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    />
                   </div>
                   <Button className="w-full" onClick={submitSignup}>가입 신청</Button>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -1605,13 +1621,16 @@
 
       const q = search.trim().toLowerCase();
       const filteredApproved = q
-        ? approved.filter(s => s.name.toLowerCase().includes(q) || s.weddingDate.includes(q))
+        ? approved.filter(s => s.name.toLowerCase().includes(q) || s.weddingDate.includes(q) || (s.phone4 || '').includes(q))
         : approved;
 
       const Row = ({ s, actions, showUsage }) => (
         <div className="px-6 py-4 flex items-center gap-3 text-sm flex-wrap">
           <div className="flex-1 min-w-0">
-            <div className="truncate text-foreground">{s.name}</div>
+            <div className="truncate text-foreground">
+              {s.name}
+              {s.phone4 && <span className="text-muted-foreground ml-2">···· {s.phone4}</span>}
+            </div>
             <div className="eyebrow text-muted-foreground mt-1">예식일 {s.weddingDate} · 신청 {(s.appliedAt||'').slice(0,10)}</div>
           </div>
           {showUsage && (
