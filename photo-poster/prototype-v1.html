@@ -20,6 +20,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -175,18 +176,38 @@
     const SessionContext = createContext({ session: null, logout: () => {} });
 
     // ========================================
-    // 🔐 Auth & Storage (localStorage 기반)
+    // 🔐 Auth & Storage — Supabase (signups 테이블) + 세션은 localStorage
     // ========================================
-    const STORAGE = { signups: 'marian.signups', session: 'marian.session' };
+    const SUPABASE_URL = 'https://bgczrwripgsqtayrsgak.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_IyknkL-H4SK-hDDBWDg4fQ_9EAA0uw7';
+    const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const STORAGE = { session: 'marian.session' };
     const ADMIN_ID = 'marian';
     const ADMIN_PW = 'marian2026';
     const PHOTO_QUOTA = 5;
-    function readSignups() {
-      try { return JSON.parse(localStorage.getItem(STORAGE.signups) || '[]'); } catch { return []; }
+
+    // DB(snake_case) ↔ JS(camelCase) 매핑
+    function fromDB(r) {
+      if (!r) return r;
+      return {
+        id: r.id, name: r.name, weddingDate: r.wedding_date, phone4: r.phone4,
+        status: r.status, photoCount: r.photo_count || 0,
+        appliedAt: r.applied_at, approvedAt: r.approved_at,
+      };
     }
-    function writeSignups(arr) {
-      try { localStorage.setItem(STORAGE.signups, JSON.stringify(arr)); } catch {}
+    function toDB(o) {
+      const out = {};
+      if ('name'        in o) out.name         = o.name;
+      if ('weddingDate' in o) out.wedding_date = o.weddingDate;
+      if ('phone4'      in o) out.phone4       = o.phone4;
+      if ('status'      in o) out.status       = o.status;
+      if ('photoCount'  in o) out.photo_count  = o.photoCount;
+      if ('approvedAt'  in o) out.approved_at  = o.approvedAt;
+      return out;
     }
+
+    // 세션은 디바이스별이라 localStorage 유지
     function readSession() {
       try { return JSON.parse(localStorage.getItem(STORAGE.session) || 'null'); } catch { return null; }
     }
@@ -196,26 +217,37 @@
         else   localStorage.removeItem(STORAGE.session);
       } catch {}
     }
-    function getUserPhotoCount(userId) {
-      const s = readSignups().find(s => s.id === userId);
-      return (s && s.photoCount) || 0;
+
+    // Supabase signups CRUD
+    async function readSignups() {
+      const { data, error } = await supa.from('signups').select('*').order('applied_at', { ascending: false });
+      if (error) { console.error('readSignups', error); return []; }
+      return (data || []).map(fromDB);
     }
-    function incrementUserPhotoCount(userId) {
-      const arr = readSignups();
-      const idx = arr.findIndex(s => s.id === userId);
-      if (idx < 0) return 0;
-      const next = (arr[idx].photoCount || 0) + 1;
-      arr[idx] = { ...arr[idx], photoCount: next };
-      writeSignups(arr);
-      return next;
+    async function insertSignup(record) {
+      const { data, error } = await supa.from('signups').insert(toDB(record)).select().single();
+      if (error) throw error;
+      return fromDB(data);
     }
-    function resetUserPhotoCount(userId) {
-      const arr = readSignups();
-      const idx = arr.findIndex(s => s.id === userId);
-      if (idx < 0) return false;
-      arr[idx] = { ...arr[idx], photoCount: 0 };
-      writeSignups(arr);
-      return true;
+    async function updateSignup(id, patch) {
+      const { data, error } = await supa.from('signups').update(toDB(patch)).eq('id', id).select().single();
+      if (error) throw error;
+      return fromDB(data);
+    }
+    async function deleteSignup(id) {
+      const { error } = await supa.from('signups').delete().eq('id', id);
+      if (error) throw error;
+    }
+    async function findSignupByLogin(name, weddingDate) {
+      const { data, error } = await supa.from('signups').select('*')
+        .eq('name', name).eq('wedding_date', weddingDate).maybeSingle();
+      if (error) { console.error('findSignupByLogin', error); return null; }
+      return fromDB(data);
+    }
+    async function getUserPhotoCount(userId) {
+      const { data, error } = await supa.from('signups').select('photo_count').eq('id', userId).maybeSingle();
+      if (error || !data) return 0;
+      return data.photo_count || 0;
     }
     function PosterSurface({ className = '', children }) {
       const surfaceRef = useRef(null);
@@ -865,8 +897,11 @@
       const userId = session?.userId;
       const [size, setSize] = useState('1080x1350');
       const ratioCls = size === '1080x1080' ? 'aspect-square' : 'aspect-[4/5]';
-      const [photoCount, setPhotoCount] = useState(() => userId ? getUserPhotoCount(userId) : 0);
+      const [photoCount, setPhotoCount] = useState(0);
       const [uploadError, setUploadError] = useState(null);
+      useEffect(() => {
+        if (userId) getUserPhotoCount(userId).then(setPhotoCount);
+      }, [userId]);
       // 데모 파라미터 — ?demo=x | ?demo=y | ?demo=s 로 미니멀 thanks 블록을 미리 transform 적용해서 캡쳐 검증용
       const demoMode = (() => {
         try { return new URLSearchParams(window.location.search).get('demo') || ''; } catch { return ''; }
@@ -886,15 +921,24 @@
         return null;
       });
 
-      const handleFile = (catKey, file) => {
+      const handleFile = async (catKey, file) => {
         if (!file) return;
         if (!isAdmin && userId) {
-          if (photoCount >= PHOTO_QUOTA) {
+          // 서버에서 최신 카운트 다시 확인 (관리자가 다른 곳에서 리셋했을 수 있음)
+          const fresh = await getUserPhotoCount(userId);
+          if (fresh >= PHOTO_QUOTA) {
+            setPhotoCount(fresh);
             setUploadError(`사진 업로드 한도(${PHOTO_QUOTA}장)에 도달했습니다. 마리안 운영자에게 리셋을 요청해 주세요.`);
             return;
           }
-          const next = incrementUserPhotoCount(userId);
-          setPhotoCount(next);
+          const next = fresh + 1;
+          try {
+            await updateSignup(userId, { photoCount: next });
+            setPhotoCount(next);
+          } catch (e) {
+            setUploadError('사용량 기록 실패: ' + (e?.message || e));
+            return;
+          }
         }
         setUploadError(null);
         const url = URL.createObjectURL(file);
@@ -1452,7 +1496,7 @@
       const [adminPw, setAdminPw] = useState('');
       const [msg, setMsg] = useState(null);
 
-      const submitSignup = () => {
+      const submitSignup = async () => {
         const name = signupForm.name.trim();
         const weddingDate = signupForm.weddingDate;
         const phone4 = (signupForm.phone4 || '').trim();
@@ -1464,25 +1508,28 @@
           setMsg({ type: 'error', text: '전화번호 뒷자리 4자리(숫자)를 정확히 입력해 주세요.' });
           return;
         }
-        const all = readSignups();
-        if (all.some(s => s.name === name && s.weddingDate === weddingDate)) {
-          setMsg({ type: 'warn', text: '이미 같은 이름·예식일자로 신청한 내역이 있습니다.' });
-          return;
+        try {
+          const dup = await findSignupByLogin(name, weddingDate);
+          if (dup) {
+            setMsg({ type: 'warn', text: '이미 같은 이름·예식일자로 신청한 내역이 있습니다.' });
+            return;
+          }
+          await insertSignup({ name, weddingDate, phone4, status: 'pending' });
+          setMsg({ type: 'ok', text: '신청 완료. 마리안 운영자 승인 후 로그인하실 수 있습니다.' });
+          setSignupForm({ name: '', weddingDate: '', phone4: '' });
+        } catch (e) {
+          setMsg({ type: 'error', text: '신청 실패: ' + (e?.message || e) });
         }
-        const id = 'u-' + Date.now().toString(36);
-        writeSignups([{ id, name, weddingDate, phone4, status: 'pending', appliedAt: new Date().toISOString() }, ...all]);
-        setMsg({ type: 'ok', text: '신청 완료. 마리안 운영자 승인 후 로그인하실 수 있습니다.' });
-        setSignupForm({ name: '', weddingDate: '', phone4: '' });
       };
 
-      const submitUserLogin = () => {
+      const submitUserLogin = async () => {
         const name = userForm.name.trim();
         const weddingDate = userForm.weddingDate;
         if (!name || !weddingDate) {
           setMsg({ type: 'error', text: '이름과 예식일자를 입력해 주세요.' });
           return;
         }
-        const found = readSignups().find(s => s.name === name && s.weddingDate === weddingDate);
+        const found = await findSignupByLogin(name, weddingDate);
         if (!found) {
           setMsg({ type: 'error', text: '신청 내역이 없습니다. 회원가입 신청을 먼저 진행해 주세요.' });
           return;
@@ -1614,17 +1661,12 @@
     // 📄 Page · Admin (마리안 운영자 — 회원가입 승인 큐)
     // ========================================
     function AdminScreen({ onNav }) {
-      const [signups, setSignups] = useState(() => readSignups());
+      const [signups, setSignups] = useState([]);
       const [search, setSearch] = useState('');
-      const refresh = () => setSignups(readSignups());
-      const update = (id, patch) => {
-        const next = readSignups().map(s => s.id === id ? { ...s, ...patch } : s);
-        writeSignups(next); setSignups(next);
-      };
-      const remove = (id) => {
-        const next = readSignups().filter(s => s.id !== id);
-        writeSignups(next); setSignups(next);
-      };
+      const refresh = async () => { setSignups(await readSignups()); };
+      useEffect(() => { refresh(); }, []);
+      const update = async (id, patch) => { await updateSignup(id, patch); refresh(); };
+      const remove = async (id) => { await deleteSignup(id); refresh(); };
       const approve = (id) => update(id, { status: 'approved', approvedAt: new Date().toISOString() });
       const reject  = (id) => update(id, { status: 'rejected' });
       const restore = (id) => update(id, { status: 'pending' });
