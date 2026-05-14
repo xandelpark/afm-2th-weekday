@@ -397,11 +397,51 @@ async function pollTranscript(transcriptId) {
 }
 
 // AssemblyAI 전체 흐름 묶음 — upload → request → poll
-async function runAssemblyAI(filePath) {
+//   opts.speakersExpected — 예상 화자 수 (정확하면 다이어라이제이션 정확도 큰 폭 ↑)
+//   opts.preProcessAudio  — true면 ffmpeg로 denoise/EQ/normalize 한 임시 mp3를 만들어 업로드
+//                            (작은 소리/짧은 발화 화자 검출에 도움)
+async function runAssemblyAI(filePath, opts = {}) {
   if (!ASSEMBLYAI_API_KEY) return null;
-  const uploadUrl = await uploadToAssemblyAI(filePath);
-  const transcriptId = await requestTranscript(uploadUrl);
-  return await pollTranscript(transcriptId);
+  let analysisPath = filePath;
+  let cleanup = null;
+  try {
+    if (opts.preProcessAudio !== false) {
+      // 전처리 — 다이어라이제이션 정확도 향상용. 약하게(noise만 감쇠 + 약한 정규화).
+      // 너무 강하게 처리하면 voice fingerprint가 손상돼 오히려 손해.
+      const tmpDir = path.join(__dirname, 'tmp');
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+      const tmpOut = path.join(tmpDir, `pre-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`);
+      try {
+        await execFileP('ffmpeg', [
+          '-y',
+          '-i', filePath,
+          '-vn',
+          '-af', [
+            'highpass=f=70',           // 럼블만 제거 (음성 fundamental은 유지)
+            'afftdn=nr=8:nf=-25',      // 약한 denoise (음색 손상 최소화)
+            'dynaudnorm=f=500:g=11',   // 작은 발화자 들리도록 적당히 정규화
+          ].join(','),
+          '-ac', '1',                  // 모노 (AssemblyAI는 모노 권장)
+          '-ar', '16000',              // 16kHz (음성 인식엔 충분)
+          '-codec:a', 'libmp3lame',
+          '-b:a', '64k',
+          tmpOut,
+        ], { timeout: 5 * 60 * 1000 });
+        analysisPath = tmpOut;
+        cleanup = tmpOut;
+        console.log(`[AssemblyAI 전처리] ${(fs.statSync(tmpOut).size / 1024).toFixed(0)}KB`);
+      } catch (e) {
+        console.warn('[AssemblyAI 전처리 실패, 원본으로 진행]:', e.message);
+      }
+    }
+    const uploadUrl = await uploadToAssemblyAI(analysisPath);
+    const transcriptId = await requestTranscript(uploadUrl, opts);
+    return await pollTranscript(transcriptId);
+  } finally {
+    if (cleanup && fs.existsSync(cleanup)) {
+      try { fs.unlinkSync(cleanup); } catch (_) {}
+    }
+  }
 }
 
 // 동영상/오디오 → Whisper용 압축 mp3 추출
@@ -560,13 +600,18 @@ function normalizeUtterances(utterances) {
 }
 
 // POST /api/transcribe
-//   body: { jobId }
+//   body: { jobId, speakersExpected? (1~10), preProcessAudio? (default true) }
 //   응답: { jobId, segments }
 app.post('/api/transcribe', async (req, res) => {
-  const { jobId } = req.body || {};
+  const { jobId, speakersExpected, preProcessAudio } = req.body || {};
   if (!jobId) {
     return res.status(400).json({ success: false, message: 'jobId가 필요합니다.' });
   }
+  const opts = {};
+  if (Number.isInteger(speakersExpected) && speakersExpected >= 1 && speakersExpected <= 10) {
+    opts.speakersExpected = speakersExpected;
+  }
+  if (preProcessAudio === false) opts.preProcessAudio = false;
   if (!ASSEMBLYAI_API_KEY) {
     return res.status(500).json({
       success: false,
@@ -601,9 +646,9 @@ app.post('/api/transcribe', async (req, res) => {
     );
 
     // 3) AssemblyAI(발화자 라벨) + Whisper(텍스트·문장 분할) 병렬 실행
-    console.log(`[전사] jobId=${jobId} AssemblyAI + Whisper 병렬 호출`);
+    console.log(`[전사] jobId=${jobId} speakersExpected=${opts.speakersExpected || 'auto'} preProcess=${opts.preProcessAudio !== false}`);
     const [assemblyResult, whisperResult] = await Promise.all([
-      runAssemblyAI(job.upload_path).catch((e) => {
+      runAssemblyAI(job.upload_path, opts).catch((e) => {
         console.warn('[전사] AssemblyAI 실패:', e.message);
         return null;
       }),
@@ -1223,6 +1268,188 @@ app.patch('/api/jobs/:id', async (req, res) => {
   } catch (err) {
     console.error(`[매핑 실패] jobId=${id}`, err.message);
     res.status(500).json({ success: false, message: '매핑 정보를 저장하는 중 오류가 발생했습니다.' });
+  }
+});
+
+// =====================================================================
+// 7.5) 자막 번역 — 한글 → 영문 (Anthropic Claude haiku, 한 번에 일괄 번역)
+// =====================================================================
+app.post('/api/translate', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (items.length === 0) {
+      return res.json({ success: true, translations: {} });
+    }
+
+    const anthKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
+    if (!anthKey && !openaiKey) {
+      return res.status(500).json({ success: false, message: '번역 API 키가 설정되지 않았습니다. .env에 ANTHROPIC_API_KEY 또는 OPENAI_API_KEY를 추가하세요.' });
+    }
+
+    // 부모-아기 대화 자막 톤 — SNS 자막 스타일로 자연스럽게
+    // 입력 JSON: [{ n, text, speaker, role, prev, next }]
+    //   role = 'dad' | 'mom' | 'baby' | null
+    //   prev/next = 시간상 인접 발화 (동음이의어 분별용)
+    const userPayload = JSON.stringify(items.map((it, i) => ({
+      n: i + 1,
+      text: (it.text || '').trim(),
+      role: it.role || null,
+      prev: (it.prev || '').trim() || null,
+      next: (it.next || '').trim() || null,
+    })));
+
+    const sys = [
+      'You are a professional Korean→English subtitle translator for parent-baby dialogue videos on social media.',
+      '',
+      'INPUT: JSON array. Each item has: n (line number), text (Korean), role ("dad"|"mom"|"baby"|null), prev (previous line for context), next (next line for context).',
+      '',
+      'CRITICAL — Korean homonym traps to actively disambiguate using role/prev/next:',
+      '- "탈 수 있다" (can ride) vs "탈수" (dehydration) — sound identical without spaces. Use surrounding context (vehicle/transport vs medical).',
+      '- "다운" (feeling down) vs "다운" (download) — use speaker role and tone.',
+      '- "기분" can be feeling/mood. "기분다운" likely means "in a down mood" from a baby/child sulking, NOT a question.',
+      '- "어" / "응" / "으응" from BABY role is usually a sulky/affirmative sound, NOT a question — translate as the baby vocalizing, not the parent asking.',
+      '- Particle endings (-요/-네/-지) and ambiguous syllable boundaries: always reconstruct meaning from prev/next.',
+      '',
+      'SPEAKER ATTRIBUTION:',
+      '- A line spoken by BABY must read like a baby speaking (babble, simple words, sulky sounds), NOT like a parent asking the baby a question.',
+      '- A line spoken by DAD or MOM addressing the baby reads like adult speech.',
+      '- If role is "baby" and text looks like a question, it is almost certainly an EXCLAMATION or sulky vocalization — translate accordingly.',
+      '',
+      'STYLE:',
+      '- One short English subtitle per item. Punchy, conversational, NOT prose.',
+      '- For baby babbling/onomatopoeia (응애 / 옹알옹알 / 꺄르륵 / 으응): use natural English (Waaah / Goo-goo ga-ga / Giggle giggle / Hmph).',
+      '- Preserve warm/playful family tone.',
+      '',
+      'PROCESS (do this internally, do NOT output it):',
+      '1. For each item, identify the speaker role and check prev/next.',
+      '2. Re-check any homonym candidates (especially "탈수", "다운", short syllable runs).',
+      '3. Verify the translation matches who is speaking — baby cannot ask an adult-style question.',
+      '4. Self-review: does the English line make sense given prev → this → next as a single conversation flow?',
+      '',
+      `OUTPUT: Exactly ${items.length} lines of plain English, one per input, in the same n-order. No numbering, no quotes, no JSON, no commentary. Just the ${items.length} subtitle lines separated by newlines.`,
+    ].join('\n');
+
+    let raw = '';
+    if (anthKey) {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 600,
+          system: sys,
+          messages: [{ role: 'user', content: userPayload }],
+        }),
+      });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.warn(`[translate] Anthropic ${resp.status}: ${txt.slice(0, 200)}`);
+        return res.status(502).json({ success: false, message: '번역 API 호출 실패 (Claude)' });
+      }
+      const data = await resp.json();
+      raw = Array.isArray(data?.content) ? data.content.map(c => c.text || '').join('') : '';
+    } else {
+      // OpenAI fallback — 동음이의어 분별 위해 gpt-4o + temp 0.2 (보수적)
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          temperature: 0.2,
+          messages: [
+            { role: 'system', content: sys },
+            { role: 'user', content: userPayload },
+          ],
+        }),
+      });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.warn(`[translate] OpenAI ${resp.status}: ${txt.slice(0, 200)}`);
+        return res.status(502).json({ success: false, message: '번역 API 호출 실패 (OpenAI)' });
+      }
+      const data = await resp.json();
+      raw = data?.choices?.[0]?.message?.content || '';
+    }
+
+    const lines = raw
+      .split('\n')
+      .map(l => l.replace(/^\s*\d+[\.\)]\s*/, '').trim())
+      .filter(Boolean);
+
+    const translations = {};
+    for (let i = 0; i < items.length; i++) {
+      const en = lines[i] || '';
+      if (en) translations[items[i].id] = en;
+    }
+    res.json({ success: true, translations });
+  } catch (err) {
+    console.error('[translate] 오류:', err.message);
+    res.status(500).json({ success: false, message: '번역 중 오류가 발생했습니다.' });
+  }
+});
+
+// 단일 텍스트 번역 — 제목/부제목 1줄 번역 전용
+app.post('/api/translate-one', async (req, res) => {
+  try {
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.json({ success: true, translation: '' });
+    const anthKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
+    if (!anthKey && !openaiKey) {
+      return res.status(500).json({ success: false, message: '번역 API 키가 설정되지 않았습니다.' });
+    }
+    const sys = 'Translate the Korean line into ONE short, punchy English line suitable for a SNS video caption. Output ONLY the English line, no quotes, no commentary.';
+    let raw = '';
+    if (anthKey) {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 120,
+          system: sys,
+          messages: [{ role: 'user', content: text }],
+        }),
+      });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.warn(`[translate-one] Anthropic ${resp.status}: ${txt.slice(0, 200)}`);
+        return res.status(502).json({ success: false, message: '번역 API 호출 실패 (Claude)' });
+      }
+      const data = await resp.json();
+      raw = Array.isArray(data?.content) ? data.content.map(c => c.text || '').join('') : '';
+    } else {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          temperature: 0.2,
+          messages: [{ role: 'system', content: sys }, { role: 'user', content: text }],
+        }),
+      });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.warn(`[translate-one] OpenAI ${resp.status}: ${txt.slice(0, 200)}`);
+        return res.status(502).json({ success: false, message: '번역 API 호출 실패 (OpenAI)' });
+      }
+      const data = await resp.json();
+      raw = data?.choices?.[0]?.message?.content || '';
+    }
+    const translation = raw.split('\n').map(l => l.trim()).find(Boolean) || '';
+    res.json({ success: true, translation });
+  } catch (err) {
+    console.error('[translate-one] 오류:', err.message);
+    res.status(500).json({ success: false, message: '번역 중 오류가 발생했습니다.' });
   }
 });
 

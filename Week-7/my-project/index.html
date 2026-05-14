@@ -75,6 +75,24 @@
       -moz-osx-font-smoothing: grayscale;
       text-rendering: geometricPrecision;
     }
+    /* 한글 줄 (말풍선 안) */
+    .bubble-cute .bubble-kr {
+      display: block;
+    }
+    /* 영어 부가 줄 — 한글 밑에 작게 */
+    .bubble-cute .bubble-en {
+      display: block;
+      margin-top: 3px;
+      padding-top: 4px;
+      border-top: 1.5px dashed rgba(10,10,10,0.18);
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 11.5px;
+      line-height: 1.2;
+      letter-spacing: 0;
+      color: rgba(10,10,10,0.58);
+      font-style: italic;
+    }
     /* 첫 등장만 살짝 fade — scale 변환은 빼서 sub-pixel 흐림 방지 */
     @keyframes bubbleFadeIn {
       from { opacity: 0; }
@@ -175,12 +193,12 @@
     // 더미 데이터 / 상수
     // ========================================
     const DUMMY_SEGMENTS = [
-      { id: 1, start: 0.0,  end: 2.5,  text: "우리 아기 잘 잤어?",        speaker: "A" },
-      { id: 2, start: 2.6,  end: 4.2,  text: "응애에에",                  speaker: "B" },
-      { id: 3, start: 4.3,  end: 6.8,  text: "배고프구나~ 우유 줄게",     speaker: "A" },
-      { id: 4, start: 6.9,  end: 8.5,  text: "꺄르륵",                    speaker: "B" },
-      { id: 5, start: 8.6,  end: 10.5, text: "아빠도 같이 먹을까?",       speaker: "C" },
-      { id: 6, start: 10.6, end: 12.0, text: "옹알옹알",                  speaker: "B" },
+      { id: 1, start: 0.0,  end: 2.5,  text: "우리 아기 잘 잤어?",        en: "Did our baby sleep well?",          speaker: "A" },
+      { id: 2, start: 2.6,  end: 4.2,  text: "응애에에",                  en: "Waaah~",                            speaker: "B" },
+      { id: 3, start: 4.3,  end: 6.8,  text: "배고프구나~ 우유 줄게",     en: "You're hungry~ I'll get you milk",  speaker: "A" },
+      { id: 4, start: 6.9,  end: 8.5,  text: "꺄르륵",                    en: "Giggle giggle",                     speaker: "B" },
+      { id: 5, start: 8.6,  end: 10.5, text: "아빠도 같이 먹을까?",       en: "Want daddy to eat with us?",        speaker: "C" },
+      { id: 6, start: 10.6, end: 12.0, text: "옹알옹알",                  en: "Goo-goo ga-ga",                     speaker: "B" },
     ];
 
     const ROLES = [
@@ -484,126 +502,193 @@
       const armUp = E === 'excited';
 
       if (role === 'baby') {
-        // 머리 큼, 몸 짧게, 작은 손발
-        const headCx = 100, headCy = E === 'question' ? 82 : 80;
+        // 증명사진 구도 — 아기 비례(머리 매우 크게) + 까치집 머리 + 턱받이로 즉시 식별
+        const headCx = 100, headCy = E === 'question' ? 96 : 94;
         const headRotate = E === 'question' ? 'rotate(-6 100 100)' : '';
         return (
           <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+            {/* 턱받이(bib) — 둥근 옷깃, 아기 시그니처 */}
+            <path d="M 22 200 Q 100 192 178 200 Z" fill="#FFF1B8" stroke={stroke} />
+            <circle cx="100" cy="196" r="3" fill="#FFB347" stroke={stroke} strokeWidth="1.5" />
+            {/* 목 — 짧고 통통 */}
+            <line x1="86" y1="160" x2="86" y2="192" />
+            <line x1="114" y1="160" x2="114" y2="192" />
             <g transform={headRotate}>
-              {/* 큰 머리 */}
-              <circle cx={headCx} cy={headCy} r="44" fill="#FFF" />
-              {/* 머리카락 한 가닥 */}
-              <path d={`M${headCx} ${headCy-44} q-2 -8 0 -12`} />
-              {/* 볼 */}
-              <circle cx={headCx-26} cy={headCy+12} r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
-              <circle cx={headCx+26} cy={headCy+12} r="4" fill="#FFB8A8" stroke="none" opacity="0.6" />
-              {/* 눈 */}
-              {renderEyes(headCx-16, headCx+16, headCy-2)}
-              {/* 입 */}
-              {renderMouth(headCx, headCy+20, 7)}
+              {/* 매우 큰 머리 — 아기 비례 (어른보다 확실히 큼) */}
+              <circle cx={headCx} cy={headCy} r="68" fill="#FFF" />
+              {/* 까치집 머리카락 — 두 가닥 위로 솟음 */}
+              <path d={`M ${headCx-8} ${headCy-68} q -5 -14 1 -22 q 6 8 1 18`} />
+              <path d={`M ${headCx+10} ${headCy-66} q 4 -12 -2 -18 q -6 6 -2 16`} />
+              {/* 큰 둥근 볼 — 진한 분홍 */}
+              <circle cx={headCx-42} cy={headCy+18} r="9" fill="#FF9AAE" stroke="none" opacity="0.85" />
+              <circle cx={headCx+42} cy={headCy+18} r="9" fill="#FF9AAE" stroke="none" opacity="0.85" />
+              {/* 눈 — 좀 아래쪽에 (아기 얼굴 비율) */}
+              {renderEyes(headCx-20, headCx+20, headCy+2)}
+              {/* 입 — 작게 (옹알이 느낌) */}
+              {renderMouth(headCx, headCy+30, 7)}
             </g>
             {/* 헤드 위 데코 */}
-            {headDeco(headCx, headCy-50)}
-            {/* 짧은 몸통 */}
-            <line x1="100" y1="124" x2="100" y2="158" />
-            {/* 팔 — excited면 한쪽 위로 */}
-            {armUp
-              ? <>
-                  <line x1="100" y1="138" x2="78" y2="116" />
-                  <line x1="100" y1="140" x2="122" y2="148" />
-                </>
-              : <>
-                  <line x1="100" y1="140" x2="78" y2="148" />
-                  <line x1="100" y1="140" x2="122" y2="148" />
-                </>}
-            {/* 다리 */}
-            <line x1="100" y1="158" x2="86" y2="178" />
-            <line x1="100" y1="158" x2="114" y2="178" />
+            {headDeco(headCx, headCy-78)}
           </g>
         );
       }
       if (role === 'mom') {
+        // 증명사진 구도 — 어른 비례 (작은 머리 + 넓은 어깨) + 풍성한 긴 머리 + 헤어밴드 + 속눈썹
+        const headCx = 100, headCy = 84;
         const headRotate = E === 'question' ? 'rotate(-5 100 100)' : '';
         return (
           <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+            {/* 넓은 어깨 + V넥 (어른 비례) */}
+            <path d="M 6 200 Q 60 178 100 188 Q 140 178 194 200 Z" fill="#FFF" stroke={stroke} />
+            <path d="M 74 184 L 100 200 L 126 184" stroke={stroke} fill="none" />
+            {/* 목 */}
+            <line x1="88" y1="144" x2="88" y2="184" />
+            <line x1="112" y1="144" x2="112" y2="184" />
             <g transform={headRotate}>
-              <circle cx="100" cy="58" r="22" fill="#FFF" />
-              {/* 어깨 길이 머리카락 */}
-              <path d="M78 60 q-4 22 -2 36" />
-              <path d="M122 60 q4 22 2 36" />
-              {/* 앞머리 */}
-              <path d="M82 50 q18 -14 36 0" />
+              {/* 머리 — 아기보다 명확히 작게 */}
+              <circle cx={headCx} cy={headCy} r="52" fill="#FFF" />
+              {/* 풍성한 어깨길이 머리 — 옆 볼륨 + 어깨까지 흘러내림 */}
+              <path d={`M ${headCx-54} ${headCy+4} q -16 14 -16 30 q 0 24 14 56`} />
+              <path d={`M ${headCx+54} ${headCy+4} q 16 14 16 30 q 0 24 -14 56`} />
+              {/* 안쪽 머리 라인 (볼륨감) */}
+              <path d={`M ${headCx-50} ${headCy+20} q -4 30 6 60`} />
+              <path d={`M ${headCx+50} ${headCy+20} q 4 30 -6 60`} />
+              {/* 앞머리 — 옆 가르마 */}
+              <path d={`M ${headCx-44} ${headCy-30} q 30 -28 70 -8 q 12 6 14 16`} />
+              <path d={`M ${headCx-2} ${headCy-46} q -10 14 -28 16`} />
+              {/* 헤어밴드 — 머리 위 가로 라인 (즉시 어른/여성 식별) */}
+              <path d={`M ${headCx-42} ${headCy-38} q 42 -10 84 0`} stroke="#C44D5C" strokeWidth="4" fill="none" />
+              <circle cx={headCx-38} cy={headCy-34} r="3" fill="#C44D5C" stroke="none" />
+              <circle cx={headCx+38} cy={headCy-34} r="3" fill="#C44D5C" stroke="none" />
+              {/* 귀고리 양쪽 */}
+              <circle cx={headCx-52} cy={headCy+2} r="3" fill={stroke} stroke="none" />
+              <circle cx={headCx+52} cy={headCy+2} r="3" fill={stroke} stroke="none" />
+              {/* 속눈썹 — 눈 위 짧은 선 3개씩 */}
+              {E !== 'sad' && E !== 'laugh' && (
+                <g stroke={stroke} strokeWidth="1.5" strokeLinecap="round">
+                  <line x1={headCx-22} y1={headCy-10} x2={headCx-25} y2={headCy-14} />
+                  <line x1={headCx-18} y1={headCy-12} x2={headCx-19} y2={headCy-17} />
+                  <line x1={headCx-14} y1={headCy-10} x2={headCx-13} y2={headCy-15} />
+                  <line x1={headCx+14} y1={headCy-10} x2={headCx+13} y2={headCy-15} />
+                  <line x1={headCx+18} y1={headCy-12} x2={headCx+19} y2={headCy-17} />
+                  <line x1={headCx+22} y1={headCy-10} x2={headCx+25} y2={headCy-14} />
+                </g>
+              )}
               {/* 눈 */}
-              {renderEyes(93, 107, 60)}
-              {/* 입 */}
-              {renderMouth(100, 70, 8)}
+              {renderEyes(headCx-18, headCx+18, headCy-4)}
+              {/* 입 — 도톰한 립스틱 */}
+              {renderMouth(headCx, headCy+18, 11, '#C44D5C')}
             </g>
-            {headDeco(100, 22)}
-            {/* 몸통 */}
-            <line x1="100" y1="80" x2="100" y2="140" />
-            {/* 팔 */}
-            {armUp
-              ? <>
-                  <line x1="100" y1="96" x2="78" y2="64" />
-                  <line x1="100" y1="96" x2="128" y2="118" />
-                </>
-              : <>
-                  <line x1="100" y1="96" x2="72" y2="118" />
-                  <line x1="100" y1="96" x2="128" y2="118" />
-                </>}
-            {/* 치마 */}
-            <path d="M100 140 L 78 178 L 122 178 Z" />
-            {/* 다리 */}
-            <line x1="92" y1="178" x2="92" y2="190" />
-            <line x1="108" y1="178" x2="108" y2="190" />
+            {headDeco(headCx, headCy-66)}
           </g>
         );
       }
-      // dad — 안경 + 넥타이
+      // dad — 증명사진 구도 (안경 + 와이셔츠 + 넥타이)
+      const headCx = 100, headCy = 88;
       const headRotate = E === 'question' ? 'rotate(-5 100 100)' : '';
       return (
         <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+          {/* 어깨 — 양복 어깨 라인 (목 공간 확보) */}
+          <path d="M 8 200 Q 60 182 100 188 Q 140 182 192 200 Z" fill="#FFF" stroke={stroke} />
+          {/* 목 — 양쪽 두 줄 */}
+          <line x1="86" y1="148" x2="86" y2="184" />
+          <line x1="114" y1="148" x2="114" y2="184" />
+          {/* V 옷깃 라인 (양복 깃) — 깃 안쪽 셔츠가 보이게 */}
+          <line x1="70" y1="184" x2="100" y2="200" stroke={stroke} />
+          <line x1="130" y1="184" x2="100" y2="200" stroke={stroke} />
+          {/* 넥타이 — 크게/진하게 (V 안쪽 가득 채우기) */}
+          <g fill="#B23A2E" stroke="#5C1A12" strokeWidth="2.5" strokeLinejoin="round">
+            <path d="M 88 184 L 100 200 L 112 184 Z" />
+            <rect x="94" y="198" width="12" height="2" rx="0.5" />
+          </g>
           <g transform={headRotate}>
-            <circle cx="100" cy="58" r="22" fill="#FFF" />
-            {/* 짧은 머리 라인 */}
-            <path d="M82 46 q18 -8 36 0" />
-            {/* 안경 (laugh일 땐 눈 가리지 않게 살짝 위로) */}
+            {/* 큰 머리 */}
+            <circle cx={headCx} cy={headCy} r="58" fill="#FFF" />
+            {/* 위로 솟은 헤어 (quiff) — 정수리에 볼륨 + 옆 가르마 */}
+            {/* 두피 라인 — 살짝 위로 부풀어 오름 */}
+            <path d={`M ${headCx-44} ${headCy-32} q -2 -26 24 -34 q 30 -8 56 12 q 12 12 8 22`} />
+            {/* 솟은 앞머리 (quiff) — 위로 휘어 올라간 한 다발 */}
+            <path d={`M ${headCx-22} ${headCy-46} q 8 -28 28 -22 q 16 6 12 22`} />
+            {/* 가르마 짧은 라인 */}
+            <line x1={headCx-12} y1={headCy-50} x2={headCx-6} y2={headCy-38} />
+            {/* 안경 — 동그란 안경 (laugh/love일 땐 눈 가리지 않게) */}
             {E !== 'laugh' && E !== 'love' && (
               <>
-                <circle cx="91" cy="60" r="6" fill="#FFF" />
-                <circle cx="109" cy="60" r="6" fill="#FFF" />
-                <line x1="97" y1="60" x2="103" y2="60" />
+                <circle cx={headCx-20} cy={headCy-2} r="14" fill="#FFF" />
+                <circle cx={headCx+20} cy={headCy-2} r="14" fill="#FFF" />
+                <line x1={headCx-6} y1={headCy-2} x2={headCx+6} y2={headCy-2} />
               </>
             )}
-            {/* 눈 — 안경 안쪽으로 */}
-            {renderEyes(91, 109, 60)}
+            {/* 눈 — 안경 안쪽 */}
+            {renderEyes(headCx-20, headCx+20, headCy-2)}
             {/* 입 */}
-            {renderMouth(100, 72, 8)}
+            {renderMouth(headCx, headCy+22, 10)}
           </g>
-          {headDeco(100, 22)}
-          {/* 어깨 + 몸통 */}
-          <line x1="80" y1="92" x2="120" y2="92" />
-          <line x1="100" y1="80" x2="100" y2="140" />
-          {/* 넥타이 — 두 줄 정도 V + 직사각형 (어깨 아래에 매달림) */}
-          <g fill="#C84B3F" stroke="#7A2A22" strokeWidth="2" strokeLinejoin="round">
-            <path d="M96 94 L 100 102 L 104 94 Z" />
-            <path d="M97 102 L 100 130 L 103 130 L 103 102 Z" />
-          </g>
-          {/* 팔 — excited면 한쪽 위로 */}
-          {armUp
-            ? <>
-                <line x1="80" y1="92" x2="58" y2="62" />
-                <line x1="120" y1="92" x2="136" y2="124" />
-              </>
-            : <>
-                <line x1="80" y1="92" x2="64" y2="124" />
-                <line x1="120" y1="92" x2="136" y2="124" />
-              </>}
-          {/* 다리 */}
-          <line x1="100" y1="140" x2="84" y2="180" />
-          <line x1="100" y1="140" x2="116" y2="180" />
+          {headDeco(headCx, headCy-70)}
         </g>
       );
+    }
+
+    // 괄호 안 텍스트(상황설명, 효과음 등)는 시간에 카운팅 안 함 — 사용자가 "(모른척ㅋㅋ)" 같이 적어도 split 위치가 안 어긋남
+    //   지원 괄호: (), [], 「」, 【】, （）
+    const NARRATIVE_RE = /[（(\[「【][^）)\]」】]*[）)\]」】]/g;
+    function isNarrativeToken(tok) {
+      if (!tok) return false;
+      return /^[（(\[「【].*[）)\]」】]$/.test(tok);
+    }
+    // 텍스트의 effective length — 괄호 안 문자 제외, 공백은 정규화
+    function getEffectiveLength(text) {
+      if (!text) return 0;
+      return String(text).replace(NARRATIVE_RE, '').replace(/\s+/g, ' ').trim().length;
+    }
+
+    // 매칭용 정규화 — 구두점·공백·괄호 제거, 소문자
+    function normalizeForMatch(s) {
+      return String(s || '').toLowerCase().replace(/[.,!?～~…\s（）()「」【】\[\]]/g, '');
+    }
+
+    // 사용자가 편집한 텍스트의 토큰을 원본 AssemblyAI words에 그리디 매칭
+    //   사용자가 앞뒤로 글씨/괄호를 추가해도 원본 단어들의 위치를 찾아 시간 앵커로 사용
+    //   결과: 토큰별로 매칭된 word 객체 또는 null
+    function matchTokensToWords(tokens, words) {
+      const result = new Array(tokens.length).fill(null);
+      if (!Array.isArray(words) || words.length === 0) return result;
+      let wi = 0;
+      for (let ti = 0; ti < tokens.length && wi < words.length; ti++) {
+        if (isNarrativeToken(tokens[ti])) continue; // 괄호는 매칭에서 제외
+        if (normalizeForMatch(tokens[ti]) === normalizeForMatch(words[wi].text)) {
+          result[ti] = words[wi];
+          wi++;
+        }
+      }
+      return result;
+    }
+
+    // 각 토큰의 시간 (start, end) — 앵커된 토큰은 원본 시간 그대로, 안 된 건 주변 앵커로부터 보간
+    //   ★ 핵심: 원본 단어들의 등장 타이밍은 절대 안 바뀜 — 사용자가 추가/괄호 넣어도 보존
+    function getAnchoredTokenTimes(tokens, words, segStart, segEnd) {
+      const matched = matchTokensToWords(tokens, words);
+      const times = matched.map(m => m ? { start: m.start, end: m.end } : null);
+      // 연속된 null 토큰들을 인접 앵커 사이로 균등 분배 (앵커 시간 자체는 안 건드림)
+      let i = 0;
+      while (i < times.length) {
+        if (times[i]) { i++; continue; }
+        let runStart = i;
+        let runEnd = i;
+        while (runEnd < times.length - 1 && !times[runEnd + 1]) runEnd++;
+        const beforeEnd = runStart > 0 ? times[runStart - 1].end : segStart;
+        const afterStart = runEnd < times.length - 1 ? times[runEnd + 1].start : segEnd;
+        const runLen = runEnd - runStart + 1;
+        const dur = Math.max(0, (afterStart - beforeEnd) / runLen);
+        for (let k = runStart; k <= runEnd; k++) {
+          times[k] = {
+            start: beforeEnd + (k - runStart) * dur,
+            end: beforeEnd + (k - runStart + 1) * dur,
+          };
+        }
+        i = runEnd + 1;
+      }
+      return { times, matched };
     }
 
     // 긴 자막을 "말하는 듯한" 청크로 쪼개기
@@ -659,53 +744,82 @@
     //   MIN_DURATION 1.0s — 청크 노출 시간이 짧으면 다음 청크와 합치거나 끝을 늘림
     function buildTimedChunks(segment, displayText, maxChars = 22) {
       if (!segment) return [];
-      const MIN_DURATION = 1.0; // 한 청크 최소 노출 시간 (초)
+      const MIN_DURATION = 1.0;
       const words = segment.words || [];
-      const isEdited = displayText !== undefined && displayText !== segment.text;
 
-      // Fallback: 글자수 비례 분배 (단어 데이터 없거나 편집된 경우)
-      if (words.length === 0 || isEdited) {
+      // 단어 데이터 없음 → 글자수 비례 폴백 (편집 안 된 경우도 동일하게)
+      if (words.length === 0) {
         const chunks = chunkSpokenText(displayText !== undefined ? displayText : segment.text, maxChars);
-        const totalChars = chunks.reduce((s, c) => s + c.length, 0) || 1;
+        const totalEff = chunks.reduce((s, c) => s + getEffectiveLength(c), 0) || 1;
         const dur = Math.max(0.001, segment.end - segment.start);
         const result = [];
         let cum = 0;
         for (const c of chunks) {
-          const start = segment.start + (cum / totalChars) * dur;
-          cum += c.length;
-          const end = segment.start + (cum / totalChars) * dur;
-          result.push({ text: c, start, end });
+          const eff = getEffectiveLength(c);
+          const start = segment.start + (cum / totalEff) * dur;
+          cum += eff;
+          const end = segment.start + (cum / totalEff) * dur;
+          if (eff === 0 && result.length > 0) {
+            result[result.length - 1].text += ' ' + c;
+          } else {
+            result.push({ text: c, start, end });
+          }
         }
         return enforceMinChunkDuration(result, segment.end, MIN_DURATION);
       }
 
-      // 정확 모드: 단어 단위로 누적해서 청크 빌드
-      const result = [];
+      // ★ 앵커 기반 청크 — 원본 단어들의 시간을 절대 안 바꿈
+      //   사용자가 앞뒤로 글씨 추가하거나 괄호 넣어도 원본 단어는 원래 시간에 등장
+      const text = displayText !== undefined ? displayText : segment.text;
+      const tokens = text.split(/\s+/).filter(Boolean);
+      const { times: tokTimes, matched } = getAnchoredTokenTimes(tokens, words, segment.start, segment.end);
+
+      // 토큰 그룹화 — maxChars 기준, narrative는 size에 포함 안 함, 문장끝 부호로 강제 flush
+      const groups = [];
       let buf = [];
       let bufLen = 0;
       const flush = () => {
         if (buf.length === 0) return;
-        result.push({
-          text: buf.map((x) => x.text).join(' '),
-          start: buf[0].start,
-          end: buf[buf.length - 1].end,
-        });
+        groups.push(buf);
         buf = [];
         bufLen = 0;
       };
-      for (const w of words) {
-        const wText = (w.text || '').trim();
-        if (!wText) continue;
-        const wLen = wText.length;
-        if (bufLen + wLen + (buf.length > 0 ? 1 : 0) > maxChars && buf.length > 0) {
+      for (let i = 0; i < tokens.length; i++) {
+        const tok = tokens[i];
+        const isNarr = isNarrativeToken(tok);
+        const tokLen = isNarr ? 0 : tok.length;
+        if (bufLen + tokLen + (buf.length > 0 && !isNarr ? 1 : 0) > maxChars && buf.length > 0) {
           flush();
         }
-        buf.push(w);
-        bufLen += wLen + (buf.length > 1 ? 1 : 0);
-        // 문장 끝 부호로 끝나는 단어만 강제 flush (쉼표/물결은 자연스럽게 묶이게)
-        if (/[.!?…]$/.test(wText)) flush();
+        buf.push(i);
+        if (!isNarr) bufLen += tokLen + (buf.length > 1 ? 1 : 0);
+        if (/[.!?…]$/.test(tok)) flush();
       }
       flush();
+
+      // 각 그룹의 시간 = 앵커된 토큰의 시간 우선, 없으면 보간된 토큰 시간 사용
+      const result = groups.map(idxs => {
+        const text = idxs.map(i => tokens[i]).join(' ');
+        // 그룹 내 앵커 우선
+        const anchored = idxs.map(i => matched[i]).filter(Boolean);
+        if (anchored.length > 0) {
+          return {
+            text,
+            start: anchored[0].start,
+            end: anchored[anchored.length - 1].end,
+          };
+        }
+        // 앵커 없는 그룹 → 토큰 시간들의 min/max
+        const starts = idxs.map(i => tokTimes[i]?.start).filter(x => x != null);
+        const ends = idxs.map(i => tokTimes[i]?.end).filter(x => x != null);
+        return {
+          text,
+          start: starts.length ? Math.min(...starts) : segment.start,
+          end: ends.length ? Math.max(...ends) : segment.end,
+        };
+      });
+
+      // 마지막 청크 end 연장
       if (result.length > 0) {
         const last = result[result.length - 1];
         if (last.end < segment.end) last.end = segment.end;
@@ -917,7 +1031,7 @@
     // ========================================
     // Page — UploadStep
     // ========================================
-    function UploadStep({ fileName, setFileName, setFile, consent, setConsent, loading, loadingPhase, errorMsg, onAnalyze }) {
+    function UploadStep({ fileName, setFileName, setFile, consent, setConsent, loading, loadingPhase, errorMsg, onAnalyze, speakersExpected, setSpeakersExpected }) {
       return (
         <div className="px-6 py-7 space-y-5 anim-fade-in">
           <div className="space-y-1.5">
@@ -962,6 +1076,37 @@
               )}
             </div>
           </label>
+
+          {/* 예상 화자 수 — 다이어라이제이션 정확도 향상의 가장 큰 변수 */}
+          <Card className="!p-4 space-y-2">
+            <div className="flex items-baseline justify-between">
+              <div className="text-[12px] font-medium text-ink">영상에 몇 명이 말하나요?</div>
+              <span className="text-[10px] text-muted">화자 구분 정확도 ↑</span>
+            </div>
+            <div className="inline-flex w-full items-center rounded-full border border-hairline bg-paper p-0.5 select-none">
+              {[
+                { v: 'auto', label: '자동' },
+                { v: '1', label: '1명' },
+                { v: '2', label: '2명' },
+                { v: '3', label: '3명' },
+                { v: '4', label: '4명' },
+              ].map(opt => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setSpeakersExpected(opt.v)}
+                  className={`flex-1 px-2 py-1.5 rounded-full text-[12px] font-medium transition ${
+                    speakersExpected === opt.v ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10.5px] text-muted leading-relaxed">
+              정확한 숫자를 알면 화자 구분 정확도가 큰 폭으로 올라가요. 아빠/엄마/아기처럼 음역대 차이가 큰 가족도 같은 사람으로 인식되는 오류를 줄일 수 있어요.
+            </p>
+          </Card>
 
           {/* 동의 체크박스 — 단정한 카드 */}
           <Card className="!p-4">
@@ -1297,7 +1442,7 @@
     // 사이즈 — Z축은 슬라이더로 연속 조절 (제목/부제목 각각)
     //   원본 1080×1920 출력 기준 px. 미리보기(360px)는 0.42배율로 자동 축소.
     //   Reels/Shorts 안전영역에서 충분히 커질 수 있도록 max를 넉넉하게 (100/70).
-    const SIZE_DEFAULTS = { title: 36, subtitle: 22 };
+    const SIZE_DEFAULTS = { title: 57, subtitle: 57 };
     const SIZE_RANGE = { titleMin: 16, titleMax: 110, subMin: 10, subMax: 72 };
 
     // 데코레이션 — 마리안웨딩 땡큐카드 풍 (4개 모서리에 1개씩)
@@ -1340,14 +1485,14 @@
         sub: 'Instagram Reels',
         topUnsafe: 0.14,    // 269px from top — Reels 제목 권장 영역 시작 (200–600px)
         bottomUnsafe: 0.22, // 422px from bottom — 좋아요/공유/캡션 영역 보호
-        titlePlaceholder: '오늘 아기가 처음 부른 노래 🎶',
+        titlePlaceholder: '아빠랑 아기',
         subtitlePlaceholder: '#육아 #육아일상 #아기 #육아툰',
         // 권장 기본 크기 (미리보기 px 기준 — 360 width)
         defaults: {
-          titleSize: 36,        // Reels는 캡션 가독성 우선 → 중간 크기
-          subSize: 22,
-          titleY: 0,            // 안전영역 바로 안쪽이 권장
-          subY: 0,
+          titleSize: 57,        // 제목/부제목 통일 — 안전선에 정확히 정렬되는 디폴트
+          subSize: 57,
+          titleY: 6,            // 안전선과 살짝 겹치도록 4-6px 아래로 — descender 보정 + 안전 마진
+          subY: 0,              // 안전선에 글씨 윗선이 닿게
         },
       },
       shorts: {
@@ -1355,24 +1500,30 @@
         sub: 'YouTube Shorts',
         topUnsafe: 0.12,    // 230px from top — Shorts 상단 chrome (180–288px)
         bottomUnsafe: 0.19, // 365px from bottom — 채널명/제목 바 (350px+) 안 걸리게
-        titlePlaceholder: '아기가 처음 한 말!?',
+        titlePlaceholder: '아빠랑 아기',
         subtitlePlaceholder: '구독 + 좋아요 부탁해요',
-        // Shorts는 더 임팩트 있게 — 제목 크게, 부제도 약간 크게
+        // Shorts도 동일한 디폴트 — 안전선 정렬 우선
         defaults: {
-          titleSize: 50,
-          subSize: 26,
-          titleY: 8,            // 살짝 안쪽으로 밀어 시선 집중
-          subY: -4,
+          titleSize: 57,
+          subSize: 57,
+          titleY: 6,            // 안전선과 살짝 겹치게
+          subY: 0,
         },
       },
     };
 
-    function PreviewStep({ jobId, segments, roleMapping, setRoleMapping, segmentRoleOverrides, setSegmentRoleOverrides, characterStyle, editedSegments, setEditedSegments }) {
+    function PreviewStep({ jobId, segments, setSegments, roleMapping, setRoleMapping, segmentRoleOverrides, setSegmentRoleOverrides, characterStyle, editedSegments, setEditedSegments, onExported, previewActionsRef }) {
       const audioRef = useRef(null);
       const stageRef = useRef(null);              // 녹화 대상 9:16 스테이지
       const recCanvasRef = useRef(null);          // 녹화용 hidden canvas
       const [recording, setRecording] = useState(false);
       const [recProgress, setRecProgress] = useState(0); // 0~1
+      // 문장 내 쪼개기 진행 상태 — { segId, splitTime } 설정되면 해당 row에 역할 선택 UI 노출
+      const [splittingAt, setSplittingAt] = useState(null);
+      // 시간 미세조정 펼친 segment id (한 번에 하나만)
+      const [adjustingTime, setAdjustingTime] = useState(null);
+      // 오디오 RMS 배열 — 침묵(저에너지) 구간 검출용. split 시점을 실제 단어 경계에 자동 스냅하기 위해.
+      const [audioRMS, setAudioRMS] = useState(null); // { rmsArr: Float32Array, windowDur: number, totalDur: number }
       const [editingId, setEditingId] = useState(null);
       const [isPlaying, setIsPlaying] = useState(false);
       const [currentTime, setCurrentTime] = useState(0);
@@ -1427,6 +1578,142 @@
       const [compactInfo, setCompactInfo] = useState(null); // { segments, totalNewDuration, savedSec }
       const [compactLoading, setCompactLoading] = useState(false);
 
+      // 영어 자막 토글 — 한글 자막 아래에 영문 번역을 추가로 표시 (작은 글씨)
+      // 기본 ON — 분석 직후부터 한+영 자막이 함께 나옴
+      // translations: { [segmentId]: { text: <Korean source>, en: <English> } }
+      //   text 키를 함께 저장 → 사용자가 자막을 편집(띄어쓰기/단어 추가)하면 다시 번역
+      const [showEnglish, setShowEnglish] = useState(true);
+      const [translations, setTranslations] = useState({});
+      const [translateLoading, setTranslateLoading] = useState(false);
+      const [titleEn, setTitleEn] = useState('');
+      const [subtitleEn, setSubtitleEn] = useState('');
+
+      // 현재 segment(편집 반영)의 영문 자막 — DUMMY .en이 있으면 우선 사용, 사용자가 편집했다면 translations 캐시 매칭
+      const getEnForSegment = useCallback((seg) => {
+        if (!seg) return '';
+        const edited = editedSegments[seg.id];
+        const text = (edited !== undefined ? edited : (seg.text || '')).trim();
+        if (!text) return '';
+        // 사용자가 편집하지 않은 더미 segment는 박혀있는 .en 사용
+        if (edited === undefined && seg.en) return seg.en;
+        const cached = translations[seg.id];
+        return (cached && cached.text === text) ? (cached.en || '') : '';
+      }, [editedSegments, translations]);
+
+      // 제목/부제목 영문 번역 — 500ms 디바운스 후 /api/translate-one
+      useEffect(() => {
+        if (!showEnglish) { setTitleEn(''); return; }
+        const text = (overlayTitle || '').trim();
+        if (!text) { setTitleEn(''); return; }
+        const t = setTimeout(async () => {
+          try {
+            const r = await fetch('/api/translate-one', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (d?.success && d.translation) setTitleEn(d.translation);
+          } catch (e) {}
+        }, 500);
+        return () => clearTimeout(t);
+      }, [showEnglish, overlayTitle]);
+
+      useEffect(() => {
+        if (!showEnglish) { setSubtitleEn(''); return; }
+        const text = (overlaySubtitle || '').trim();
+        if (!text) { setSubtitleEn(''); return; }
+        const t = setTimeout(async () => {
+          try {
+            const r = await fetch('/api/translate-one', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (d?.success && d.translation) setSubtitleEn(d.translation);
+          } catch (e) {}
+        }, 500);
+        return () => clearTimeout(t);
+      }, [showEnglish, overlaySubtitle]);
+
+      const [translateApiError, setTranslateApiError] = useState('');
+
+      // showEnglish가 ON일 때 segment 번역 자동 채움 + 사용자 편집 시 재번역
+      //   - 더미 segment의 .en은 우선 사용 (편집하지 않은 동안)
+      //   - 사용자가 텍스트를 편집하면 그 segment의 새 텍스트로 다시 번역
+      //   - 600ms 디바운스 — 타이핑 중 매번 호출되지 않게
+      useEffect(() => {
+        if (!showEnglish) return;
+        const segs = (silenceMode === 'trim' && compactInfo?.segments) ? compactInfo.segments : segments;
+        if (!segs || segs.length === 0) return;
+        const debounce = setTimeout(() => {
+          // 인덱스로 앞뒤 segment 텍스트(컨텍스트) 추출 — 동음이의어 분별용
+          const textOf = (idx) => {
+            if (idx < 0 || idx >= segs.length) return '';
+            const ss = segs[idx];
+            const e = editedSegments[ss.id];
+            return (e !== undefined ? e : (ss.text || '')).trim();
+          };
+          const items = [];
+          for (let i = 0; i < segs.length; i++) {
+            const s = segs[i];
+            const edited = editedSegments[s.id];
+            const text = (edited !== undefined ? edited : (s.text || '')).trim();
+            if (!text) continue;
+            // 편집 안 한 더미 segment는 .en을 그대로 쓸 수 있으니 fetch 불필요
+            if (edited === undefined && s.en) continue;
+            const cached = translations[s.id];
+            if (cached && cached.text === text) continue; // 이미 같은 텍스트로 번역됨
+            // 화자(speaker) → 역할(dad/mom/baby) 변환 + 사용자가 segment별로 오버라이드한 역할 우선
+            const role = segmentRoleOverrides[s.id] || roleMapping[s.speaker] || null;
+            items.push({
+              id: s.id,
+              text,
+              role,
+              prev: textOf(i - 1),
+              next: textOf(i + 1),
+            });
+          }
+          if (items.length === 0) return;
+          let cancelled = false;
+          setTranslateLoading(true);
+          (async () => {
+            try {
+              const resp = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items }),
+              });
+              const data = await resp.json().catch(() => ({}));
+              if (cancelled) return;
+              if (resp.ok && data?.success && data.translations) {
+                setTranslations(prev => {
+                  const next = { ...prev };
+                  for (const it of items) {
+                    const en = data.translations[it.id];
+                    if (en) next[it.id] = { text: it.text, en };
+                  }
+                  return next;
+                });
+                if (translateApiError) setTranslateApiError('');
+              } else {
+                const msg = data?.message || `HTTP ${resp.status}`;
+                console.warn('[translate] 실패:', msg);
+                setTranslateApiError(msg);
+              }
+            } catch (e) {
+              console.warn('[translate] 네트워크 오류:', e.message);
+              setTranslateApiError(e.message || '번역 네트워크 오류');
+            } finally {
+              if (!cancelled) setTranslateLoading(false);
+            }
+          })();
+          return () => { cancelled = true; };
+        }, 600);
+        return () => clearTimeout(debounce);
+      }, [showEnglish, segments, compactInfo, silenceMode, editedSegments, roleMapping, segmentRoleOverrides]);
+
       // 침묵 자르기 모드 켜질 때 / maxGap 바뀔 때 — 서버에 새 segments 요청
       useEffect(() => {
         if (silenceMode !== 'trim' || !jobId) {
@@ -1478,6 +1765,85 @@
         setCurrentTime(0);
         setAudioLevel(0);
       }, [effectiveAudioUrl]);
+
+      // ★ 오디오 파형 RMS 계산 — split 지점을 실제 silence(단어 경계)에 자동 스냅하기 위한 데이터
+      //   AssemblyAI 단어 타임스탬프 ±100~300ms 오차가 있어서, 그대로 쓰면 split 후 싱크 깨짐.
+      //   대신 split 시점 주변 ±0.3초에서 RMS 최소값을 찾아 스냅 → 실제 단어 사이 silence에 정확히 cut.
+      useEffect(() => {
+        if (!jobId) return;
+        // trim 모드에선 시간축이 다르고 split 비활성이라 스킵
+        if (silenceMode === 'trim') return;
+        const url = audioMode === 'tuned' ? `/api/jobs/${jobId}/audio-tuned` : `/api/jobs/${jobId}/audio`;
+        let cancelled = false;
+        setAudioRMS(null); // 새 audio 로드되는 동안은 일단 무효화
+        (async () => {
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok || cancelled) return;
+            const buf = await resp.arrayBuffer();
+            if (cancelled) return;
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            const ctx = new Ctx();
+            const audioBuf = await ctx.decodeAudioData(buf);
+            ctx.close();
+            if (cancelled) return;
+            const pcm = audioBuf.getChannelData(0);
+            const sampleRate = audioBuf.sampleRate;
+            const windowDur = 0.01; // 10ms 윈도
+            const winSize = Math.max(1, Math.round(sampleRate * windowDur));
+            const n = Math.floor(pcm.length / winSize);
+            const rmsArr = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+              let sum = 0;
+              const off = i * winSize;
+              for (let j = 0; j < winSize; j++) {
+                const x = pcm[off + j];
+                sum += x * x;
+              }
+              rmsArr[i] = Math.sqrt(sum / winSize);
+            }
+            if (!cancelled) {
+              setAudioRMS({ rmsArr, windowDur, totalDur: audioBuf.duration });
+              console.log('[snap] RMS 계산 완료 — windows=', n, 'duration=', audioBuf.duration.toFixed(2));
+            }
+          } catch (e) {
+            console.warn('[snap] audio decode 실패 — split 시 스냅 비활성:', e.message);
+          }
+        })();
+        return () => { cancelled = true; };
+      }, [jobId, audioMode, silenceMode]);
+
+      // ★ 단어 시작점(에너지 상승 엣지)에 스냅 — silence 중심이 아니라 "다음 단어가 실제 시작되는 시점"
+      //   AssemblyAI가 단어 시작을 ±200ms 빠르거나 늦게 잡아도, 오디오 파형의 silence→speech 경계로 보정
+      //   1) 타깃 시점 주변에서 가장 조용한 시점(silence floor) 찾기
+      //   2) 그 시점부터 앞으로 진행하며 에너지가 충분히 올라간 첫 지점 = 다음 단어 실제 시작
+      const snapToSilence = (targetTime, radius = 0.4) => {
+        if (!audioRMS) return targetTime;
+        const { rmsArr, windowDur, totalDur } = audioRMS;
+        if (targetTime < 0 || targetTime > totalDur) return targetTime;
+        const targetIdx = Math.round(targetTime / windowDur);
+        const r = Math.round(radius / windowDur);
+        const lo = Math.max(0, targetIdx - r);
+        const hi = Math.min(rmsArr.length - 1, targetIdx + r);
+
+        // 1) 검색 구간의 RMS min/max
+        let minRMS = Infinity, minIdx = targetIdx, maxRMS = -Infinity;
+        for (let i = lo; i <= hi; i++) {
+          if (rmsArr[i] < minRMS) { minRMS = rmsArr[i]; minIdx = i; }
+          if (rmsArr[i] > maxRMS) maxRMS = rmsArr[i];
+        }
+        // 평탄하면(연속음/소음 없음) 스냅 X
+        if (maxRMS - minRMS < 0.005) return targetTime;
+
+        // 2) silence 최소점에서 앞으로 진행하며 에너지가 (min + 0.3*range) 이상으로 올라간 첫 지점 = 단어 시작
+        //    임계값을 최소값의 3배 + 절대 floor로 잡으면 노이즈에 강건
+        const riseThresh = Math.max(minRMS * 3, minRMS + (maxRMS - minRMS) * 0.25);
+        let wordStartIdx = minIdx;
+        for (let i = minIdx; i <= hi; i++) {
+          if (rmsArr[i] >= riseThresh) { wordStartIdx = i; break; }
+        }
+        return wordStartIdx * windowDur;
+      };
       // 오디오 진폭 (0~1) — 무음 구간이라도 노래/옹알이로 소리가 있으면 입 움직이도록
       const [audioLevel, setAudioLevel] = useState(0);
       const audioCtxRef = useRef(null);
@@ -1503,6 +1869,218 @@
 
       const onTextChange = (id, val) => {
         setEditedSegments({ ...editedSegments, [id]: val });
+      };
+
+      // 한 segment를 두 개로 쪼개기 — ★ 앵커 기반
+      //   원본 단어들의 timestamp를 절대 안 바꿈. 사용자가 편집한 텍스트의 토큰들이 원본 단어에 매칭되면 그 시간 유지.
+      //   splitTime: 어디서 자를지 (보통 토큰의 end 시간)
+      //   rightRoleKey: 오른쪽 segment의 역할
+      const splitSegmentAt = (segId, splitTime, rightRoleKey) => {
+        if (!setSegments) return;
+        setSegments(prev => {
+          const idx = prev.findIndex(s => s.id === segId);
+          if (idx < 0) return prev;
+          const s = prev[idx];
+          if (splitTime <= s.start + 0.02 || splitTime >= s.end - 0.02) return prev;
+
+          const origWords = Array.isArray(s.words) ? s.words : [];
+          const displayText = editedSegments[s.id] !== undefined ? editedSegments[s.id] : s.text;
+          const tokens = displayText.split(/\s+/).filter(Boolean);
+
+          let leftText, rightText, leftWords, rightWords, leftEnd, rightStart;
+
+          if (origWords.length > 0) {
+            // 단어 시간 기반 split — 단어 분배는 AI 시간 기준, 단 segment 경계는 ★ snap된 splitTime 사용
+            //   AssemblyAI ±200ms 오차 → snap이 실제 silence/word-start로 맞춰주는데, 그 시간을 segment 경계로 써야 효과 적용됨
+            leftWords = origWords.filter(w => w.end <= splitTime + 0.05);
+            rightWords = origWords.filter(w => w.start >= splitTime - 0.05);
+            leftEnd = splitTime;   // snap된 시간 (AI word.end가 아님)
+            rightStart = splitTime; // snap된 시간 (AI word.start가 아님)
+
+            // 편집된 텍스트가 있으면 토큰을 원본 단어에 앵커링해서 cut 위치 결정
+            if (tokens.length > 0) {
+              const { times: tokTimes, matched: tokMatched } = getAnchoredTokenTimes(tokens, origWords, s.start, s.end);
+              // 토큰 cut 위치: 첫 번째 토큰 중 그 start가 splitTime 이상인 위치
+              //   앵커 안 된 토큰도 보간된 times로 판별 (텍스트가 시간순으로 유지되도록)
+              let cutIdx = tokens.length;
+              for (let i = 0; i < tokens.length; i++) {
+                const tStart = tokTimes[i]?.start ?? null;
+                if (tStart != null && tStart >= splitTime - 0.005) {
+                  cutIdx = i;
+                  break;
+                }
+              }
+              leftText = tokens.slice(0, cutIdx).join(' ').trim() || (leftWords.map(w => w.text).join(' ').trim() || s.text);
+              rightText = tokens.slice(cutIdx).join(' ').trim() || rightWords.map(w => w.text).join(' ').trim();
+            } else {
+              leftText = leftWords.map(w => w.text).join(' ').trim() || s.text;
+              rightText = rightWords.map(w => w.text).join(' ').trim() || '';
+            }
+          } else {
+            // 단어 데이터 없음 — effective length 비례 분할 (괄호 무시)
+            const text = displayText;
+            const totalEff = getEffectiveLength(text);
+            const ratio = (splitTime - s.start) / (s.end - s.start);
+            const targetEff = Math.round(ratio * totalEff);
+            let effCount = 0, inParen = false, cutPos = 0;
+            for (let i = 0; i < text.length; i++) {
+              const ch = text[i];
+              if (/[（(\[「【]/.test(ch)) inParen = true;
+              if (!inParen && !/\s/.test(ch)) effCount++;
+              if (/[）)\]」】]/.test(ch)) inParen = false;
+              if (effCount > targetEff) { cutPos = i; break; }
+            }
+            if (cutPos === 0) cutPos = Math.max(1, Math.min(text.length - 1, Math.round(text.length * ratio)));
+            let cut = cutPos;
+            while (cut > 0 && cut < text.length && text[cut] !== ' ') cut--;
+            if (cut === 0) cut = cutPos;
+            leftText = text.slice(0, cut).trim();
+            rightText = text.slice(cut).trim();
+            leftWords = [];
+            rightWords = [];
+            leftEnd = splitTime;
+            rightStart = splitTime;
+          }
+
+          // 새 segment IDs
+          const maxId = prev.reduce((m, x) => Math.max(m, typeof x.id === 'number' ? x.id : 0), 0);
+          const newId = maxId + 1;
+
+          const leftSeg = { ...s, end: leftEnd, text: leftText, words: leftWords };
+          const rightSeg = {
+            ...s,
+            id: newId,
+            start: rightStart,
+            text: rightText,
+            words: rightWords,
+          };
+
+          // 오른쪽 segment 역할 override
+          if (rightRoleKey) {
+            setSegmentRoleOverrides(prev => ({ ...prev, [newId]: rightRoleKey }));
+          }
+
+          // 편집된 텍스트가 있었다면 새 segments의 editedSegments도 갱신 (display 일치)
+          if (editedSegments[segId] !== undefined) {
+            setEditedSegments(p => {
+              const np = { ...p };
+              if (leftText !== leftSeg.text) np[segId] = leftText; else delete np[segId];
+              if (rightText !== rightSeg.text) np[newId] = rightText;
+              return np;
+            });
+          }
+
+          const next = [...prev];
+          next.splice(idx, 1, leftSeg, rightSeg);
+          return next;
+        });
+      };
+
+      // segment 시간 미세조정 — field: 'start'|'end', delta: 초 단위
+      //   인접 segment와 안 겹치고 최소 길이 0.1초 유지
+      const adjustSegmentTime = (segId, field, delta) => {
+        if (!setSegments) return;
+        setSegments(prev => {
+          const sorted = [...prev].sort((a, b) => a.start - b.start);
+          const idx = sorted.findIndex(s => s.id === segId);
+          if (idx < 0) return prev;
+          const s = sorted[idx];
+          let newVal = (s[field] ?? 0) + delta;
+          if (field === 'start') {
+            const minStart = idx > 0 ? sorted[idx - 1].end + 0.01 : 0;
+            const maxStart = s.end - 0.1;
+            newVal = Math.max(minStart, Math.min(maxStart, newVal));
+          } else { // end
+            const minEnd = s.start + 0.1;
+            const maxEnd = idx < sorted.length - 1 ? sorted[idx + 1].start - 0.01 : 99999;
+            newVal = Math.max(minEnd, Math.min(maxEnd, newVal));
+          }
+          newVal = Math.round(newVal * 100) / 100; // 0.01초 정밀도
+          return prev.map(x => x.id === segId ? { ...x, [field]: newVal } : x);
+        });
+      };
+
+      // segment 끝을 다음 발화 직전까지 늘리기 — 묵음에 타이핑한 텍스트("네에" 등)에 시간을 줄 때
+      //   다음 발화가 없으면 +2초 늘림
+      const extendSegmentToNext = (segId) => {
+        if (!setSegments) return;
+        setSegments(prev => {
+          const sorted = [...prev].sort((a, b) => a.start - b.start);
+          const idx = sorted.findIndex(s => s.id === segId);
+          if (idx < 0) return prev;
+          const s = sorted[idx];
+          const newEnd = idx < sorted.length - 1
+            ? sorted[idx + 1].start - 0.05
+            : s.end + 2.0;
+          if (newEnd <= s.end) return prev;
+          return prev.map(x => x.id === segId ? { ...x, end: Math.round(newEnd * 100) / 100 } : x);
+        });
+      };
+
+      // 이 segment 다음에 새 빈 발화 추가 — 묵음 구간에 새 자막 적기 (예: AI가 못 잡은 "응"/"네에")
+      //   기본 시간: 현재 segment 끝 + 0.05초 ~ 다음 segment 시작 - 0.05초 (또는 +2초)
+      //   기본 화자: 현재와 동일 (사용자가 바꿀 수 있음)
+      const addEmptySegmentAfter = (segId) => {
+        if (!setSegments) return;
+        setSegments(prev => {
+          const sorted = [...prev].sort((a, b) => a.start - b.start);
+          const idx = sorted.findIndex(s => s.id === segId);
+          if (idx < 0) return prev;
+          const cur = sorted[idx];
+          const nextSeg = idx < sorted.length - 1 ? sorted[idx + 1] : null;
+          const start = cur.end + 0.05;
+          const maxEnd = nextSeg ? nextSeg.start - 0.05 : start + 2.0;
+          const end = Math.max(start + 0.5, Math.min(maxEnd, start + 2.0));
+          if (end <= start + 0.1) return prev; // 공간 부족
+          const maxId = prev.reduce((m, x) => Math.max(m, typeof x.id === 'number' ? x.id : 0), 0);
+          const newSeg = {
+            id: maxId + 1,
+            start: Math.round(start * 100) / 100,
+            end: Math.round(end * 100) / 100,
+            text: '',
+            speaker: cur.speaker,
+            words: [],
+          };
+          return [...prev, newSeg];
+        });
+      };
+
+      // 이전 segment와 합치기 — split 잘못한 경우 되돌리기 + 인접 발화 통합
+      const mergeWithPrevious = (segId) => {
+        if (!setSegments) return;
+        setSegments(prev => {
+          const sorted = [...prev].sort((a, b) => a.start - b.start);
+          const idx = sorted.findIndex(s => s.id === segId);
+          if (idx <= 0) return prev;
+          const a = sorted[idx - 1];
+          const b = sorted[idx];
+          // editedSegments 우선의 표시 텍스트로 합치기
+          const aText = editedSegments[a.id] !== undefined ? editedSegments[a.id] : a.text;
+          const bText = editedSegments[b.id] !== undefined ? editedSegments[b.id] : b.text;
+          const mergedText = `${aText} ${bText}`.trim();
+          const merged = {
+            ...a,
+            end: b.end,
+            text: mergedText,
+            words: [...(Array.isArray(a.words) ? a.words : []), ...(Array.isArray(b.words) ? b.words : [])],
+          };
+          // a에 합쳐진 텍스트 저장 (편집됨으로 마킹), b의 편집/오버라이드는 제거
+          setEditedSegments(p => {
+            const np = { ...p };
+            delete np[b.id];
+            np[a.id] = mergedText;
+            return np;
+          });
+          setSegmentRoleOverrides(p => {
+            const np = { ...p };
+            delete np[b.id];
+            return np;
+          });
+          // 원본 배열에서 b 제거하고 a를 merged로
+          return prev
+            .filter(x => x.id !== b.id)
+            .map(x => x.id === a.id ? merged : x);
+        });
       };
 
       // 현재 재생 시간에 해당하는 segment 찾기 (silenceMode에 따라 effectiveSegments 사용)
@@ -1740,7 +2318,9 @@
       // 비디오 다운로드 — 미리보기 stage를 매 프레임 html2canvas로 그려서 canvas 캡처,
       //   audio element의 trackStream을 같이 묶어 MediaRecorder로 녹화 → webm 파일로 저장.
       // 단점: html2canvas 비용으로 30fps 정도가 한계. 5분 이내 영상이라 충분히 동작함.
-      const downloadVideo = async () => {
+      // opts.silent === true: 즉시 다운로드 a.click()을 스킵하고 url만 onExported로 전달 (ExportStep에서 호출)
+      const downloadVideo = async (opts = {}) => {
+        const silent = !!opts?.silent;
         const audio = audioRef.current;
         const stage = stageRef.current;
         const canvas = recCanvasRef.current;
@@ -1791,17 +2371,25 @@
         const recorder = new MediaRecorder(combined, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined);
         const chunks = [];
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        // 녹화 완료 시점을 외부에서 await할 수 있도록 Promise로 래핑
+        let resolveDone;
+        const donePromise = new Promise((resolve) => { resolveDone = resolve; });
         recorder.onstop = () => {
           const blob = new Blob(chunks, { type: mime || 'video/webm' });
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
           const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-          a.download = `${platform}-${stamp}.webm`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          const fname = `${platform}-${stamp}.webm`;
+          if (!silent) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }
+          // ExportStep에서 다시 다운로드할 수 있게 URL 보관 (revoke 안 함)
+          if (typeof onExported === 'function') onExported(url, fname);
+          if (typeof resolveDone === 'function') resolveDone(url);
         };
 
         setRecording(true);
@@ -1860,8 +2448,19 @@
           try { recorder.stop(); } catch (_) {}
           setRecording(false);
           setAudioError('녹화 중 재생을 시작할 수 없습니다: ' + e.message);
+          if (typeof resolveDone === 'function') resolveDone(null);
+          return;
         }
+        // 녹화 완료까지 대기 (외부 호출자가 await로 끝을 기다릴 수 있게)
+        await donePromise;
       };
+
+      // ExportStep이 호출할 수 있도록 downloadVideo를 ref로 노출
+      useEffect(() => {
+        if (previewActionsRef) {
+          previewActionsRef.current.downloadVideo = downloadVideo;
+        }
+      });
 
       // 현재 segment에 매칭된 역할
       const currentRoleKey = currentSegment ? getRoleForSegment(currentSegment) : null;
@@ -2012,6 +2611,47 @@
                 <div className="text-[9px] text-ink/30">짧을수록 빠른 템포 · 너무 짧으면 부자연스러움 (0.3s 권장)</div>
               </div>
             )}
+
+            {/* 영어 자막 토글 — 한글 자막 아래에 영문 번역 표시 */}
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-hairline">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-ink/50">
+                  영어 자막
+                  {translateLoading && <span className="text-accent normal-case tracking-normal ml-1">· 번역 중</span>}
+                  {!translateLoading && showEnglish && translateApiError && (
+                    <span className="text-[#B23A2E] normal-case tracking-normal ml-1">· {translateApiError}</span>
+                  )}
+                </div>
+                <div className="text-[10px] text-ink/40 mt-0.5">한글 아래에 영문 번역을 작게 추가 · SNS 해외 시청자용</div>
+                {showEnglish && translateApiError && /키/.test(translateApiError) && (
+                  <div className="text-[10px] text-[#B23A2E] mt-1 leading-snug">
+                    .env에 <code className="bg-[#FBE9E5] px-1 rounded">ANTHROPIC_API_KEY=sk-ant-...</code> 또는 <code className="bg-[#FBE9E5] px-1 rounded">OPENAI_API_KEY=sk-...</code> 추가 후 서버 재시작
+                  </div>
+                )}
+              </div>
+              <div className="inline-flex items-center rounded-full border border-hairline bg-paper p-0.5 select-none">
+                <button
+                  type="button"
+                  onClick={() => setShowEnglish(false)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition ${
+                    !showEnglish ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                  }`}
+                  title="한글만 표시"
+                >
+                  한글만
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEnglish(true)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition ${
+                    showEnglish ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
+                  }`}
+                  title="한글 + 영어 함께 표시"
+                >
+                  한+영 EN
+                </button>
+              </div>
+            </div>
             <div className="space-y-2">
               <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-[0.14em] text-ink/50">상단 제목 / 후킹</label>
@@ -2267,12 +2907,12 @@
               {/* 배경 톤 */}
               <div className="absolute inset-0 bg-gradient-to-b from-[#FDF8F1] to-[#F2E5D6]" />
 
-              {/* 상단 제목 — 드래그 가능 + 입력 비어있으면 가제목(placeholder) 미리보기
-                  녹화 중엔 빈 텍스트는 안 그림 (가제목이 영상에 들어가지 않게) */}
+              {/* 상단 제목 — 컨테이너가 화면 상단 0%부터 제목 안전선까지 차지, items-end로 안전선 바로 위 정렬
+                  → 제목 글씨 아랫선이 안전선에 정확히 닿음 (디폴트) */}
               {(overlayTitle || (!recording && preset.titlePlaceholder)) && (
                 <div
-                  className="absolute inset-x-0 flex items-start justify-center px-4 z-20"
-                  style={{ top: `${preset.topUnsafe * 100}%`, paddingTop: '6px' }}
+                  className="absolute inset-x-0 flex items-end justify-center px-4 z-20"
+                  style={{ top: 0, height: `${preset.topUnsafe * 100}%` }}
                 >
                   <div
                     onPointerDown={onDragStart('title')}
@@ -2283,29 +2923,47 @@
                       fontWeight: tStyle.weight,
                       letterSpacing: tStyle.letterSpacing,
                       fontSize: `${titleSizePx * tStyle.titleScale * 0.42}px`,
-                      lineHeight: 1.15,
+                      lineHeight: 1.0,         // 글씨 박스 = 글씨 높이 (안전선에 딱 붙게)
                       color: tColor.color,
                       textShadow: buildTextStroke(tColor.stroke, 1.5),
                       maxWidth: '94%',
                       WebkitTextStroke: '0',
                       transform: `translate(${titleOffset.x}px, ${titleOffset.y}px)`,
                       touchAction: 'none',
-                      padding: '4px 8px',
+                      padding: '4px 8px 0 8px', // 아래 padding 0 — 글씨 아랫선이 컨테이너 바닥 = 안전선
                       borderRadius: '6px',
                       opacity: overlayTitle ? 1 : 0.38, // 가제목은 흐리게
                     }}
                     title={overlayTitle ? '드래그로 위치 이동 · 더블클릭 리셋' : '가제목 미리보기 (입력 시 대체)'}
                   >
-                    {overlayTitle || preset.titlePlaceholder}
+                    <div>{overlayTitle || preset.titlePlaceholder}</div>
+                    {showEnglish && overlayTitle && titleEn && (
+                      <div
+                        style={{
+                          fontFamily: "'Pretendard Variable', 'Pretendard', system-ui, sans-serif",
+                          fontWeight: 600,
+                          fontSize: `${Math.max(11, titleSizePx * tStyle.titleScale * 0.42 * 0.5)}px`,
+                          lineHeight: 1.0,
+                          marginTop: '2px',
+                          opacity: 0.82,
+                          fontStyle: 'italic',
+                          letterSpacing: 0,
+                          WebkitTextStroke: '0',
+                        }}
+                      >
+                        {titleEn}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* 하단 부제목 — 드래그 가능 + placeholder 미리보기 */}
+              {/* 하단 부제목 — 컨테이너가 화면 하단 0%부터 부제목 안전선까지 차지, items-start로 안전선 바로 아래 정렬
+                  → 부제목 글씨 윗선이 안전선에 정확히 닿음 (디폴트) */}
               {(overlaySubtitle || (!recording && preset.subtitlePlaceholder)) && (
                 <div
-                  className="absolute inset-x-0 flex items-end justify-center px-4 z-20"
-                  style={{ bottom: `${preset.bottomUnsafe * 100}%`, paddingBottom: '6px' }}
+                  className="absolute inset-x-0 flex items-start justify-center px-4 z-20"
+                  style={{ bottom: 0, height: `${preset.bottomUnsafe * 100}%` }}
                 >
                   <div
                     onPointerDown={onDragStart('subtitle')}
@@ -2328,7 +2986,22 @@
                     }}
                     title={overlaySubtitle ? '드래그로 위치 이동 · 더블클릭 리셋' : '가부제목 미리보기 (입력 시 대체)'}
                   >
-                    {overlaySubtitle || preset.subtitlePlaceholder}
+                    <div>{overlaySubtitle || preset.subtitlePlaceholder}</div>
+                    {showEnglish && overlaySubtitle && subtitleEn && (
+                      <div
+                        style={{
+                          fontFamily: "'Pretendard Variable', 'Pretendard', system-ui, sans-serif",
+                          fontWeight: 500,
+                          fontSize: `${Math.max(10, subSizePx * tStyle.subtitleScale * 0.45 * 0.55)}px`,
+                          marginTop: '3px',
+                          opacity: 0.78,
+                          fontStyle: 'italic',
+                          letterSpacing: 0,
+                        }}
+                      >
+                        {subtitleEn}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2428,13 +3101,15 @@
                 ) : (
                   uniqueRoles.map((roleKey, idx) => {
                     const isSegmentSpeaker = currentRoleKey === roleKey && speakingNow;
-                    // segment가 비어있는 구간(노래/옹알이 등)에 진폭이 있으면 voiceFallbackRole로 입 움직임
+                    // segment가 비어있는 구간(노래/옹알이 등)에 진폭이 있으면 voiceFallbackRole로 입만 움직임 (자막 X)
                     const isFallbackSpeaker = fallbackSpeaking && roleKey === voiceFallbackRole;
                     const isSpeaking = isSegmentSpeaker || isFallbackSpeaker;
                     const roleLabel = ROLES.find(r => r.key === roleKey)?.kr || roleKey;
                     // 짝수 index = 캐릭터 왼쪽 / 말풍선 오른쪽, 홀수 = 반대
                     const avatarOnLeft = idx % 2 === 0;
-                    const activeChunk = isSpeaking ? findActiveChunk(activeChunks, currentTime) : '';
+                    // 자막은 진짜 segment 화자일 때만 표시 (fallback일 땐 입만 움직이고 말풍선은 X)
+                    //   이전 버그: 아빠 segment 끝나고 fallback이 아기로 발동되면, 아기에게 아빠 자막이 붙음
+                    const activeChunk = isSegmentSpeaker ? findActiveChunk(activeChunks, currentTime) : '';
                     return (
                       <div
                         key={roleKey}
@@ -2458,21 +3133,22 @@
                             fill={true}
                             expression={isSpeaking && currentSegment ? detectExpression(getText(currentSegment)) : 'neutral'}
                           />
-                          {/* role 라벨 */}
-                          <span className={`absolute top-1 ${avatarOnLeft ? 'left-1' : 'right-1'} px-1.5 py-0.5 rounded text-[9px] uppercase tracking-[0.14em] z-10 ${
-                            isSpeaking ? 'bg-ink text-cream' : 'bg-paper/80 text-ink/60 border border-hairline'
-                          }`}>
-                            {roleLabel}
-                          </span>
+                          {/* role 라벨 제거 — 캐릭터 모양으로 충분히 구분됨 */}
                         </div>
 
                         {/* 말풍선 자리 — 말하고 있을 때만 등장 */}
                         <div className="flex-1 min-w-0 h-full flex items-center justify-center">
-                          {activeChunk && (
-                            <div className={`bubble-cute ${avatarOnLeft ? 'tail-left' : 'tail-right'}`} key={activeChunk}>
-                              {activeChunk}
-                            </div>
-                          )}
+                          {activeChunk && (() => {
+                            const segEn = getEnForSegment(currentSegment);
+                            return (
+                              <div className={`bubble-cute ${avatarOnLeft ? 'tail-left' : 'tail-right'}`} key={activeChunk}>
+                                <span className="bubble-kr">{activeChunk}</span>
+                                {showEnglish && segEn && (
+                                  <span className="bubble-en">{segEn}</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -2552,16 +3228,20 @@
             )}
           </Card>
 
-          {/* 자막 리스트 */}
+          {/* 자막 리스트 — 발화별로 누가 말했는지 정정 가능 */}
           <div>
-            <div className="flex items-baseline justify-between mb-1 px-1">
-              <h3 className="text-[13px] font-medium text-ink">자막</h3>
-              <span className="text-[11px] text-faint">탭하면 자막 편집</span>
+            <div className="flex items-baseline justify-between mb-2 px-1">
+              <h3 className="text-[14px] font-medium text-ink">자막 · 화자 정정</h3>
+              <span className="text-[11px] text-faint num">{effectiveSegments.length}개 발화</span>
             </div>
-            <p className="text-[11px] text-muted px-1 mb-3 leading-relaxed">
-              라벨은 <span className="text-ink/80">한 발화씩 개별 변경</span>됩니다 — 같은 화자의 다른 발화엔 영향 없음. 변경된 발화엔 <span className="text-accent">↺ 복원</span> 버튼이 생겨요.
-            </p>
-            <div className="bg-paper border border-hairline rounded-xl divide-y divide-hairline">
+            <Card className="!p-3 mb-3 bg-accentSoft/30 border-accent/30">
+              <p className="text-[12px] text-ink/80 leading-relaxed">
+                🎧 <span className="font-medium">▶︎</span>로 듣고 <span className="bg-ink text-cream px-1.5 py-0.5 rounded text-[11px]">아빠</span> <span className="bg-paper border border-hairline px-1.5 py-0.5 rounded text-[11px]">엄마</span> <span className="bg-paper border border-hairline px-1.5 py-0.5 rounded text-[11px]">아기</span>로 화자 정정. <br/>
+                <span className="text-accent font-medium">✂︎</span> 단어 사이 클릭으로 쪼개기 {audioRMS ? <span className="text-accent">· 🎯 실제 음성 silence에 자동 스냅</span> : <span className="text-faint">· 오디오 분석 중...</span>}<br/>
+                <span className="text-accent">⏱</span> 미세조정. <span className="italic text-ink/60">(괄호)</span>는 시간 계산 제외.
+              </p>
+            </Card>
+            <div className="bg-paper border border-hairline rounded-xl divide-y divide-hairline overflow-hidden">
               {effectiveSegments.map((s) => {
                 const isEditing = editingId === s.id;
                 const sp = SPEAKER_COLORS[s.speaker] || SPEAKER_COLORS.C;
@@ -2570,55 +3250,111 @@
                 const isOverridden = segmentRoleOverrides[s.id] !== undefined;
                 const isBaby = role === "baby";
                 const isCurrent = currentSegment && currentSegment.id === s.id;
+                const isPlayingThis = isCurrent && isPlaying;
                 return (
-                  <div key={s.id} className={`px-4 py-3.5 transition-colors ${isCurrent ? 'bg-accentSoft/30' : ''}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${sp.dot}`} />
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-faint">사람 {s.speaker}</span>
-                      {isOverridden && (
-                        <button
-                          type="button"
-                          onClick={() => clearSegmentRole(s.id)}
-                          className="text-[10px] px-1.5 py-0.5 rounded border border-accent/40 text-accent hover:bg-accent/10 transition"
-                          title="이 발화 라벨을 기본값으로 복원"
-                        >
-                          ↺ 복원
-                        </button>
-                      )}
+                  <div key={s.id} className={`px-3 py-3 transition-colors ${isCurrent ? 'bg-accentSoft/40' : ''}`}>
+                    {/* 상단: ▶︎ 재생 + 시간 + 원본 화자 라벨 + 수정됨 뱃지 */}
+                    <div className="flex items-center gap-2 mb-2.5">
                       <button
                         type="button"
-                        onClick={() => seekTo(s.start)}
-                        className="text-[10px] text-faint num ml-auto hover:text-ink transition"
-                        title="이 구간으로 이동"
+                        onClick={() => {
+                          const audio = audioRef.current;
+                          if (!audio) return;
+                          if (isPlayingThis) {
+                            audio.pause();
+                          } else {
+                            seekTo(s.start);
+                            audio.play().catch(() => {});
+                          }
+                        }}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition flex-shrink-0
+                          ${isPlayingThis ? 'bg-accent text-cream' : 'bg-ink text-cream hover:bg-ink/90'}`}
+                        title={isPlayingThis ? '일시정지' : '이 발화 듣기'}
                       >
-                        ▸ {fmtTime(s.start)} — {fmtTime(s.end)}
+                        {isPlayingThis ? <Icon.pause size={12} /> : <Icon.play size={12} />}
                       </button>
-                    </div>
-
-                    {/* 역할 인라인 선택 — 이 발화 한 개만 변경 (다른 segment 영향 없음) */}
-                    <div className="flex gap-1 mb-2">
-                      {ROLES.map((r) => {
-                        const selected = role === r.key;
-                        const isSpeakerDefault = speakerDefaultRole === r.key && !isOverridden;
-                        return (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`w-1.5 h-1.5 rounded-full ${sp.dot} flex-shrink-0`} />
+                          <span className="text-[10px] uppercase tracking-[0.14em] text-faint">AI: 사람 {s.speaker}</span>
+                          {isOverridden && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-cream font-medium tracking-tight">
+                              ⚙ 수정됨
+                            </span>
+                          )}
+                        </div>
+                        {adjustingTime === s.id ? (
+                          <div className="flex flex-col gap-1 mt-1">
+                            <div className="flex items-center gap-1 text-[10px] num flex-wrap">
+                              <span className="text-faint mr-0.5">시작</span>
+                              <button type="button" onClick={() => adjustSegmentTime(s.id, 'start', -0.1)} className="w-5 h-5 flex items-center justify-center rounded bg-paper border border-hairline hover:bg-ink hover:text-cream transition" title="-0.1s">−</button>
+                              <span className="text-ink/80 px-1.5 min-w-[44px] text-center">{fmtTime(s.start)}</span>
+                              <button type="button" onClick={() => adjustSegmentTime(s.id, 'start', 0.1)} className="w-5 h-5 flex items-center justify-center rounded bg-paper border border-hairline hover:bg-ink hover:text-cream transition" title="+0.1s">+</button>
+                              <span className="text-faint mx-1">—</span>
+                              <span className="text-faint mr-0.5">끝</span>
+                              <button type="button" onClick={() => adjustSegmentTime(s.id, 'end', -0.1)} className="w-5 h-5 flex items-center justify-center rounded bg-paper border border-hairline hover:bg-ink hover:text-cream transition" title="-0.1s">−</button>
+                              <span className="text-ink/80 px-1.5 min-w-[44px] text-center">{fmtTime(s.end)}</span>
+                              <button type="button" onClick={() => adjustSegmentTime(s.id, 'end', 0.1)} className="w-5 h-5 flex items-center justify-center rounded bg-paper border border-hairline hover:bg-ink hover:text-cream transition" title="+0.1s">+</button>
+                              <button type="button" onClick={() => setAdjustingTime(null)} className="ml-1 text-faint hover:text-ink px-1" title="닫기">✕</button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => extendSegmentToNext(s.id)}
+                              className="self-start text-[10px] text-ink/60 hover:text-ink underline-offset-2 hover:underline"
+                              title="묵음에 타이핑한 텍스트('네에' 등)에 충분한 시간 주기 — 다음 발화 직전까지 끝을 자동으로 늘립니다"
+                            >
+                              → 다음 발화 직전까지 끝 늘리기
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            key={r.key}
                             type="button"
-                            onClick={() => setSegmentRole(s.id, r.key)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full border transition
-                              ${selected
-                                ? (isOverridden
-                                    ? 'bg-accent text-cream border-accent'
-                                    : 'bg-ink text-cream border-ink')
-                                : 'bg-paper text-ink/60 border-hairline hover:border-ink/40'}`}
-                            title={isSpeakerDefault ? `사람 ${s.speaker} 기본값` : `이 발화만 ${r.kr}로`}
+                            onClick={() => setAdjustingTime(s.id)}
+                            className="text-[10px] num text-faint mt-0.5 hover:text-ink transition"
+                            title="시간 미세조정 — split 후 자막이 실제 음성과 어긋나면 여기서 맞춤"
+                            disabled={silenceMode === 'trim'}
                           >
-                            {r.kr}
+                            ⏱ {fmtTime(s.start)} — {fmtTime(s.end)}
                           </button>
-                        );
-                      })}
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 items-end flex-shrink-0">
+                        {isOverridden && (
+                          <button
+                            type="button"
+                            onClick={() => clearSegmentRole(s.id)}
+                            className="text-[10px] px-2 py-1 rounded border border-hairline text-ink/60 hover:border-ink/40 hover:text-ink transition"
+                            title="AI 원본 라벨로 복원"
+                          >
+                            ↺ 원래대로
+                          </button>
+                        )}
+                        {/* 위와 합치기 — split 잘못한 경우 되돌리기. silenceMode trim일 땐 비활성 */}
+                        {effectiveSegments.findIndex(x => x.id === s.id) > 0 && silenceMode !== 'trim' && (
+                          <button
+                            type="button"
+                            onClick={() => mergeWithPrevious(s.id)}
+                            className="text-[10px] px-2 py-1 rounded border border-hairline text-ink/60 hover:border-ink hover:text-ink transition whitespace-nowrap"
+                            title="위 발화와 합쳐서 split 되돌리기"
+                          >
+                            ↑ 위와 합치기
+                          </button>
+                        )}
+                        {/* 아래에 새 발화 추가 — 묵음 구간에 새 자막 적을 때 (AI가 못 잡은 "응"/"네에" 등) */}
+                        {silenceMode !== 'trim' && (
+                          <button
+                            type="button"
+                            onClick={() => addEmptySegmentAfter(s.id)}
+                            className="text-[10px] px-2 py-1 rounded border border-hairline text-ink/60 hover:border-accent hover:text-accent transition whitespace-nowrap"
+                            title="이 발화 아래에 새 빈 자막 추가 — 묵음에 직접 적기"
+                          >
+                            ↓ 새 발화
+                          </button>
+                        )}
+                      </div>
                     </div>
 
+                    {/* 발화 텍스트 — 단어 사이 ✂︎로 쪼개기, 클릭하면 편집 */}
                     {isEditing ? (
                       <input
                         type="text"
@@ -2627,17 +3363,176 @@
                         onChange={(e) => onTextChange(s.id, e.target.value)}
                         onBlur={() => setEditingId(null)}
                         onKeyDown={(e) => { if (e.key === "Enter") setEditingId(null); }}
-                        className="w-full pb-1 text-[14px] text-ink bg-transparent border-b border-accent focus:outline-none"
+                        className="w-full px-2 py-1.5 mb-2.5 text-[14px] text-ink bg-paper border-2 border-accent rounded-md focus:outline-none"
                       />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(s.id)}
-                        className="block w-full text-left text-[14px] text-ink leading-relaxed editable transition pb-px"
-                      >
-                        {getText(s)}
-                      </button>
+                    ) : (() => {
+                      const displayText = getText(s);
+                      const inTrim = silenceMode === 'trim';
+                      // 빈 자막 — 편집만 가능
+                      if (!displayText) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(s.id)}
+                            className="block w-full text-left text-[14px] text-faint italic mb-2.5 px-1 hover:bg-cream/50 rounded transition"
+                          >
+                            (빈 자막 — 탭해서 입력)
+                          </button>
+                        );
+                      }
+                      // 침묵 자르기 모드면 일반 표시
+                      if (inTrim) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(s.id)}
+                            className="block w-full text-left text-[14px] text-ink leading-relaxed mb-2.5 px-1 hover:bg-cream/50 rounded transition"
+                            title="탭하면 자막 편집 · 단어 쪼개기는 침묵 자르기 OFF일 때"
+                          >
+                            {displayText}
+                          </button>
+                        );
+                      }
+                      // 토큰별 쪼개기 — words 데이터 있으면 정확한 timestamp 사용,
+                      // 없거나 사용자가 타이핑한 segment면 글자수 비례로 계산
+                      const tokens = displayText.split(/\s+/).filter(Boolean);
+                      if (tokens.length <= 1) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(s.id)}
+                            className="block w-full text-left text-[14px] text-ink leading-relaxed mb-2.5 px-1 hover:bg-cream/50 rounded transition"
+                            title="탭하면 자막 편집"
+                          >
+                            {displayText}
+                          </button>
+                        );
+                      }
+                      // ★ 앵커 기반 split 시간 — 원본 AssemblyAI 단어들의 timestamp를 토큰에 매칭
+                      //   사용자가 앞뒤로 글씨/괄호 추가해도 원본 단어의 시간은 그대로 유지
+                      const { times: tokTimes, matched: tokMatched } = getAnchoredTokenTimes(tokens, Array.isArray(s.words) ? s.words : [], s.start, s.end);
+                      return (
+                        <div className="mb-2.5 px-1 flex flex-wrap items-center gap-y-1">
+                          {tokens.map((tok, ti) => {
+                            const isNarr = isNarrativeToken(tok);
+                            // split time: 이 토큰의 end (=다음 토큰의 시작 직전)
+                            const splitTime = ti < tokens.length - 1 ? tokTimes[ti]?.end : null;
+                            const isSplittingHere = splittingAt && splittingAt.segId === s.id && splitTime != null && Math.abs(splittingAt.splitTime - splitTime) < 0.05;
+                            const isAnchored = !!tokMatched[ti];
+                            return (
+                              <React.Fragment key={ti}>
+                                <span
+                                  onClick={() => setEditingId(s.id)}
+                                  className={`leading-relaxed cursor-text hover:bg-cream/60 rounded px-0.5 ${
+                                    isNarr ? 'text-[12px] text-ink/50 italic' : 'text-[14px] text-ink'
+                                  }`}
+                                  title={
+                                    isNarr ? '괄호 안 텍스트 (상황 설명) · 시간에 영향 없음'
+                                    : isAnchored ? `원본 인식 단어 · ${fmtTime(tokMatched[ti].start)}`
+                                    : '사용자가 추가한 텍스트 (시간 보간)'
+                                  }
+                                >
+                                  {tok}
+                                </span>
+                                {splitTime != null && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isSplittingHere) setSplittingAt(null);
+                                      else {
+                                        // ★ 실제 오디오 silence에 스냅 — AssemblyAI 오차 ±100~300ms 자동 보정
+                                        const snapped = snapToSilence(splitTime);
+                                        setSplittingAt({ segId: s.id, splitTime: snapped, original: splitTime });
+                                      }
+                                    }}
+                                    className={`inline-flex items-center justify-center px-1 h-5 text-[13px] rounded transition leading-none
+                                      ${isSplittingHere
+                                        ? 'text-accent bg-accent/20'
+                                        : 'text-ink/25 hover:text-accent hover:bg-accent/15'}`}
+                                    title={audioRMS ? `여기서 쪼개기 · 실제 silence로 자동 스냅` : `여기서 쪼개기 · ${fmtTime(splitTime)}`}
+                                  >
+                                    ✂︎
+                                  </button>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* 쪼개기 진행 중인 segment에 역할 선택 UI 노출 */}
+                    {splittingAt && splittingAt.segId === s.id && (
+                      <div className="mb-2.5 p-2.5 rounded-lg bg-accentSoft/50 border border-accent/40">
+                        <div className="text-[11px] text-ink/85 mb-2">
+                          ✂︎ <span className="num">{fmtTime(splittingAt.splitTime)}</span>
+                          {splittingAt.original != null && Math.abs(splittingAt.original - splittingAt.splitTime) > 0.02 && (
+                            <span className="text-[10px] text-accent ml-1" title={`원본 ${fmtTime(splittingAt.original)} → silence로 스냅`}>
+                              🎯 silence 스냅
+                            </span>
+                          )}
+                          {' '}이후 부분은 <span className="font-medium">누가</span> 말했나요?
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {ROLES.map(r => (
+                            <button
+                              key={r.key}
+                              type="button"
+                              onClick={() => {
+                                splitSegmentAt(splittingAt.segId, splittingAt.splitTime, r.key);
+                                setSplittingAt(null);
+                              }}
+                              className="py-1.5 rounded-md text-[12px] font-medium border-2 border-hairline bg-paper hover:border-ink hover:bg-ink hover:text-cream transition"
+                            >
+                              {r.kr}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setSplittingAt(null)}
+                            className="py-1.5 rounded-md text-[11px] text-ink/50 hover:text-ink transition"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </div>
                     )}
+
+                    {/* 화자 선택 — 큰 버튼 3개 (이 발화만 변경) */}
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-ink/50 mb-1.5">누가 말했나요?</div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {ROLES.map((r) => {
+                          const selected = role === r.key;
+                          const isSpeakerDefault = speakerDefaultRole === r.key && !isOverridden;
+                          return (
+                            <button
+                              key={r.key}
+                              type="button"
+                              onClick={() => {
+                                // 같은 역할 다시 누르면 토글 해제 (원본 복귀)
+                                if (selected && isOverridden) {
+                                  clearSegmentRole(s.id);
+                                } else {
+                                  setSegmentRole(s.id, r.key);
+                                }
+                              }}
+                              className={`py-2 rounded-lg text-[13px] font-medium border-2 transition flex items-center justify-center gap-1.5
+                                ${selected
+                                  ? (isOverridden
+                                      ? 'bg-accent text-cream border-accent shadow-sm'
+                                      : 'bg-ink text-cream border-ink')
+                                  : 'bg-paper text-ink/70 border-hairline hover:border-ink/40 hover:text-ink'}`}
+                              title={isSpeakerDefault ? `사람 ${s.speaker}의 기본 역할` : `이 발화만 ${r.kr}로`}
+                            >
+                              <span>{r.kr}</span>
+                              {selected && <span className="text-[10px] opacity-80">●</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {isBaby && (
                       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                         <span className="text-[10px] uppercase tracking-[0.14em] text-faint mr-1">의성어</span>
@@ -2657,6 +3552,22 @@
                 );
               })}
             </div>
+
+            {/* 수정 카운트 + 일괄 복원 */}
+            {Object.keys(segmentRoleOverrides).length > 0 && (
+              <div className="mt-3 px-3 py-2 rounded-lg border border-accent/30 bg-accentSoft/40 flex items-center justify-between">
+                <span className="text-[11px] text-ink">
+                  <span className="text-accent font-medium num">{Object.keys(segmentRoleOverrides).length}개</span> 발화 수동 정정됨
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSegmentRoleOverrides({})}
+                  className="text-[11px] text-ink/60 hover:text-ink underline-offset-2 hover:underline"
+                >
+                  전체 원래대로
+                </button>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -2665,27 +3576,53 @@
     // ========================================
     // Page — ExportStep
     // ========================================
-    function ExportStep() {
-      const [progress, setProgress] = useState(0);
+    function ExportStep({ exportedBlobUrl, exportedFilename, goToPreview, previewActionsRef }) {
+      const [progress, setProgress] = useState(exportedBlobUrl ? 100 : 0);
       const [rendering, setRendering] = useState(false);
-      const [done, setDone] = useState(false);
+      const [done, setDone] = useState(!!exportedBlobUrl); // 이미 미리보기에서 받았으면 즉시 완료 상태
 
-      const startRender = useCallback(() => {
+      // Preview에서 webm이 들어오면 자동으로 완료 처리
+      useEffect(() => {
+        if (exportedBlobUrl) { setDone(true); setProgress(100); setRendering(false); }
+      }, [exportedBlobUrl]);
+
+      const startRender = useCallback(async () => {
         setRendering(true);
         setProgress(0);
         setDone(false);
+
+        // 진행률 fake bar — 90%까지 천천히 올림 (실제 녹화 길이 동안)
         const iv = setInterval(() => {
-          setProgress((p) => {
-            if (p >= 100) {
-              clearInterval(iv);
-              setRendering(false);
-              setDone(true);
-              return 100;
-            }
-            return p + 5;
-          });
-        }, 150);
-      }, []);
+          setProgress((p) => p < 90 ? p + 2 : p);
+        }, 200);
+
+        try {
+          // PreviewStep의 downloadVideo를 silent 모드로 호출 — 화면 밖 PreviewStep stage를 녹화
+          const fn = previewActionsRef?.current?.downloadVideo;
+          if (typeof fn === 'function') {
+            await fn({ silent: true });
+          } else {
+            console.warn('[Export] previewActionsRef.downloadVideo not ready');
+          }
+        } catch (e) {
+          console.warn('[Export] 합성 실패:', e?.message);
+        } finally {
+          clearInterval(iv);
+          setProgress(100);
+          setRendering(false);
+          setDone(true);
+        }
+      }, [previewActionsRef]);
+
+      const downloadMp4 = useCallback(() => {
+        if (!exportedBlobUrl) return;
+        const a = document.createElement('a');
+        a.href = exportedBlobUrl;
+        a.download = exportedFilename || `baby-cartoon-${new Date().toISOString().slice(0,19).replace(/[:.]/g,'-')}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, [exportedBlobUrl, exportedFilename]);
 
       return (
         <div className="px-6 py-7 space-y-5 anim-fade-in">
@@ -2744,12 +3681,18 @@
             <Button
               variant="primary"
               size="lg"
-              disabled={!done}
+              disabled={!done || !exportedBlobUrl}
               className="w-full"
-              onClick={() => {/* Day 5 다운로드 */}}
+              onClick={downloadMp4}
             >
               <Icon.download /> MP4 다운로드
             </Button>
+            {!exportedBlobUrl && (
+              <div className="text-[11px] text-muted text-center -mt-1">
+                미리보기 단계에서 "영상 다운로드" 버튼을 먼저 한 번 눌러 주세요.{' '}
+                <button type="button" onClick={goToPreview} className="underline text-accent">미리보기로 이동</button>
+              </div>
+            )}
             <Button
               variant="secondary"
               size="lg"
@@ -2783,10 +3726,18 @@
     // ========================================
     function App() {
       const [step, setStep] = useState(1);
+      // PreviewStep에서 만든 webm을 보관 → ExportStep의 MP4 다운로드 버튼이 이걸 다시 다운로드
+      const [exportedBlobUrl, setExportedBlobUrl] = useState(null);
+      const [exportedFilename, setExportedFilename] = useState('');
+      // PreviewStep의 downloadVideo 함수를 ExportStep이 호출할 수 있게 ref로 공유
+      const previewActionsRef = useRef({});
 
       const [file, setFile] = useState(null);
       const [fileName, setFileName] = useState("");
       const [consent, setConsent] = useState(false);
+      // 예상 화자 수 — AssemblyAI에 hint로 전달. 'auto'면 자동 감지(현재 동작), 숫자면 그대로 강제.
+      //   정확한 숫자 알면 다이어라이제이션 정확도 큰 폭 ↑ (특히 아빠/엄마/아기 같이 음역대 차이 큰 케이스)
+      const [speakersExpected, setSpeakersExpected] = useState('auto');
       const [roleMapping, setRoleMapping] = useState({});
       const [characterStyle, setCharacterStyle] = useState("stickman");
       const [editedSegments, setEditedSegments] = useState({});
@@ -2841,10 +3792,14 @@
 
           // 2) AssemblyAI 발화자 구분
           setLoadingPhase("발화자 분석 중... (최대 2분)");
+          const trBody = { jobId: newJobId };
+          if (speakersExpected !== 'auto') {
+            trBody.speakersExpected = parseInt(speakersExpected, 10);
+          }
           const trRes = await fetch("/api/transcribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ jobId: newJobId }),
+            body: JSON.stringify(trBody),
           });
           const trJson = await trRes.json().catch(() => ({}));
           if (!trRes.ok || !trJson.success) {
@@ -2868,7 +3823,7 @@
           setLoading(false);
           setLoadingPhase("");
         }
-      }, [file, consent]);
+      }, [file, consent, speakersExpected]);
 
       const onPrev = (reset = false) => {
         if (reset === true) {
@@ -2947,6 +3902,8 @@
                   loadingPhase={loadingPhase}
                   errorMsg={errorMsg}
                   onAnalyze={handleAnalyze}
+                  speakersExpected={speakersExpected}
+                  setSpeakersExpected={setSpeakersExpected}
                 />
               )}
               {step === 2 && (
@@ -2964,20 +3921,32 @@
                   setCharacterStyle={setCharacterStyle}
                 />
               )}
-              {step === 4 && (
-                <PreviewStep
-                  jobId={jobId}
-                  segments={segments}
-                  roleMapping={roleMapping}
-                  setRoleMapping={setRoleMapping}
-                  segmentRoleOverrides={segmentRoleOverrides}
-                  setSegmentRoleOverrides={setSegmentRoleOverrides}
-                  characterStyle={characterStyle}
-                  editedSegments={editedSegments}
-                  setEditedSegments={setEditedSegments}
+              {(step === 4 || step === 5) && (
+                <div style={step === 5 ? { position: 'fixed', top: '-99999px', left: '-99999px', width: 360, height: 720, pointerEvents: 'none' } : undefined}>
+                  <PreviewStep
+                    jobId={jobId}
+                    segments={segments}
+                    setSegments={setSegments}
+                    roleMapping={roleMapping}
+                    setRoleMapping={setRoleMapping}
+                    segmentRoleOverrides={segmentRoleOverrides}
+                    setSegmentRoleOverrides={setSegmentRoleOverrides}
+                    characterStyle={characterStyle}
+                    editedSegments={editedSegments}
+                    setEditedSegments={setEditedSegments}
+                    onExported={(url, filename) => { setExportedBlobUrl(url); setExportedFilename(filename); }}
+                    previewActionsRef={previewActionsRef}
+                  />
+                </div>
+              )}
+              {step === 5 && (
+                <ExportStep
+                  exportedBlobUrl={exportedBlobUrl}
+                  exportedFilename={exportedFilename}
+                  goToPreview={() => setStep(4)}
+                  previewActionsRef={previewActionsRef}
                 />
               )}
-              {step === 5 && <ExportStep />}
             </main>
 
             {/* Day 3: step 2/3 저장 에러 배너 */}
