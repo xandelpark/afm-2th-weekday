@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Allura&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Great+Vibes&family=Noto+Serif+KR:wght@200;300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Allura&family=Caveat:wght@500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Great+Vibes&family=Kalam:wght@400;700&family=Noto+Serif+KR:wght@200;300;400;500;600;700&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -47,6 +47,9 @@
             cormorant: ['"Cormorant Garamond"', 'serif'],
             playfair: ['"Playfair Display"', 'serif'],
             script: ['"Allura"', '"Great Vibes"', 'cursive'],
+            handwrite: ['"Caveat"', '"Great Vibes"', 'cursive'],
+            marker: ['"Permanent Marker"', '"Caveat"', 'cursive'],
+            kalam: ['"Kalam"', '"Caveat"', 'cursive'],
           },
         }
       }
@@ -98,8 +101,63 @@
     /* 러블리 톤 — 누드 핑크 베이스 (강화) */
     .lovely-cream { background: linear-gradient(180deg, #fde2d8 0%, #fac9bd 100%); }
     .lovely-blush { background: linear-gradient(180deg, #fdd9cd 0%, #f9bcae 100%); }
+    /* 키치 톤 — 베이지 펄프 종이 + 작은 노이즈 결 */
+    .kitsch-paper {
+      background-color: #ece4d6;
+      background-image:
+        radial-gradient(rgba(120, 90, 60, 0.06) 1px, transparent 1px),
+        radial-gradient(rgba(120, 90, 60, 0.04) 1px, transparent 1px),
+        linear-gradient(180deg, #ede6d8 0%, #e7decd 100%);
+      background-size: 3px 3px, 7px 7px, 100% 100%;
+      background-position: 0 0, 1px 2px, 0 0;
+    }
+    /* 키치 폴라로이드 — 흰 보더 + 부드러운 그림자 */
+    .polaroid {
+      background: #fbf6ec;
+      padding: 5% 5% 14% 5%;
+      box-shadow: 0 6px 14px rgba(60, 40, 20, 0.18), 0 1px 2px rgba(0,0,0,0.08);
+    }
+    .tape {
+      position: absolute;
+      width: 38px; height: 14px;
+      background: rgba(245, 224, 168, 0.7);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
     /* 손글씨 hero "thank you" */
     .font-script { font-family: 'Allura', 'Great Vibes', cursive; font-weight: 400; }
+    /* 손글씨 휘갈김 (키치용) */
+    .font-handwrite { font-family: 'Caveat', 'Great Vibes', cursive; font-weight: 700; }
+    .font-marker    { font-family: 'Permanent Marker', 'Caveat', cursive; font-weight: 400; }
+    .font-kalam     { font-family: 'Kalam', 'Caveat', cursive; font-weight: 700; }
+    /* 크레파스/마커 거친 질감 — text-shadow 다중 스택 + SVG turbulence */
+    .crayon-text {
+      filter: url('#crayonFilter');
+      -webkit-text-stroke: 0.45px currentColor;
+      text-shadow:
+        0.4px 0.4px 0 currentColor,
+        -0.4px -0.3px 0 currentColor,
+        0.7px -0.2px 0 currentColor,
+        -0.2px 0.6px 0 currentColor;
+    }
+    .crayon-soft {
+      filter: url('#crayonSoftFilter');
+      -webkit-text-stroke: 0.3px currentColor;
+      text-shadow:
+        0.3px 0.3px 0 currentColor,
+        -0.3px -0.2px 0 currentColor;
+    }
+    /* 형광 네온 강조 — 핫핑크 박스에 살짝 글로우 */
+    .neon-pink-box {
+      background: #ff1f9a;
+      box-shadow:
+        0 6px 14px rgba(255, 30, 154, 0.32),
+        0 2px 4px rgba(0,0,0,0.18),
+        inset 0 0 0 2px rgba(255,255,255,0.18);
+    }
+    .neon-lime-tape {
+      background: rgba(212, 255, 46, 0.85);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }
     /* 세로 조판 — 한국어 종서 (감성 카드용) */
     .vrl-up  { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.04em; }
     .vrl-mix { writing-mode: vertical-rl; text-orientation: mixed; }
@@ -135,6 +193,19 @@
   </style>
 </head>
 <body class="bg-background text-foreground">
+  <!-- 키치 카드용 SVG turbulence filter (크레파스/마커 거친 질감) -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="crayonFilter" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.78" numOctaves="2" seed="7" />
+        <feDisplacementMap in="SourceGraphic" scale="1.6" />
+      </filter>
+      <filter id="crayonSoftFilter" x="-6%" y="-6%" width="112%" height="112%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="3" />
+        <feDisplacementMap in="SourceGraphic" scale="0.9" />
+      </filter>
+    </defs>
+  </svg>
   <div id="root"></div>
   <script>
     // 임시 디버그 — viewport 폭과 scrollWidth 화면에 표시 (캡쳐 후 제거 예정)
@@ -248,6 +319,33 @@
       const { data, error } = await supa.from('signups').select('photo_count').eq('id', userId).maybeSingle();
       if (error || !data) return 0;
       return data.photo_count || 0;
+    }
+    // 카드 비율을 viewport에 무관하게 유지하기 위한 scale wrapper.
+    // 자식 카드는 항상 baseWidth × (baseWidth/ratio) 사이즈로 렌더하고, 외부 wrapper의
+    // 실제 폭에 맞춰 transform: scale로 축소·확대한다. ResizeObserver로 wrapper 폭 추적.
+    function ScaledPoster({ className = '', baseWidth = 480, ratio = 4/5, children }) {
+      const wrapRef = useRef(null);
+      const [scale, setScale] = useState(1);
+      useEffect(() => {
+        const el = wrapRef.current;
+        if (!el) return;
+        const update = () => {
+          const w = el.offsetWidth || 0;
+          setScale(w / baseWidth);
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+      }, [baseWidth]);
+      const baseHeight = baseWidth / ratio;
+      return (
+        <div ref={wrapRef} className={cn('relative overflow-hidden', className)} style={{ aspectRatio: `${ratio}` }}>
+          <div style={{ width: `${baseWidth}px`, height: `${baseHeight}px`, transformOrigin: 'top left', transform: `scale(${scale})` }}>
+            {children}
+          </div>
+        </div>
+      );
     }
     function PosterSurface({ className = '', children }) {
       const surfaceRef = useRef(null);
@@ -511,6 +609,20 @@
             { key: 'cr_fin',     label: '엔딩' },
           ],
         },
+        kitsch: {
+          hero:    [{ key: 'hero',    label: '메인 손글씨 (Thank You)' }],
+          sub:     [{ key: 'sub',     label: '보조 손글씨 (Happy Wedding)' }],
+          quote:   [
+            { key: 'quote1', label: '인용구 1행' },
+            { key: 'quote2', label: '인용구 2행' },
+            { key: 'quote3', label: '인용구 3행' },
+          ],
+          stamp:   [{ key: 'stamp',   label: '도장 텍스트' }],
+          couple:  [
+            { key: 'couple', label: '이름' },
+            { key: 'date',   label: '날짜' },
+          ],
+        },
       },
     };
     function makeGetCopy(copy) {
@@ -621,6 +733,25 @@
     const PHOTOS = {
       wedding: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=80',
     };
+    // 가입 화면 홍보용 — 스타일별 샘플 사진 (실제 마리안 본식 컷)
+    // 파일명과 매핑이 다름에 주의: minimal ← sample-invitation.jpg(16.jpg, 격식 호텔 가로컷),
+    //                              invitation ← sample-minimal.jpg(0043.jpg, 세로 풀블리드)
+    const SAMPLE_PHOTOS = {
+      minimal:    'assets/samples/sample-invitation.jpg', // 가로 호텔 컷
+      invitation: 'assets/samples/sample-minimal.jpg',    // 세로 풀블리드 컷
+      emotive:    'assets/samples/sample-emotive.jpg',
+      kitsch:     'assets/samples/sample-kitsch.jpg',
+    };
+    // 미리보기용 — 사진별 권장 크롭 (각 샘플 사진의 피사체 위치에 맞춤)
+    const SAMPLE_CROPS = {
+      minimal:    { main: { x: 50, y: 55, scale: 105 } }, // 가로 호텔컷 — 신랑신부 가운데, 살짝 위로
+      invitation: { main: { x: 50, y: 70, scale: 115 } }, // 세로 풀블리드 — 사람이 카드 가운데로 더 올라오게
+      emotive:    { main: { x: 50, y: 50, scale: 100 } },
+      kitsch:     {
+        main: { x: 50, y: 50, scale: 100 },
+        alt:  { x: 55, y: 40, scale: 310 }, // 신부만 보이게 — 더 크게 크롭 (slider max를 넘어 직접 값)
+      },
+    };
     const CATEGORIES = [
       { key: 'wedding', label: '본식 스냅 — 땡큐카드', en: 'Thank You Card' },
     ];
@@ -636,6 +767,16 @@
           venueKr:      '그랜드 컨벤션 5F 더 그레이스홀',
           thanksHeadEn: 'with all our love',
           thanksKr:     '오신 자리 덕분에 더 빛나는 날이었습니다',
+        },
+        kitsch: {
+          hero:   'Thank You',
+          sub:    'Happy wedding',
+          quote1: 'IF TOMORROW',
+          quote2: 'BRINGS NEW HOPE,',
+          quote3: 'I HOPE IT BRINGS YOU.',
+          stamp:  'with love',
+          couple: 'Jihye × Minsu',
+          date:   '06.14.2026',
         },
         no: 'No. 0421',
       },
@@ -799,19 +940,20 @@
             <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.66) 100%)' }} />
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.40) 100%)' }} />
 
-            {/* 좌상단 — 메타 블록 */}
-            <div className="absolute left-6 top-6" style={{ color: ink, ...ov }}>
+            {/* 좌상단 — 메타 블록 (안쪽으로 들여서) */}
+            <div className="absolute" style={{ left: '10%', top: '10%', color: ink, ...ov }}>
               {TB('top_meta', 'top-left', '', (
                 <div>
-                  <div className="text-[9px] tracking-[0.42em] uppercase opacity-85">{getCopy('tm_eyebrow', 'Wedding Day · Memento')}</div>
-                  <div className="font-cormorant italic text-[11px] mt-1 opacity-90">{getCopy('tm_date', '06.14.2026')}</div>
-                  <div className="font-cormorant italic text-[10px] mt-1 opacity-75">{getCopy('tm_sub', '— thank you, from both of us')}</div>
+                  <div className="text-[10px] tracking-[0.42em] uppercase opacity-85">{getCopy('tm_eyebrow', 'Wedding Day · Memento')}</div>
+                  <div className="font-cormorant italic text-[12px] mt-1 opacity-90">{getCopy('tm_date', '06.14.2026')}</div>
+                  <div className="font-cormorant italic text-[11px] mt-1 opacity-75">{getCopy('tm_sub', '— thank you, from both of us')}</div>
                 </div>
               ))}
             </div>
 
-            {/* 우측 — 한국어 두 컬럼 (한 블록) */}
-            <div className="absolute right-6 top-1/2" style={{
+            {/* 우측 — 한국어 두 컬럼 (한 블록, 우측에서 살짝 들임) */}
+            <div className="absolute top-1/2" style={{
+              right: '9%',
               color: ov?.color || ink,
               transform: ov ? `translateY(-50%) ${ov.transform}` : 'translateY(-50%)',
               ...(ov ? { opacity: ov.opacity } : {}),
@@ -828,13 +970,13 @@
               ))}
             </div>
 
-            {/* 좌하단 크레딧 */}
-            <div className="absolute left-6 bottom-6" style={{ color: ink, ...ov }}>
+            {/* 좌하단 크레딧 (안쪽으로 들여서) */}
+            <div className="absolute" style={{ left: '10%', bottom: '10%', color: ink, ...ov }}>
               {TB('credit', 'bottom-left', '', (
                 <div>
-                  <div className="text-[9px] tracking-[0.42em] uppercase opacity-80">{getCopy('cr_eyebrow', 'Starring')}</div>
-                  <div className="font-cormorant italic text-[16px] tracking-wide mt-1">{getCopy('cr_name', 'Jihye × Minsu')}</div>
-                  <div className="text-[9px] tracking-[0.32em] uppercase opacity-70 mt-2">{getCopy('cr_fin', '— Fin —')}</div>
+                  <div className="text-[10px] tracking-[0.42em] uppercase opacity-80">{getCopy('cr_eyebrow', 'Starring')}</div>
+                  <div className="font-cormorant italic text-[18px] tracking-wide mt-1">{getCopy('cr_name', 'Jihye × Minsu')}</div>
+                  <div className="text-[10px] tracking-[0.32em] uppercase opacity-70 mt-2">{getCopy('cr_fin', '— Fin —')}</div>
                 </div>
               ))}
             </div>
@@ -842,10 +984,271 @@
         );
       }
     }
+    // 키치 데코 — 휘갈긴 SVG (별·점·짧은 화살표·언더라인)
+    function ScribbleUnderline({ className = '', color = '#d24a2a' }) {
+      return (
+        <svg viewBox="0 0 140 24" className={className} fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 14 C 30 6, 60 22, 90 10 S 130 18, 136 12" />
+          <path d="M10 20 C 40 14, 70 24, 100 18 S 128 22, 134 20" opacity="0.55" />
+        </svg>
+      );
+    }
+    function ScribbleStar({ className = '', color = '#1f1f1f' }) {
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3 L 14 10 L 21 11 L 15.5 15 L 17 22 L 12 18 L 7 22 L 8.5 15 L 3 11 L 10 10 Z" />
+        </svg>
+      );
+    }
+    function ScribbleArrow({ className = '', color = '#1f1f1f' }) {
+      return (
+        <svg viewBox="0 0 80 32" className={className} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 22 C 18 8, 36 6, 60 14" />
+          <path d="M60 14 L 52 10" />
+          <path d="M60 14 L 56 20" />
+        </svg>
+      );
+    }
+    function ScribbleHeart({ className = '', color = '#d24a2a' }) {
+      return (
+        <svg viewBox="0 0 20 18" className={className} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 16 C 5 13, 1 9, 2.5 5.5 C 4 2, 8 2.5, 10 5.5 C 12 2.5, 16 2, 17.5 5.5 C 19 9, 15 13, 10 16 Z" />
+        </svg>
+      );
+    }
+    function ScribbleDot({ className = '', color = '#1f1f1f' }) {
+      return (
+        <svg viewBox="0 0 10 10" className={className} fill={color}>
+          <circle cx="5" cy="5" r="2.6" />
+        </svg>
+      );
+    }
+    function PosterKitsch({ category, photo, photoAlt, textEdits, selectedTextId, selectedPhotoId, onSelectText, onSelectPhoto, onChangeText, cardCopy, overlay, isSquare }) {
+      const c = COPY[category];
+      const k = c.kitsch;
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      // 두 번째 폴라로이드 — 같은 사진의 다른 크롭 (사용자 컨트롤로 X/Y/Z 가능)
+      const imgStyleAlt = applyPhotoStyle(photoAlt || photo);
+      const handlePhotoClick = (id, e) => {
+        if (!onSelectPhoto) return;
+        e?.stopPropagation();
+        onSelectPhoto(id);
+      };
+      const ringStyle = (active) => active
+        ? { outline: '2px solid #ff1f9a', outlineOffset: '2px' }
+        : {};
+      const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className}
+          edit={getTextEdit(textEdits, id)}
+          selected={selectedTextId === id}
+          onSelect={onSelectText} onChange={onChangeText}>
+          {children}
+        </TextBlock>
+      );
+      // 정방형(1080×1080) vs 4:5 변형
+      const sz = isSquare ? {
+        heroSize: 'text-[46px]', subSize: 'text-[42px]',
+        quoteSize: 'text-[9px]', stampSize: 'text-[13px]',
+        coupleSize: 'text-[10px]',
+      } : {
+        heroSize: 'text-[54px]', subSize: 'text-[48px]',
+        quoteSize: 'text-[10px]', stampSize: 'text-[15px]',
+        coupleSize: 'text-[11px]',
+      };
+      const NEON_PINK = '#ff1f9a';
+      const NEON_LIME = '#d4ff2e';
+      const INK = '#181818';
+      // 마리안 웨딩 땡큐카드 키치 · 네온 콜라주 + 크레파스 손글씨
+      return (
+        <PosterSurface className="kitsch-paper">
+          {/* "Thank You" — 메인 폴라로이드 위쪽에 비스듬히 (흰 보더 위쪽 겹침, 사진 픽셀은 안 가림) */}
+          <div
+            className="absolute"
+            style={{
+              top: '5%', left: '9%',
+              transform: 'rotate(-9deg)',
+              zIndex: 5,
+              pointerEvents: 'none',
+              ...ov,
+            }}
+          >
+            <div className="pointer-events-auto">
+              {TB('hero', 'top-left', '', (
+                <div className="relative">
+                  <div
+                    className={cn('font-marker leading-[0.86] crayon-text', sz.heroSize)}
+                    style={{ color: NEON_PINK }}
+                  >
+                    {getCopy('hero', k.hero)}
+                  </div>
+                  <ScribbleUnderline
+                    className="absolute"
+                    color={NEON_PINK}
+                    {...{ style: { left: '-4%', bottom: '-14px', width: '94%', height: '20px', filter: 'url(#crayonSoftFilter)' } }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 사진 1 — 메인 가로 폴라로이드 (좌측 큰 사이즈, -5도, 클릭 편집) */}
+          <div
+            className="absolute polaroid cursor-pointer"
+            onPointerDown={(e) => handlePhotoClick('main', e)}
+            style={{
+              width: '62%', height: '52%',
+              top: '17%', left: '4%',
+              transform: 'rotate(-5deg)',
+              zIndex: 2,
+              ...ringStyle(selectedPhotoId === 'main'),
+            }}
+          >
+            <div className="tape neon-lime-tape" style={{ top: '-9px', left: '22%', transform: 'rotate(-14deg)', width: '46px', height: '16px' }} />
+            <div className="tape" style={{ top: '-7px', right: '12%', transform: 'rotate(8deg)' }} />
+            <div className="w-full h-full overflow-hidden bg-zinc-200">
+              <img src={src} crossOrigin="anonymous" draggable="false" className="w-full h-full object-cover pointer-events-none" style={imgStyle} />
+            </div>
+            {/* 폴라로이드 캡션 */}
+            <div
+              className={cn('absolute left-0 right-0 text-center font-kalam crayon-soft', sz.stampSize)}
+              style={{ bottom: '2.6%', color: INK, transform: 'rotate(-1deg)' }}
+            >
+              {TB('stamp', 'bottom-center', '', (
+                <span>{getCopy('stamp', k.stamp)}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* 사진 2 — 작은 세로 폴라로이드 (우상, 메인 우상단에 약간 올라탐, +6도, 클릭 편집) */}
+          <div
+            className="absolute polaroid cursor-pointer"
+            onPointerDown={(e) => handlePhotoClick('alt', e)}
+            style={{
+              width: '30%', height: '40%',
+              top: '10%', right: '4%',
+              transform: 'rotate(6deg)',
+              zIndex: 3,
+              ...ringStyle(selectedPhotoId === 'alt'),
+            }}
+          >
+            <div className="tape neon-lime-tape" style={{ top: '-7px', left: '50%', transform: 'translateX(-50%) rotate(-3deg)', width: '34px' }} />
+            <div className="w-full h-full overflow-hidden bg-zinc-200">
+              <img src={src} crossOrigin="anonymous" draggable="false" className="w-full h-full object-cover pointer-events-none" style={imgStyleAlt} />
+            </div>
+          </div>
+
+          {/* 형광 핑크 인용구 카드 (메인 폴라로이드 우하단과 작은 사진 아래 겹침, -4도) */}
+          <div
+            className="absolute flex flex-col justify-center items-start px-3 py-2.5 neon-pink-box"
+            style={{
+              width: '40%', height: '20%',
+              top: '54%', right: '3%',
+              transform: 'rotate(-4deg)',
+              color: '#fff7ec',
+              zIndex: 4,
+            }}
+          >
+            {TB('quote', 'top-left', '', (
+              <div className={cn('font-kalam leading-[1.18] tracking-wide', sz.quoteSize)}>
+                <div className="uppercase" style={{ fontWeight: 700 }}>{getCopy('quote1', k.quote1)}</div>
+                <div className="uppercase" style={{ fontWeight: 700 }}>{getCopy('quote2', k.quote2)}</div>
+                <div className="uppercase" style={{ fontWeight: 700 }}>{getCopy('quote3', k.quote3)}</div>
+                <div className="font-kalam italic mt-1 opacity-95" style={{ fontSize: '0.82em', fontWeight: 400 }}>
+                  — thank you, from both of us
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 하단 마커 손글씨 "Happy wedding" (살짝 -3도, 잉크 검정) */}
+          <div
+            className="absolute"
+            style={{
+              left: '5%', bottom: '7%',
+              transform: 'rotate(-3deg)',
+              zIndex: 6,
+              ...ov,
+            }}
+          >
+            {TB('sub', 'bottom-left', '', (
+              <div
+                className={cn('font-marker leading-none crayon-text', sz.subSize)}
+                style={{ color: INK }}
+              >
+                {getCopy('sub', k.sub)}
+              </div>
+            ))}
+          </div>
+
+          {/* 우하단 작은 메타 (이름 · 날짜, 손글씨 라벨) */}
+          <div
+            className="absolute"
+            style={{
+              right: '5%', bottom: '4%',
+              transform: 'rotate(2deg)',
+              zIndex: 6,
+              ...ov,
+            }}
+          >
+            {TB('couple', 'bottom-right', '', (
+              <div
+                className={cn('font-kalam text-right leading-tight crayon-soft', sz.coupleSize)}
+                style={{ color: INK }}
+              >
+                <div className="text-[1.4em]" style={{ fontWeight: 700 }}>{getCopy('couple', k.couple)}</div>
+                <div className="opacity-80 mt-0.5">{getCopy('date', k.date)}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 스크리블 데코 — 휘갈긴 점·별·하트 (네온 핑크/라임 액센트) */}
+          <ScribbleStar
+            className="absolute pointer-events-none"
+            color={NEON_LIME}
+            {...{ style: { top: '3%', right: '30%', width: '20px', height: '20px', transform: 'rotate(15deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' } }}
+          />
+          <ScribbleStar
+            className="absolute pointer-events-none"
+            color={NEON_PINK}
+            {...{ style: { top: '70%', left: '8%', width: '16px', height: '16px', transform: 'rotate(-22deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' } }}
+          />
+          <ScribbleHeart
+            className="absolute pointer-events-none"
+            color={NEON_PINK}
+            {...{ style: { bottom: '8%', right: '6%', width: '14px', height: '14px', transform: 'rotate(-18deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' } }}
+          />
+          <ScribbleHeart
+            className="absolute pointer-events-none"
+            color={INK}
+            {...{ style: { top: '78%', left: '36%', width: '13px', height: '13px', transform: 'rotate(20deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' } }}
+          />
+          <ScribbleArrow
+            className="absolute pointer-events-none"
+            color={INK}
+            {...{ style: { bottom: '14%', left: '42%', width: '56px', height: '22px', transform: 'rotate(8deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' } }}
+          />
+          <ScribbleDot className="absolute pointer-events-none" color={NEON_LIME}
+            {...{ style: { top: '16%', right: '36%', width: '8px', height: '8px', zIndex: 7 } }} />
+          <ScribbleDot className="absolute pointer-events-none" color={NEON_PINK}
+            {...{ style: { top: '52%', left: '8%', width: '7px', height: '7px', zIndex: 7 } }} />
+          <ScribbleDot className="absolute pointer-events-none" color={INK}
+            {...{ style: { bottom: '3%', left: '54%', width: '6px', height: '6px', zIndex: 7 } }} />
+
+          {/* 짧은 휘갈긴 곡선 (인용구 카드 위쪽 액센트, 형광 라임) */}
+          <svg className="absolute pointer-events-none" viewBox="0 0 60 30" style={{ top: '50%', right: '38%', width: '52px', height: '24px', transform: 'rotate(-8deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' }} fill="none" stroke={NEON_LIME} strokeWidth="2.4" strokeLinecap="round">
+            <path d="M4 18 C 18 8, 30 22, 56 10" />
+          </svg>
+        </PosterSurface>
+      );
+    }
     const STYLE_DEFS = [
       { key: 'minimal',    label: '미니멀',    desc: '러블리 미니멀 · 산세리프 · 여백 ↑',    Render: PosterMinimal },
       { key: 'invitation', label: '청첩장',    desc: '세리프 · 신랑/신부/일시 슬롯',          Render: PosterInvitation },
       { key: 'emotive',    label: '감성문구',  desc: '한국어 종서 감성 · 풀블리드 + 한 두 줄 카피', Render: PosterEmotive },
+      { key: 'kitsch',     label: '키치',      desc: '폴라로이드 콜라주 · 손글씨 · 오렌지 인용구', Render: PosterKitsch },
     ];
 
     // ========================================
@@ -1012,12 +1415,31 @@
         }
       };
 
-      const getCardEdit = (cat, style) => cardEdits[cat]?.[style] || { photo: { x: 50, y: 50, scale: 100 }, texts: {}, copy: {} };
-      const ensureCard = (prev, cat, style) => prev[cat]?.[style] || { photo: { x: 50, y: 50, scale: 100 }, texts: {}, copy: {} };
-      const updateCardPhoto = (cat, style, patch) => {
+      const DEFAULT_PHOTO     = { x: 50, y: 50, scale: 100 };
+      const DEFAULT_PHOTO_ALT = { x: 60, y: 40, scale: 180 };
+      const getCardEdit = (cat, style) => {
+        const v = cardEdits[cat]?.[style];
+        return {
+          photo:    v?.photo    || { ...DEFAULT_PHOTO },
+          photoAlt: v?.photoAlt || { ...DEFAULT_PHOTO_ALT },
+          texts:    v?.texts    || {},
+          copy:     v?.copy     || {},
+        };
+      };
+      const ensureCard = (prev, cat, style) => {
+        const v = prev[cat]?.[style];
+        return {
+          photo:    v?.photo    || { ...DEFAULT_PHOTO },
+          photoAlt: v?.photoAlt || { ...DEFAULT_PHOTO_ALT },
+          texts:    v?.texts    || {},
+          copy:     v?.copy     || {},
+        };
+      };
+      const updateCardPhoto = (cat, style, patch, which = 'main') => {
+        const key = which === 'alt' ? 'photoAlt' : 'photo';
         setCardEdits(prev => {
           const cur = ensureCard(prev, cat, style);
-          return { ...prev, [cat]: { ...prev[cat], [style]: { ...cur, photo: { ...cur.photo, ...patch } } } };
+          return { ...prev, [cat]: { ...prev[cat], [style]: { ...cur, [key]: { ...cur[key], ...patch } } } };
         });
       };
       const updateCardText = (cat, style, id, patch) => {
@@ -1033,7 +1455,8 @@
           return { ...prev, [cat]: { ...prev[cat], [style]: { ...cur, copy: { ...(cur.copy||{}), [key]: value } } } };
         });
       };
-      const resetCardPhoto = (cat, style) => updateCardPhoto(cat, style, { x: 50, y: 50, scale: 100 });
+      const resetCardPhoto = (cat, style, which = 'main') => updateCardPhoto(cat, style,
+        which === 'alt' ? { ...DEFAULT_PHOTO_ALT } : { ...DEFAULT_PHOTO }, which);
       const resetCardText  = (cat, style, id) => updateCardText(cat, style, id, { x: 0, y: 0, scale: 1 });
       const resetCardCopyKey = (cat, style, key) => updateCardCopy(cat, style, key, '');
 
@@ -1060,7 +1483,7 @@
                 <h1 className="display-bold text-3xl sm:text-4xl md:text-5xl text-foreground leading-tight">결혼식 후 보내는 땡큐카드</h1>
                 <p className="text-sm text-muted-foreground mt-3 sm:mt-4 max-w-xl leading-relaxed">
                   마리안 웨딩이 우리 고객분들께 또 어떤 걸 해드릴 수 있을까 고민하다 만든
-                  자동 땡큐카드 생성기. 본식 스냅 한 장을 올리면 미니멀 · 격식 · 감성 3가지 카드를
+                  자동 땡큐카드 생성기. 본식 스냅 한 장을 올리면 미니멀 · 격식 · 감성 · 키치 4가지 카드를
                   동시에 만들어 드립니다.
                 </p>
               </div>
@@ -1141,26 +1564,32 @@
                   {userPhotos.wedding && <Badge className="ml-3 align-middle">YOUR PHOTO</Badge>}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-2 max-w-xl leading-relaxed">
-                  같은 사진 한 장 → 3가지 톤으로 동시 출력. 신랑·신부가 인스타·카톡·인쇄 어디에든 어울리는
-                  카드를 골라 사용할 수 있도록.
+                  같은 사진 한 장 → 4가지 톤(미니멀·격식·감성·키치)으로 동시 출력. 신랑·신부가 인스타·카톡·인쇄 어디에든
+                  어울리는 카드를 골라 사용할 수 있도록.
                 </p>
               </div>
               <div className="eyebrow text-muted-foreground hidden sm:block">click & drag · snap</div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
               {STYLE_DEFS.map(s => {
                 const weddingMeta = {
                   minimal:    { label: '미니멀 땡큐',  desc: '러블리 미니멀 · 인스타 피드용 감사' },
                   invitation: { label: '격식형 땡큐',  desc: '청첩장 톤의 정중한 감사장' },
                   emotive:    { label: '감성 땡큐',    desc: '한국어 종서 감성 · 풀블리드 + 한 줄 카피' },
+                  kitsch:     { label: '키치 땡큐',    desc: '폴라로이드 콜라주 · 손글씨 · 오렌지 인용구' },
                 }[s.key];
                 const cat = 'wedding';
                 const ce = getCardEdit(cat, s.key);
-                const photoData = userPhotos.wedding ? { url: userPhotos.wedding, ...ce.photo } : null;
+                const photoData    = userPhotos.wedding ? { url: userPhotos.wedding, ...ce.photo }    : null;
+                const photoAltData = userPhotos.wedding ? { url: userPhotos.wedding, ...ce.photoAlt } : null;
                 const isSelectedHere = selected && selected.cat === cat && selected.style === s.key;
-                const selectedTextId = isSelectedHere && selected.kind === 'text' ? selected.id : null;
+                const selectedTextId  = isSelectedHere && selected.kind === 'text'  ? selected.id : null;
+                const selectedPhotoId = isSelectedHere && selected.kind === 'photo' ? selected.id : null;
                 const selectedTextEdit = selectedTextId ? getTextEdit(ce.texts, selectedTextId) : null;
+                // 키치는 사진 2개를 클릭 편집 가능. 다른 카드는 메인 사진만 — Photo 패널은 항상 'main' 슬롯을 가리킴.
+                const photoSlot = (s.key === 'kitsch' && selectedPhotoId === 'alt') ? 'alt' : 'main';
+                const cePhoto = photoSlot === 'alt' ? ce.photoAlt : ce.photo;
 
                 return (
                   <Card key={s.key}>
@@ -1185,9 +1614,12 @@
                         <s.Render
                           category={cat}
                           photo={photoData}
+                          photoAlt={photoAltData}
                           textEdits={ce.texts}
                           selectedTextId={selectedTextId}
+                          selectedPhotoId={selectedPhotoId}
                           onSelectText={(id) => setSelected({ cat, style: s.key, kind: 'text', id })}
+                          onSelectPhoto={(id) => setSelected({ cat, style: s.key, kind: 'photo', id })}
                           onChangeText={(id, patch) => updateCardText(cat, s.key, id, patch)}
                           cardCopy={ce.copy}
                           isSquare={size === '1080x1080'}
@@ -1209,22 +1641,37 @@
                           </div>
                         )}
                         <div className="grid grid-cols-2 gap-3">
-                        {/* 사진 컨트롤 */}
+                        {/* 사진 컨트롤 (키치는 Main/Alt 두 사진 탭) */}
                         <div className="min-w-0">
                           <div className="flex items-center justify-between mb-2">
-                            <div className="eyebrow text-muted-foreground">Photo</div>
-                            <button onClick={() => resetCardPhoto(cat, s.key)} className="eyebrow text-muted-foreground hover:text-primary">초기화</button>
+                            <div className="eyebrow text-muted-foreground flex items-center gap-2">
+                              <span>Photo</span>
+                              {s.key === 'kitsch' && (
+                                <span className="inline-flex border border-input">
+                                  {['main','alt'].map(w => (
+                                    <button key={w}
+                                      onClick={() => setSelected({ cat, style: s.key, kind: 'photo', id: w })}
+                                      className={cn('h-6 px-2 text-[10px] eyebrow',
+                                        photoSlot === w ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'
+                                      )}>
+                                      {w === 'main' ? '1' : '2'}
+                                    </button>
+                                  ))}
+                                </span>
+                              )}
+                            </div>
+                            <button onClick={() => resetCardPhoto(cat, s.key, photoSlot)} className="eyebrow text-muted-foreground hover:text-primary">초기화</button>
                           </div>
                           <div className="space-y-1.5 opacity-100">
-                            <SliderRow label="X" value={ce.photo.x} min={0} max={100} suffix=""
+                            <SliderRow label="X" value={cePhoto.x} min={0} max={100} suffix=""
                               disabled={!userPhotos.wedding}
-                              onChange={(v) => updateCardPhoto(cat, s.key, { x: v })} />
-                            <SliderRow label="Y" value={ce.photo.y} min={-100} max={200} suffix=""
+                              onChange={(v) => updateCardPhoto(cat, s.key, { x: v }, photoSlot)} />
+                            <SliderRow label="Y" value={cePhoto.y} min={-100} max={200} suffix=""
                               disabled={!userPhotos.wedding}
-                              onChange={(v) => updateCardPhoto(cat, s.key, { y: v })} />
-                            <SliderRow label="Z" value={ce.photo.scale} min={100} max={250} suffix="%"
+                              onChange={(v) => updateCardPhoto(cat, s.key, { y: v }, photoSlot)} />
+                            <SliderRow label="Z" value={cePhoto.scale} min={100} max={250} suffix="%"
                               disabled={!userPhotos.wedding}
-                              onChange={(v) => updateCardPhoto(cat, s.key, { scale: v })} />
+                              onChange={(v) => updateCardPhoto(cat, s.key, { scale: v }, photoSlot)} />
                           </div>
                         </div>
 
@@ -1387,7 +1834,7 @@
         <Card>
           <CardHeader>
             <CardTitle>새 땡큐카드 만들기</CardTitle>
-            <CardDescription>마리안에서 보내드린 본식 스냅 한 장을 올려주세요. 3가지 톤의 카드를 동시에 만들어 드려요.</CardDescription>
+            <CardDescription>마리안에서 보내드린 본식 스냅 한 장을 올려주세요. 4가지 톤의 카드를 동시에 만들어 드려요.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -1408,7 +1855,7 @@
           </CardContent>
           <CardFooter className="gap-3">
             <Button variant="outline" className="flex-1" onClick={onBack}>이전</Button>
-            <Button className="flex-1" onClick={() => onSubmit({ category: 'wedding' })}>3가지 카드 만들기</Button>
+            <Button className="flex-1" onClick={() => onSubmit({ category: 'wedding' })}>4가지 카드 만들기</Button>
           </CardFooter>
         </Card>
       );
@@ -1505,7 +1952,7 @@
     function AuthGate({ onLogin }) {
       const [mode, setMode] = useState('signup'); // signup | userLogin | adminLogin
       const [signupForm, setSignupForm] = useState({ name: '', weddingDate: '', phone4: '' });
-      const [userForm, setUserForm] = useState({ name: '', weddingDate: '' });
+      const [userForm, setUserForm] = useState({ name: '', weddingDate: '', phone4: '' });
       const [adminPw, setAdminPw] = useState('');
       const [msg, setMsg] = useState(null);
 
@@ -1538,13 +1985,22 @@
       const submitUserLogin = async () => {
         const name = userForm.name.trim();
         const weddingDate = userForm.weddingDate;
-        if (!name || !weddingDate) {
-          setMsg({ type: 'error', text: '이름과 예식일자를 입력해 주세요.' });
+        const phone4 = (userForm.phone4 || '').trim();
+        if (!name || !weddingDate || !phone4) {
+          setMsg({ type: 'error', text: '이름·예식일자·전화번호 뒷자리를 모두 입력해 주세요.' });
+          return;
+        }
+        if (!/^\d{4}$/.test(phone4)) {
+          setMsg({ type: 'error', text: '전화번호 뒷자리 4자리(숫자)를 정확히 입력해 주세요.' });
           return;
         }
         const found = await findSignupByLogin(name, weddingDate);
         if (!found) {
           setMsg({ type: 'error', text: '신청 내역이 없습니다. 회원가입 신청을 먼저 진행해 주세요.' });
+          return;
+        }
+        if ((found.phone4 || '') !== phone4) {
+          setMsg({ type: 'error', text: '전화번호 뒷자리가 일치하지 않습니다.' });
           return;
         }
         if (found.status === 'pending') {
@@ -1576,15 +2032,60 @@
         { k: 'adminLogin', l: '관리자' },
       ];
 
+      const STYLE_META = {
+        minimal:    { label: '미니멀 땡큐', desc: '러블리 미니멀 · 인스타 피드용' },
+        invitation: { label: '격식형 땡큐', desc: '청첩장 톤의 정중한 감사장' },
+        emotive:    { label: '감성 땡큐',   desc: '한국어 종서 감성 · 풀블리드' },
+        kitsch:     { label: '키치 땡큐',   desc: '폴라로이드 콜라주 · 네온' },
+      };
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
-          <Card className="w-full max-w-md">
+        <div className="min-h-screen bg-background px-4 py-10">
+          <div className="max-w-6xl mx-auto">
+            {/* 헤더 — 홍보용 hero */}
+            <div className="text-center mb-8">
+              <div className="eyebrow text-primary mb-3">Marian Wedding</div>
+              <h1 className="display-bold text-3xl sm:text-4xl text-foreground tracking-tight">
+                결혼식 후 보내는 땡큐카드
+              </h1>
+              <p className="text-sm text-muted-foreground mt-3 max-w-xl mx-auto leading-relaxed">
+                본식 스냅 한 장이면 끝. 미니멀 · 격식 · 감성 · 키치 4가지 톤으로 동시에 만들어 드립니다.
+                마음에 드는 카드를 골라 하객분들께 보내 보세요.
+              </p>
+            </div>
+
+            {/* 4 스타일 미리보기 그리드 (홍보·상담용) — 갤러리와 같은 break 패턴 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-5 mb-10">
+              {STYLE_DEFS.map(s => {
+                const url = SAMPLE_PHOTOS[s.key];
+                const crop = SAMPLE_CROPS[s.key];
+                const meta = STYLE_META[s.key];
+                return (
+                  <div key={s.key} className="space-y-2">
+                    <ScaledPoster className="border border-border bg-secondary/30" baseWidth={480} ratio={4/5}>
+                      <s.Render
+                        category="wedding"
+                        photo={{ url, ...crop.main }}
+                        photoAlt={crop.alt ? { url, ...crop.alt } : undefined}
+                        textEdits={{}}
+                        cardCopy={{}}
+                        isSquare={false}
+                      />
+                    </ScaledPoster>
+                    <div className="text-center px-1">
+                      <div className="display-bold text-[12px] sm:text-[13px] text-foreground">{meta.label}</div>
+                      <div className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 leading-snug">{meta.desc}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 가입·로그인 카드 */}
+            <Card className="w-full max-w-md mx-auto">
             <CardHeader>
-              <div className="eyebrow text-primary mb-2">Marian Wedding</div>
-              <CardTitle className="text-2xl">땡큐카드 서비스</CardTitle>
+              <CardTitle className="text-xl">땡큐카드 받아보기</CardTitle>
               <CardDescription>
-                마리안 웨딩이 우리 고객분들께 또 어떤 걸 해드릴 수 있을까 고민하다 만든
-                자동 땡큐카드 생성기입니다. 결혼식 후 본식 스냅 한 장으로 3가지 톤의 감사 카드를 받아 보세요.
+                마리안 웨딩에서 결혼식을 올린 부부에게만 발급되는 서비스입니다. 운영자 승인 후 위 4가지 카드를 모두 받아보실 수 있어요.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -1635,8 +2136,19 @@
                     <Label>예식일자</Label>
                     <Input type="date" value={userForm.weddingDate} onChange={e => setUserForm({ ...userForm, weddingDate: e.target.value })} />
                   </div>
+                  <div className="space-y-2">
+                    <Label>전화번호 뒷자리 4개</Label>
+                    <Input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="예: 1234"
+                      value={userForm.phone4}
+                      onChange={e => setUserForm({ ...userForm, phone4: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    />
+                  </div>
                   <Button className="w-full" onClick={submitUserLogin}>로그인</Button>
-                  <p className="text-[11px] text-muted-foreground">가입 신청 시 입력한 이름·예식일자로 로그인합니다.</p>
+                  <p className="text-[11px] text-muted-foreground">가입 신청 시 입력한 이름·예식일자·전화번호 뒷자리로 로그인합니다.</p>
                 </div>
               )}
 
@@ -1665,7 +2177,8 @@
                 )}>{msg.text}</div>
               )}
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         </div>
       );
     }

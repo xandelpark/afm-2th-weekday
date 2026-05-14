@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marian Wedding — Thank You Card Service</title>
+  <!--
+    Marian Editorial Palette (shadcn token)
+    포스터: Thank You Card 서비스 홍보 (상담장 · 인스타 · 카톡채널 공통)
+    4 카드는 prototype-v1.html의 실제 카드 합성 시스템을 이식해 진짜 결과물 미리보기로 보여준다.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Allura&family=Caveat:wght@500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&family=Kalam:wght@400;700&family=Noto+Serif+KR:wght@200;300;400;500;600;700&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary:     { DEFAULT: 'hsl(var(--primary))',     foreground: 'hsl(var(--primary-foreground))' },
+            secondary:   { DEFAULT: 'hsl(var(--secondary))',   foreground: 'hsl(var(--secondary-foreground))' },
+            muted:       { DEFAULT: 'hsl(var(--muted))',       foreground: 'hsl(var(--muted-foreground))' },
+            accent:      { DEFAULT: 'hsl(var(--accent))',      foreground: 'hsl(var(--accent-foreground))' },
+            card:        { DEFAULT: 'hsl(var(--card))',        foreground: 'hsl(var(--card-foreground))' },
+          },
+          borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '"Helvetica Neue"', 'Helvetica', 'Arial', 'system-ui', 'sans-serif'],
+            display: ['"Helvetica Neue"', 'Helvetica', 'Inter', 'Arial', 'sans-serif'],
+            'serif-kr': ['"Noto Serif KR"', 'serif'],
+            cormorant: ['"Cormorant Garamond"', 'serif'],
+            playfair: ['"Playfair Display"', 'serif'],
+            script: ['"Allura"', '"Great Vibes"', 'cursive'],
+            handwrite: ['"Caveat"', '"Great Vibes"', 'cursive'],
+            marker: ['"Permanent Marker"', '"Caveat"', 'cursive'],
+            kalam: ['"Kalam"', '"Caveat"', 'cursive'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ==== Marian Editorial palette (shadcn token) ==== */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 13%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 13%;
+      --primary: 224 75% 14%;          /* #091940 deep midnight navy */
+      --primary-foreground: 0 0% 100%;
+      --secondary: 0 0% 96%;
+      --secondary-foreground: 0 0% 20%;
+      --muted: 0 0% 96%;
+      --muted-foreground: 0 0% 40%;
+      --accent: 224 75% 14%;
+      --accent-foreground: 0 0% 100%;
+      --border: 0 0% 87%;
+      --input: 0 0% 87%;
+      --ring: 224 75% 14%;
+      --radius: 0rem;
+    }
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      color: hsl(var(--foreground));
+      background: hsl(var(--background));
+    }
+    .display-bold {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .display-tight {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.005em;
+    }
+    .eyebrow {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+    }
+    .eyebrow-sm {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+    /* === 카드 합성 시스템 — prototype-v1.html에서 이식 === */
+    /* 러블리 톤 — 누드 핑크 베이스 */
+    .lovely-cream { background: linear-gradient(180deg, #fde2d8 0%, #fac9bd 100%); }
+    .lovely-blush { background: linear-gradient(180deg, #fdd9cd 0%, #f9bcae 100%); }
+    /* 키치 톤 — 베이지 펄프 종이 + 작은 노이즈 결 */
+    .kitsch-paper {
+      background-color: #ece4d6;
+      background-image:
+        radial-gradient(rgba(120, 90, 60, 0.06) 1px, transparent 1px),
+        radial-gradient(rgba(120, 90, 60, 0.04) 1px, transparent 1px),
+        linear-gradient(180deg, #ede6d8 0%, #e7decd 100%);
+      background-size: 3px 3px, 7px 7px, 100% 100%;
+      background-position: 0 0, 1px 2px, 0 0;
+    }
+    /* 키치 폴라로이드 — 흰 보더 + 부드러운 그림자 */
+    .polaroid {
+      background: #fbf6ec;
+      padding: 5% 5% 14% 5%;
+      box-shadow: 0 6px 14px rgba(60, 40, 20, 0.18), 0 1px 2px rgba(0,0,0,0.08);
+    }
+    .tape {
+      position: absolute;
+      width: 38px; height: 14px;
+      background: rgba(245, 224, 168, 0.7);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+    /* 손글씨 폰트들 */
+    .font-script    { font-family: 'Allura', 'Great Vibes', cursive; font-weight: 400; }
+    .font-handwrite { font-family: 'Caveat', 'Great Vibes', cursive; font-weight: 700; }
+    .font-marker    { font-family: 'Permanent Marker', 'Caveat', cursive; font-weight: 400; }
+    .font-kalam     { font-family: 'Kalam', 'Caveat', cursive; font-weight: 700; }
+    .font-cormorant-i { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; }
+    /* 크레파스/마커 거친 질감 — SVG turbulence filter 기반 */
+    .crayon-text {
+      filter: url('#crayonFilter');
+      -webkit-text-stroke: 0.45px currentColor;
+      text-shadow:
+        0.4px 0.4px 0 currentColor,
+        -0.4px -0.3px 0 currentColor,
+        0.7px -0.2px 0 currentColor,
+        -0.2px 0.6px 0 currentColor;
+    }
+    .crayon-soft {
+      filter: url('#crayonSoftFilter');
+      -webkit-text-stroke: 0.3px currentColor;
+      text-shadow:
+        0.3px 0.3px 0 currentColor,
+        -0.3px -0.2px 0 currentColor;
+    }
+    /* 형광 네온 강조 — 핫핑크 박스에 살짝 글로우 */
+    .neon-pink-box {
+      background: #ff1f9a;
+      box-shadow:
+        0 6px 14px rgba(255, 30, 154, 0.32),
+        0 2px 4px rgba(0,0,0,0.18),
+        inset 0 0 0 2px rgba(255,255,255,0.18);
+    }
+    .neon-lime-tape {
+      background: rgba(212, 255, 46, 0.85);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }
+    /* 세로 조판 — 한국어 종서 (감성 카드용) */
+    .vrl-up  { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.04em; }
+    .vrl-mix { writing-mode: vertical-rl; text-orientation: mixed; }
+    .vrl-up.has-em-space { word-spacing: 0.15em; }
+
+    /* Hairline divider */
+    .hairline { height: 1px; background: hsl(var(--foreground)); opacity: 0.18; }
+    .hairline-strong { height: 1px; background: hsl(var(--foreground)); opacity: 0.4; }
+    /* Subtle border in primary */
+    .primary-border { border: 1px solid hsl(var(--primary) / 0.12); }
+    .primary-border-strong { border: 1px solid hsl(var(--primary) / 0.25); }
+    /* 카드 surface — 정적 미리보기에서는 cursor 비활성 */
+    .poster-surface { touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+    /* TextBlock — 정적 미리보기에서는 클릭/드래그 비활성 (인터랙션 차단) */
+    [data-textblock] {
+      cursor: default !important;
+      pointer-events: none;
+      -webkit-user-select: none; user-select: none;
+    }
+
+    /* Print — A4 세로 친화 */
+    @media print {
+      @page { size: A4 portrait; margin: 14mm; }
+      body { background: white !important; }
+      .no-print { display: none !important; }
+      .print-break-avoid { break-inside: avoid; }
+      a { color: inherit !important; text-decoration: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 키치 카드용 SVG turbulence filter (크레파스/마커 거친 질감) — 모든 카드 렌더링 전에 정의되어야 함 -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="crayonFilter" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.78" numOctaves="2" seed="7" />
+        <feDisplacementMap in="SourceGraphic" scale="1.6" />
+      </filter>
+      <filter id="crayonSoftFilter" x="-6%" y="-6%" width="112%" height="112%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="3" />
+        <feDisplacementMap in="SourceGraphic" scale="0.9" />
+      </filter>
+    </defs>
+  </svg>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useState, useRef } = React;
+    const cn = (...c) => c.filter(Boolean).join(' ');
+
+    // ============================================================
+    // ScaledPoster — 카드 비율을 viewport에 무관하게 유지 (prototype-v1에서 이식)
+    // 자식 카드는 항상 baseWidth × (baseWidth/ratio)로 렌더, ResizeObserver로 wrapper 폭 추적 후 transform: scale.
+    // ============================================================
+    function ScaledPoster({ className = '', baseWidth = 480, ratio = 4/5, children }) {
+      const wrapRef = useRef(null);
+      const [scale, setScale] = useState(1);
+      useEffect(() => {
+        const el = wrapRef.current;
+        if (!el) return;
+        const update = () => {
+          const w = el.offsetWidth || 0;
+          setScale(w / baseWidth);
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+      }, [baseWidth]);
+      const baseHeight = baseWidth / ratio;
+      return (
+        <div ref={wrapRef} className={cn('relative overflow-hidden', className)} style={{ aspectRatio: `${ratio}` }}>
+          <div style={{ width: `${baseWidth}px`, height: `${baseHeight}px`, transformOrigin: 'top left', transform: `scale(${scale})` }}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // PosterSurface — 정적 미리보기에서는 가이드 라인 표시 불필요, 단순 컨테이너로 사용
+    function PosterSurface({ className = '', children }) {
+      return (
+        <div className={cn('h-full w-full relative overflow-hidden poster-surface', className)}>
+          {children}
+        </div>
+      );
+    }
+
+    // TextBlock — 정적 미리보기에서는 클릭/드래그 이벤트 무력화, edit transform만 적용
+    function TextBlock({ id, edit, className = '', anchor = 'top-left', children }) {
+      const e = edit || { x: 0, y: 0, scale: 1 };
+      const transform = `translate(${e.x}px, ${e.y}px) scale(${e.scale ?? 1})`;
+      const origin = anchor === 'top-left' ? 'top left' : anchor === 'top-center' ? 'top center' : anchor === 'bottom-left' ? 'bottom left' : anchor === 'bottom-right' ? 'bottom right' : anchor === 'bottom-center' ? 'bottom center' : 'center';
+      return (
+        <div
+          data-textblock={id}
+          className={cn('relative select-none', className)}
+          style={{ transform, transformOrigin: origin }}
+        >
+          {children}
+        </div>
+      );
+    }
+    function getTextEdit(texts, id) { return texts?.[id] || { x: 0, y: 0, scale: 1 }; }
+    function makeGetCopy(copy) {
+      return (key, defaultText) => {
+        const v = copy?.[key];
+        return v == null || v === '' ? defaultText : v;
+      };
+    }
+
+    // ============================================================
+    // 사진 스타일 헬퍼 — translate + scale로 패닝 가능하게 (prototype-v1에서 이식)
+    // ============================================================
+    function applyPhotoStyle(p) {
+      if (!p) return undefined;
+      const x = p.x ?? 50, y = p.y ?? 50, s = p.scale ?? 100;
+      const totalScale = (s / 100) + 0.2;
+      const overflowPct = (totalScale - 1) * 50;
+      const tx = -((x - 50) / 50) * overflowPct;
+      const ty = -((y - 50) / 50) * overflowPct;
+      return {
+        objectFit: 'cover',
+        transform: `translate(${tx}%, ${ty}%) scale(${totalScale})`,
+        transformOrigin: 'center',
+      };
+    }
+    function computeOverlay(o) {
+      if (!o) return undefined;
+      const tx = (((o.x ?? 50) - 50) / 50) * 60;
+      const ty = (((o.y ?? 50) - 50) / 50) * 60;
+      const op = (o.opacity ?? 100) / 100;
+      return {
+        transform: `translate(${tx}px, ${ty}px)`,
+        opacity: op,
+        ...(o.color ? { color: o.color } : {}),
+      };
+    }
+
+    // ============================================================
+    // 데코 SVG 컴포넌트 — 잎/꽃/하트/별/화살표/점/언더라인 (prototype-v1에서 이식)
+    // ============================================================
+    function LeafSprig({ className = '', mirror = false }) {
+      return (
+        <svg viewBox="0 0 60 24" className={className} fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" style={mirror ? { transform: 'scaleX(-1)' } : undefined}>
+          <path d="M3 12 C 18 12, 30 12, 56 12" />
+          <path d="M14 12 C 14 8, 16 6, 19 5"  />
+          <path d="M14 12 C 14 16, 16 18, 19 19" />
+          <path d="M24 12 C 24 9, 26 7, 29 6.5" />
+          <path d="M24 12 C 24 15, 26 17, 29 17.5" />
+          <path d="M34 12 C 34 9.5, 36 8, 39 7.6" />
+          <path d="M34 12 C 34 14.5, 36 16, 39 16.4" />
+          <path d="M44 12 C 44 10.5, 46 9.5, 48 9.2" />
+          <path d="M44 12 C 44 13.5, 46 14.5, 48 14.8" />
+        </svg>
+      );
+    }
+    function HeartTiny({ className = '' }) {
+      return (
+        <svg viewBox="0 0 20 20" className={className} fill="currentColor">
+          <path d="M10 17s-6-3.6-6-8a4 4 0 0 1 6-3.5A4 4 0 0 1 16 9c0 4.4-6 8-6 8z" opacity="0.85" />
+        </svg>
+      );
+    }
+    function FlowerSprig({ className = '', mirror = false }) {
+      return (
+        <svg viewBox="0 0 64 28" className={className} fill="none" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" style={mirror ? { transform: 'scaleX(-1)' } : undefined}>
+          <path d="M2 14 C 18 14, 34 14, 60 14" />
+          <path d="M14 14 C 14 9, 17 7, 21 6.5" />
+          <path d="M14 14 C 14 19, 17 21, 21 21.5" />
+          <path d="M26 14 C 26 11, 28 9.5, 31 9" />
+          <path d="M26 14 C 26 17, 28 18.5, 31 19" />
+          <circle cx="40" cy="9.5" r="1.6" fill="currentColor" stroke="none" opacity="0.85" />
+          <path d="M38.4 9.5 C 38.4 7.5, 41.6 7.5, 41.6 9.5" />
+          <path d="M38.4 9.5 C 38.4 11.5, 41.6 11.5, 41.6 9.5" />
+          <path d="M40 14 L 40 11" />
+          <circle cx="50" cy="18" r="1.4" fill="currentColor" stroke="none" opacity="0.85" />
+          <path d="M50 14 L 50 16.6" />
+          <path d="M44 14 C 46 12.5, 48 12.5, 49.5 13.6" />
+          <path d="M44 14 C 46 15.5, 48 15.5, 49.5 14.4" />
+        </svg>
+      );
+    }
+    function ScribbleUnderline({ className = '', color = '#d24a2a', style }) {
+      return (
+        <svg viewBox="0 0 140 24" className={className} fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <path d="M4 14 C 30 6, 60 22, 90 10 S 130 18, 136 12" />
+          <path d="M10 20 C 40 14, 70 24, 100 18 S 128 22, 134 20" opacity="0.55" />
+        </svg>
+      );
+    }
+    function ScribbleStar({ className = '', color = '#1f1f1f', style }) {
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <path d="M12 3 L 14 10 L 21 11 L 15.5 15 L 17 22 L 12 18 L 7 22 L 8.5 15 L 3 11 L 10 10 Z" />
+        </svg>
+      );
+    }
+    function ScribbleArrow({ className = '', color = '#1f1f1f', style }) {
+      return (
+        <svg viewBox="0 0 80 32" className={className} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <path d="M4 22 C 18 8, 36 6, 60 14" />
+          <path d="M60 14 L 52 10" />
+          <path d="M60 14 L 56 20" />
+        </svg>
+      );
+    }
+    function ScribbleHeart({ className = '', color = '#d24a2a', style }) {
+      return (
+        <svg viewBox="0 0 20 18" className={className} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <path d="M10 16 C 5 13, 1 9, 2.5 5.5 C 4 2, 8 2.5, 10 5.5 C 12 2.5, 16 2, 17.5 5.5 C 19 9, 15 13, 10 16 Z" />
+        </svg>
+      );
+    }
+    function ScribbleDot({ className = '', color = '#1f1f1f', style }) {
+      return (
+        <svg viewBox="0 0 10 10" className={className} fill={color} style={style}>
+          <circle cx="5" cy="5" r="2.6" />
+        </svg>
+      );
+    }
+
+    // ============================================================
+    // 도메인 데이터 — 카피, 사진, 크롭 (prototype-v1에서 이식)
+    // ============================================================
+    const PHOTOS = {
+      wedding: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=80',
+    };
+    const SAMPLE_PHOTOS = {
+      minimal:    'assets/samples/sample-invitation.jpg',
+      invitation: 'assets/samples/sample-minimal.jpg',
+      emotive:    'assets/samples/sample-emotive.jpg',
+      kitsch:     'assets/samples/sample-kitsch.jpg',
+    };
+    const SAMPLE_CROPS = {
+      minimal:    { main: { x: 50, y: 55, scale: 105 } },
+      invitation: { main: { x: 50, y: 70, scale: 115 } },
+      emotive:    { main: { x: 50, y: 50, scale: 100 } },
+      kitsch:     {
+        main: { x: 50, y: 50, scale: 100 },
+        alt:  { x: 55, y: 40, scale: 310 },
+      },
+    };
+    const COPY = {
+      wedding: {
+        minimalEn: 'Thank You for Being There',
+        minimalKr: '함께해 주셔서 감사합니다',
+        emotiveKr: '축하해주신 덕분에 자리가 빛났습니다',
+        emotiveSub: '— thank you, from both of us',
+        invitation: {
+          coupleEn:     'JIHYE  ·  MINSU',
+          dateEn:       '2026 . 06 . 14  SUN',
+          venueKr:      '그랜드 컨벤션 5F 더 그레이스홀',
+          thanksHeadEn: 'with all our love',
+          thanksKr:     '오신 자리 덕분에 더 빛나는 날이었습니다',
+        },
+        kitsch: {
+          hero:   'Thank You',
+          sub:    'Happy wedding',
+          quote1: 'IF TOMORROW',
+          quote2: 'BRINGS NEW HOPE,',
+          quote3: 'I HOPE IT BRINGS YOU.',
+          stamp:  'with love',
+          couple: 'Jihye × Minsu',
+          date:   '06.14.2026',
+        },
+        no: 'No. 0421',
+      },
+    };
+
+    // ============================================================
+    // PosterMinimal — 러블리 미니멀 (인스타 피드용)
+    // ============================================================
+    function PosterMinimal({ category, photo, textEdits, cardCopy, overlay }) {
+      const c = COPY[category];
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
+      const i = c.invitation;
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className} edit={getTextEdit(textEdits, id)}>
+          {children}
+        </TextBlock>
+      );
+      return (
+        <PosterSurface className="lovely-cream">
+          <div className="absolute inset-x-0 top-0 h-[72%] overflow-hidden">
+            <img src={src} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+          </div>
+          <div className="absolute inset-x-0 bottom-0 h-[28%] flex flex-col items-center justify-center text-center px-6" style={ov}>
+            {TB('thanks', 'top-center', '', (
+              <div className="flex items-center gap-3" style={{ color: '#a3554a' }}>
+                <FlowerSprig className="w-10 h-3 opacity-85" />
+                <span className="font-script text-[36px] leading-none" style={{ color: '#7a3a31' }}>{getCopy('thanks_en', 'thank you')}</span>
+                <FlowerSprig className="w-10 h-3 opacity-85" mirror />
+              </div>
+            ))}
+            {TB('korean', 'top-center', 'mt-1.5', (
+              <div className="font-serif-kr text-[11px]" style={{ color: '#5a2f29' }}>{getCopy('korean', c.minimalKr)}</div>
+            ))}
+            {TB('couple', 'top-center', 'mt-1.5', (
+              <div className="inline-flex items-center gap-2 text-[9px] tracking-[0.24em] uppercase" style={{ color: '#a3554a' }}>
+                <span>{getCopy('couple_en', i.coupleEn)}</span>
+                <HeartTiny className="w-2.5 h-2.5" />
+                <span>{getCopy('couple_date', '06.14.2026')}</span>
+              </div>
+            ))}
+          </div>
+        </PosterSurface>
+      );
+    }
+
+    // ============================================================
+    // PosterInvitation — 격식형 (청첩장 톤, 풀블리드)
+    // ============================================================
+    function PosterInvitation({ category, photo, textEdits, cardCopy, overlay, isSquare }) {
+      const i = COPY[category].invitation;
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className} edit={getTextEdit(textEdits, id)}>
+          {children}
+        </TextBlock>
+      );
+      const sz = isSquare ? {
+        padT: 'pt-4', padB: 'pb-4', padX: 'px-6',
+        mono: 'text-[18px]', sub: 'text-[11px]', hero: 'text-[42px]',
+        thanksKr: 'text-[10px]', date: 'text-[10px]', venue: 'text-[9px]', couple: 'text-[11px]',
+        gapTop: 'mt-1.5', gapBottom: 'mt-2',
+      } : {
+        padT: 'pt-7', padB: 'pb-7', padX: 'px-7',
+        mono: 'text-[22px]', sub: 'text-[13px]', hero: 'text-[60px]',
+        thanksKr: 'text-[12px]', date: 'text-[11px]', venue: 'text-[10px]', couple: 'text-[12px]',
+        gapTop: 'mt-2', gapBottom: 'mt-3',
+      };
+      return (
+        <PosterSurface className="bg-zinc-900">
+          <img src={src} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(122,58,49,0.55) 0%, rgba(0,0,0,0.05) 28%, rgba(0,0,0,0.05) 60%, rgba(90,47,41,0.78) 100%)' }} />
+          <div className={cn('absolute inset-x-0 top-0 flex flex-col items-center text-center text-white', sz.padX, sz.padT)} style={ov}>
+            {TB('mono', 'top-center', '', (
+              <div className="flex items-center gap-3">
+                <LeafSprig className="w-10 h-3 text-white/85" />
+                <span className={cn('font-cormorant italic tracking-wide leading-none text-white', sz.mono)}>{getCopy('mono', 'J & M')}</span>
+                <LeafSprig className="w-10 h-3 text-white/85" mirror />
+              </div>
+            ))}
+            {TB('subhead', 'top-center', sz.gapTop, (
+              <div className={cn('font-cormorant italic text-white/90', sz.sub)}>{getCopy('subhead', i.thanksHeadEn)}</div>
+            ))}
+            {TB('hero', 'top-center', sz.gapTop, (
+              <div className={cn('font-script leading-[0.9] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]', sz.hero)}>{getCopy('hero', 'Thank you')}</div>
+            ))}
+          </div>
+          <div className={cn('absolute inset-x-0 bottom-0 flex flex-col items-center text-center text-white', sz.padX, sz.padB)} style={ov}>
+            {TB('thanks_kr', 'bottom-left', '', (
+              <div className={cn('font-serif-kr leading-[1.75] text-white/95', sz.thanksKr)}>{getCopy('thanks_kr', i.thanksKr)}</div>
+            ))}
+            <div className={cn('flex items-center gap-2 text-white/80', sz.gapBottom)}>
+              <span className="w-8 h-px bg-current" />
+              <HeartTiny className="w-2.5 h-2.5" />
+              <span className="w-8 h-px bg-current" />
+            </div>
+            {TB('datevenue', 'top-center', sz.gapBottom, (
+              <div>
+                <div className={cn('font-cormorant tracking-[0.22em] text-white/95', sz.date)}>{getCopy('date', i.dateEn)}</div>
+                <div className={cn('font-serif-kr mt-1 text-white/80', sz.venue)}>{getCopy('venue', i.venueKr)}</div>
+              </div>
+            ))}
+            {TB('couple', 'top-center', sz.gapTop, (
+              <div className={cn('font-cormorant italic tracking-wide text-white', sz.couple)}>{getCopy('couple', i.coupleEn)}</div>
+            ))}
+          </div>
+        </PosterSurface>
+      );
+    }
+
+    // ============================================================
+    // PosterEmotive — 감성 (한국어 종서, 풀블리드)
+    // ============================================================
+    function PosterEmotive({ category, photo, textEdits, cardCopy, overlay }) {
+      const c = COPY[category];
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
+      const ink = '#f6efe6';
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className} edit={getTextEdit(textEdits, id)}>
+          {children}
+        </TextBlock>
+      );
+      return (
+        <PosterSurface className="bg-zinc-900">
+          <img src={src} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.66) 100%)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.40) 100%)' }} />
+          <div className="absolute" style={{ left: '10%', top: '10%', color: ink, ...ov }}>
+            {TB('top_meta', 'top-left', '', (
+              <div>
+                <div className="text-[10px] tracking-[0.42em] uppercase opacity-85">{getCopy('tm_eyebrow', 'Wedding Day · Memento')}</div>
+                <div className="font-cormorant italic text-[12px] mt-1 opacity-90">{getCopy('tm_date', '06.14.2026')}</div>
+                <div className="font-cormorant italic text-[11px] mt-1 opacity-75">{getCopy('tm_sub', '— thank you, from both of us')}</div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute top-1/2" style={{
+            right: '9%',
+            color: ov?.color || ink,
+            transform: ov ? `translateY(-50%) ${ov.transform}` : 'translateY(-50%)',
+            ...(ov ? { opacity: ov.opacity } : {}),
+          }}>
+            {TB('korean_vert', 'center', '', (
+              <div className="flex flex-row-reverse items-start gap-2">
+                <div className="vrl-up font-serif-kr text-[15.4px]" style={{ fontWeight: 400, letterSpacing: '0.1em' }}>
+                  {getCopy('kv1', '축하해주신 덕분에')}
+                </div>
+                <div className="vrl-up font-serif-kr text-[15.4px]" style={{ fontWeight: 400, letterSpacing: '0.1em' }}>
+                  {getCopy('kv2', '자리가 빛났습니다')}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute" style={{ left: '10%', bottom: '10%', color: ink, ...ov }}>
+            {TB('credit', 'bottom-left', '', (
+              <div>
+                <div className="text-[10px] tracking-[0.42em] uppercase opacity-80">{getCopy('cr_eyebrow', 'Starring')}</div>
+                <div className="font-cormorant italic text-[18px] tracking-wide mt-1">{getCopy('cr_name', 'Jihye × Minsu')}</div>
+                <div className="text-[10px] tracking-[0.32em] uppercase opacity-70 mt-2">{getCopy('cr_fin', '— Fin —')}</div>
+              </div>
+            ))}
+          </div>
+        </PosterSurface>
+      );
+    }
+
+    // ============================================================
+    // PosterKitsch — 키치 (폴라로이드 콜라주, 네온, 크레파스 손글씨)
+    // 정적 미리보기 — onSelectPhoto 콜백 없음, cursor-pointer 제거, ring 표시 없음
+    // ============================================================
+    function PosterKitsch({ category, photo, photoAlt, textEdits, cardCopy, overlay, isSquare }) {
+      const c = COPY[category];
+      const k = c.kitsch;
+      const src = photo?.url || PHOTOS[category];
+      const imgStyle = applyPhotoStyle(photo);
+      const imgStyleAlt = applyPhotoStyle(photoAlt || photo);
+      const getCopy = makeGetCopy(cardCopy);
+      const ov = computeOverlay(overlay);
+      const TB = (id, anchor, className, children) => (
+        <TextBlock id={id} anchor={anchor} className={className} edit={getTextEdit(textEdits, id)}>
+          {children}
+        </TextBlock>
+      );
+      const sz = isSquare ? {
+        heroSize: 'text-[46px]', subSize: 'text-[42px]',
+        quoteSize: 'text-[9px]', stampSize: 'text-[13px]',
+        coupleSize: 'text-[10px]',
+      } : {
+        heroSize: 'text-[54px]', subSize: 'text-[48px]',
+        quoteSize: 'text-[10px]', stampSize: 'text-[15px]',
+        coupleSize: 'text-[11px]',
+      };
+      const NEON_PINK = '#ff1f9a';
+      const NEON_LIME = '#d4ff2e';
+      const INK = '#181818';
+      return (
+        <PosterSurface className="kitsch-paper">
+          {/* "Thank You" 손글씨 */}
+          <div className="absolute" style={{ top: '5%', left: '9%', transform: 'rotate(-9deg)', zIndex: 5, pointerEvents: 'none', ...ov }}>
+            <div>
+              {TB('hero', 'top-left', '', (
+                <div className="relative">
+                  <div className={cn('font-marker leading-[0.86] crayon-text', sz.heroSize)} style={{ color: NEON_PINK }}>
+                    {getCopy('hero', k.hero)}
+                  </div>
+                  <ScribbleUnderline className="absolute" color={NEON_PINK}
+                    style={{ left: '-4%', bottom: '-14px', width: '94%', height: '20px', filter: 'url(#crayonSoftFilter)' }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 메인 폴라로이드 (가로, -5도) — 정적 미리보기에서는 클릭 비활성 */}
+          <div className="absolute polaroid"
+            style={{ width: '62%', height: '52%', top: '17%', left: '4%', transform: 'rotate(-5deg)', zIndex: 2 }}
+          >
+            <div className="tape neon-lime-tape" style={{ top: '-9px', left: '22%', transform: 'rotate(-14deg)', width: '46px', height: '16px' }} />
+            <div className="tape" style={{ top: '-7px', right: '12%', transform: 'rotate(8deg)' }} />
+            <div className="w-full h-full overflow-hidden bg-zinc-200">
+              <img src={src} crossOrigin="anonymous" draggable="false" className="w-full h-full object-cover pointer-events-none" style={imgStyle} />
+            </div>
+            <div className={cn('absolute left-0 right-0 text-center font-kalam crayon-soft', sz.stampSize)}
+              style={{ bottom: '2.6%', color: INK, transform: 'rotate(-1deg)' }}
+            >
+              {TB('stamp', 'bottom-center', '', (
+                <span>{getCopy('stamp', k.stamp)}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* 작은 세로 폴라로이드 (우상, +6도) */}
+          <div className="absolute polaroid"
+            style={{ width: '30%', height: '40%', top: '10%', right: '4%', transform: 'rotate(6deg)', zIndex: 3 }}
+          >
+            <div className="tape neon-lime-tape" style={{ top: '-7px', left: '50%', transform: 'translateX(-50%) rotate(-3deg)', width: '34px' }} />
+            <div className="w-full h-full overflow-hidden bg-zinc-200">
+              <img src={src} crossOrigin="anonymous" draggable="false" className="w-full h-full object-cover pointer-events-none" style={imgStyleAlt} />
+            </div>
+          </div>
+
+          {/* 형광 핑크 인용구 카드 */}
+          <div className="absolute flex flex-col justify-center items-start px-3 py-2.5 neon-pink-box"
+            style={{ width: '40%', height: '20%', top: '54%', right: '3%', transform: 'rotate(-4deg)', color: '#fff7ec', zIndex: 4 }}
+          >
+            {TB('quote', 'top-left', '', (
+              <div className={cn('font-kalam leading-[1.18] tracking-wide', sz.quoteSize)}>
+                <div className="uppercase" style={{ fontWeight: 700 }}>{getCopy('quote1', k.quote1)}</div>
+                <div className="uppercase" style={{ fontWeight: 700 }}>{getCopy('quote2', k.quote2)}</div>
+                <div className="uppercase" style={{ fontWeight: 700 }}>{getCopy('quote3', k.quote3)}</div>
+                <div className="font-kalam italic mt-1 opacity-95" style={{ fontSize: '0.82em', fontWeight: 400 }}>
+                  — thank you, from both of us
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 하단 마커 손글씨 "Happy wedding" */}
+          <div className="absolute" style={{ left: '5%', bottom: '7%', transform: 'rotate(-3deg)', zIndex: 6, ...ov }}>
+            {TB('sub', 'bottom-left', '', (
+              <div className={cn('font-marker leading-none crayon-text', sz.subSize)} style={{ color: INK }}>
+                {getCopy('sub', k.sub)}
+              </div>
+            ))}
+          </div>
+
+          {/* 우하단 메타 (이름 · 날짜) */}
+          <div className="absolute" style={{ right: '5%', bottom: '4%', transform: 'rotate(2deg)', zIndex: 6, ...ov }}>
+            {TB('couple', 'bottom-right', '', (
+              <div className={cn('font-kalam text-right leading-tight crayon-soft', sz.coupleSize)} style={{ color: INK }}>
+                <div className="text-[1.4em]" style={{ fontWeight: 700 }}>{getCopy('couple', k.couple)}</div>
+                <div className="opacity-80 mt-0.5">{getCopy('date', k.date)}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 스크리블 데코 */}
+          <ScribbleStar className="absolute pointer-events-none" color={NEON_LIME}
+            style={{ top: '3%', right: '30%', width: '20px', height: '20px', transform: 'rotate(15deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' }}
+          />
+          <ScribbleStar className="absolute pointer-events-none" color={NEON_PINK}
+            style={{ top: '70%', left: '8%', width: '16px', height: '16px', transform: 'rotate(-22deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' }}
+          />
+          <ScribbleHeart className="absolute pointer-events-none" color={NEON_PINK}
+            style={{ bottom: '8%', right: '6%', width: '14px', height: '14px', transform: 'rotate(-18deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' }}
+          />
+          <ScribbleHeart className="absolute pointer-events-none" color={INK}
+            style={{ top: '78%', left: '36%', width: '13px', height: '13px', transform: 'rotate(20deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' }}
+          />
+          <ScribbleArrow className="absolute pointer-events-none" color={INK}
+            style={{ bottom: '14%', left: '42%', width: '56px', height: '22px', transform: 'rotate(8deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' }}
+          />
+          <ScribbleDot className="absolute pointer-events-none" color={NEON_LIME}
+            style={{ top: '16%', right: '36%', width: '8px', height: '8px', zIndex: 7 }} />
+          <ScribbleDot className="absolute pointer-events-none" color={NEON_PINK}
+            style={{ top: '52%', left: '8%', width: '7px', height: '7px', zIndex: 7 }} />
+          <ScribbleDot className="absolute pointer-events-none" color={INK}
+            style={{ bottom: '3%', left: '54%', width: '6px', height: '6px', zIndex: 7 }} />
+
+          <svg className="absolute pointer-events-none" viewBox="0 0 60 30"
+            style={{ top: '50%', right: '38%', width: '52px', height: '24px', transform: 'rotate(-8deg)', zIndex: 7, filter: 'url(#crayonSoftFilter)' }}
+            fill="none" stroke={NEON_LIME} strokeWidth="2.4" strokeLinecap="round">
+            <path d="M4 18 C 18 8, 30 22, 56 10" />
+          </svg>
+        </PosterSurface>
+      );
+    }
+
+    // ============================================================
+    // 스타일 정의 + 메타 (라벨/설명) — prototype-v1 AuthGate에서 이식
+    // ============================================================
+    const STYLE_DEFS = [
+      { key: 'minimal',    Render: PosterMinimal },
+      { key: 'invitation', Render: PosterInvitation },
+      { key: 'emotive',    Render: PosterEmotive },
+      { key: 'kitsch',     Render: PosterKitsch },
+    ];
+    const STYLE_META = {
+      minimal:    { label: '미니멀 땡큐', desc: '러블리 미니멀 · 인스타 피드용' },
+      invitation: { label: '격식형 땡큐', desc: '청첩장 톤의 정중한 감사장' },
+      emotive:    { label: '감성 땡큐',   desc: '한국어 종서 감성 · 풀블리드' },
+      kitsch:     { label: '키치 땡큐',   desc: '폴라로이드 콜라주 · 네온' },
+    };
+
+    // ============================================================
+    // 가치 포인트 — How it works 3단계
+    // ============================================================
+    const VALUES = [
+      {
+        n: '01',
+        title: '결혼식 당일 폰 사진 한 장이면 충분',
+        sub: 'A friend’s phone snap is all we need.',
+      },
+      {
+        n: '02',
+        title: '4가지 톤 동시 생성',
+        sub: 'Four moods, composed automatically.',
+      },
+      {
+        n: '03',
+        title: '바로 인스타 · 카톡 전송',
+        sub: 'Ready to send. No edits required.',
+      },
+    ];
+
+    // ============================================================
+    // Hero
+    // ============================================================
+    function Hero() {
+      return (
+        <section className="text-center">
+          <div className="flex items-center justify-center gap-3 text-primary mb-8">
+            <span className="hairline-strong" style={{ width: 28, background: 'currentColor', opacity: 0.4 }} />
+            <span className="eyebrow">Marian Wedding · New Service</span>
+            <span className="hairline-strong" style={{ width: 28, background: 'currentColor', opacity: 0.4 }} />
+          </div>
+          <div className="font-script text-primary text-[44px] sm:text-[56px] leading-none mb-3">
+            Thank you,
+          </div>
+          <h1 className="display-bold text-foreground text-[34px] sm:text-[52px] lg:text-[64px] leading-[1.05]">
+            결혼식 후 보내는 <span className="whitespace-nowrap">땡큐카드</span>
+          </h1>
+          <p className="font-cormorant-i text-foreground/80 text-[18px] sm:text-[22px] mt-4 leading-snug max-w-[640px] mx-auto">
+            Thank You Cards — automatically composed from your wedding snap.
+          </p>
+          <div className="hairline mx-auto mt-7 max-w-[120px]" />
+          <p className="text-foreground/75 text-[14px] sm:text-[15px] mt-7 max-w-[560px] mx-auto leading-relaxed">
+            마리안에서 결혼식을 올리신 부부에게 무료로 드리는 새 서비스입니다.
+          </p>
+          <p className="text-foreground/75 text-[14px] sm:text-[15px] mt-2 max-w-[560px] mx-auto leading-relaxed">
+            누구에게 부탁하거나 할 필요 없이, 세련된 땡큐카드를 예식 날 바로 만드실 수 있어요.
+          </p>
+        </section>
+      );
+    }
+
+    // ============================================================
+    // Value points — 3가지
+    // ============================================================
+    function ValuePoints() {
+      return (
+        <section className="mt-16 sm:mt-20">
+          <div className="flex items-center justify-center gap-3 text-primary mb-8">
+            <span className="hairline-strong" style={{ width: 20, background: 'currentColor', opacity: 0.4 }} />
+            <span className="eyebrow">How it works</span>
+            <span className="hairline-strong" style={{ width: 20, background: 'currentColor', opacity: 0.4 }} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-foreground/10 primary-border">
+            {VALUES.map((v) => (
+              <div key={v.n} className="bg-background p-7 sm:p-8 text-center">
+                <div className="font-cormorant-i text-primary text-[28px] leading-none">{v.n}</div>
+                <div className="hairline mx-auto mt-4 mb-5" style={{ width: 28 }} />
+                <h4 className="display-tight text-foreground text-[15px] sm:text-[16px] leading-snug">{v.title}</h4>
+                <p className="font-cormorant-i text-muted-foreground text-[13px] mt-2 leading-snug">{v.sub}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+
+    // ============================================================
+    // Footer
+    // ============================================================
+    function Footer() {
+      return (
+        <footer className="mt-14 sm:mt-20 pt-7 border-t border-foreground/10">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <div className="display-bold text-foreground text-[18px] tracking-[0.18em]">MARIAN WEDDING</div>
+              <div className="font-cormorant-i text-muted-foreground text-[13px] mt-1">Seoul · Since 2003</div>
+            </div>
+            <div className="text-right sm:text-right">
+              <div className="eyebrow text-muted-foreground">© 2026 Marian Wedding</div>
+              <div className="font-cormorant-i text-muted-foreground/80 text-[12px] mt-1">Thank You Card Service · v1</div>
+            </div>
+          </div>
+        </footer>
+      );
+    }
+
+    // ============================================================
+    // App
+    // ============================================================
+    function App() {
+      useEffect(() => {
+        document.title = 'Marian Wedding — Thank You Card Service';
+      }, []);
+
+      return (
+        <main className="min-h-screen bg-background">
+          <div className="mx-auto max-w-[1280px] px-6 sm:px-10 lg:px-16 py-12 sm:py-16 lg:py-20">
+
+            <header className="flex items-center justify-between mb-14 sm:mb-16">
+              <div className="display-bold text-primary text-[14px] tracking-[0.22em]">MARIAN WEDDING</div>
+              <div className="eyebrow text-muted-foreground">est. 2003</div>
+            </header>
+
+            <Hero />
+
+            {/* ============== 메인: 4 카드 그리드 — 실제 합성 카드 미리보기 ============== */}
+            <section className="mt-16 sm:mt-20">
+              <div className="flex items-center justify-center gap-3 text-primary mb-8">
+                <span className="hairline-strong" style={{ width: 20, background: 'currentColor', opacity: 0.4 }} />
+                <span className="eyebrow">Four Moods</span>
+                <span className="hairline-strong" style={{ width: 20, background: 'currentColor', opacity: 0.4 }} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-5">
+                {STYLE_DEFS.map(s => {
+                  const url = SAMPLE_PHOTOS[s.key];
+                  const crop = SAMPLE_CROPS[s.key];
+                  return (
+                    <div key={s.key} className="space-y-3 print-break-avoid">
+                      <ScaledPoster className="border border-border bg-secondary/30" baseWidth={480} ratio={4/5}>
+                        <s.Render
+                          category="wedding"
+                          photo={{ url, ...crop.main }}
+                          photoAlt={crop.alt ? { url, ...crop.alt } : undefined}
+                          textEdits={{}}
+                          cardCopy={{}}
+                          isSquare={false}
+                        />
+                      </ScaledPoster>
+                      <div className="text-center px-1">
+                        <div className="display-bold text-[13px] text-foreground">{STYLE_META[s.key].label}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{STYLE_META[s.key].desc}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-center font-cormorant-i text-muted-foreground text-[14px] mt-9 max-w-[560px] mx-auto leading-relaxed">
+                한 장의 사진에서 네 가지 톤의 감사 카드가 자동으로 완성됩니다.
+                <br className="hidden sm:block" />
+                <span className="text-foreground/55">From one snap, four cards — composed for you.</span>
+              </p>
+            </section>
+
+            <ValuePoints />
+            <Footer />
+          </div>
+        </main>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
