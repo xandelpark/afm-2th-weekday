@@ -3445,10 +3445,10 @@
                                         setSplittingAt({ segId: s.id, splitTime: snapped, original: splitTime });
                                       }
                                     }}
-                                    className={`inline-flex items-center justify-center px-1 h-5 text-[13px] rounded transition leading-none
+                                    className={`inline-flex items-center justify-center px-2 h-7 md:px-1 md:h-5 text-[14px] md:text-[13px] rounded transition leading-none
                                       ${isSplittingHere
                                         ? 'text-accent bg-accent/20'
-                                        : 'text-ink/25 hover:text-accent hover:bg-accent/15'}`}
+                                        : 'text-accent/70 bg-accent/10 md:text-ink/25 md:bg-transparent hover:text-accent hover:bg-accent/15'}`}
                                     title={audioRMS ? `여기서 쪼개기 · 실제 silence로 자동 스냅` : `여기서 쪼개기 · ${fmtTime(splitTime)}`}
                                   >
                                     ✂︎
