@@ -5,3 +5,6 @@ uploads/
 *.log
 .vercel
 .env*.local
+
+# 5개 테니스 영상 분석 레퍼런스 클론 (216MB, 분석 v2 작업용 로컬 보관)
+references/

@@ -1,61 +1,102 @@
 /**
- * 데일리테니스 자세분석 앱 — server.js (매장 PC 로컬 운영판)
+ * 데일리테니스 자세분석 앱 — server.js (Vercel 클라우드 배포판)
  *
  * 운영 가정:
- *  - 매장 PC에서 `node server.js`로 직접 띄움 (포트 3000)
- *  - 손님 폰은 같은 LAN(매장 와이파이)에서 PC LAN IP로 접속
- *  - 영상 저장은 로컬 디스크(./uploads), 메타데이터는 메모리(Map)
- *  - PC 재시작 시 세션은 모두 사라지며, 그것이 의도된 동작
+ *  - Vercel Serverless Function으로 실행 (요청별 독립 인스턴스)
+ *  - 영상 파일은 Vercel Blob에 저장 (브라우저 직접 업로드: client upload)
+ *  - 세션 메타데이터는 Supabase Postgres에 저장
+ *  - ffmpeg 사용 안 함 — 모든 변환은 브라우저 ffmpeg.wasm에서 처리
  *
  * 흐름:
- *   [PC 모니터]      ─ /api/store-token         ─→  지속형 QR (매장 토큰)
+ *   [PC 모니터]      ─ GET /api/store-token         ─→  지속형 QR
  *   [손님 폰]   QR → /upload?token=...
  *                    POST /api/sessions { token } → sessionId 발급
- *                    POST /api/sessions/:id/upload (multipart) → uploads/<id>.<ext>
+ *                    POST /api/blob/upload-url    → 클라이언트 직접 업로드 토큰
+ *                    PUT  <blob direct url>       → Vercel Blob에 직업로드 (1080p 변환된 파일)
+ *                    POST /api/sessions/:id/attach { blobUrl } → DB 업데이트
  *   [PC]             GET /api/queue/next → uploaded → analyzing 전이
- *                    (브라우저에서 MediaPipe + Canvas + MediaRecorder로 합성 영상 생성)
- *                    POST /api/sessions/:id/result-video (multipart, webm)
- *                    → ffmpeg가 webm을 mp4 + mov로 변환 (60초 timeout)
+ *                    POST /api/blob/upload-url → 결과 영상 직접 업로드 토큰
+ *                    PUT  <blob direct url> → 합성 결과 영상 (mp4)
+ *                    POST /api/sessions/:id/attach-result { blobUrl } → DB 업데이트
  *                    POST /api/sessions/:id/complete
- *   [손님 폰]   /d/:id     → HTML 안내 페이지 (.mov 다운로드 + Files→Photos 가이드)
- *               /d/:id/raw → Content-Disposition attachment 강제 다운로드
+ *   [손님 폰]   /d/:id     → HTML 안내 페이지 + Blob 영상 미리보기
+ *               /d/:id/raw → Blob 영상 redirect (Content-Disposition 강제)
  */
 
 const express = require('express');
-const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const { spawn } = require('child_process');
+const { Client } = require('pg');
+const { handleUpload } = require('@vercel/blob/client');
+const { del: blobDel } = require('@vercel/blob');
 
 const app = express();
 const PORT = parseInt((process.env.PORT || '3000').trim(), 10);
 
 // ────────────────────────────────────────────────────────────────────────────
-// 디렉토리 / 정적 자원 / 업로드 한도
+// 환경변수 / 상수
 // ────────────────────────────────────────────────────────────────────────────
+const DATABASE_URL = process.env.DATABASE_URL;
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+const STORE_TOKEN_TTL_DAYS = parseFloat((process.env.STORE_TOKEN_TTL_DAYS || '2').trim());
+const STORE_TOKEN_TTL_MS = STORE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 60 * 1000;
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB — 1080p 1분 영상 충분
+
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;        // 300MB (모바일 raw 영상)
-const MAX_RESULT_VIDEO_BYTES = 100 * 1024 * 1024;  // 100MB (PC 합성 영상)
 
 // ────────────────────────────────────────────────────────────────────────────
-// In-memory 세션 저장
-//   sessions: Map<sessionId, Session>
-//   Session = {
-//     id, status, storeToken,
-//     videoFilename, videoMime,
-//     resultVideoFilename, resultVideoMime, resultVideoExt,
-//     failReason, downloadCount, pcId,
-//     createdAt, expiresAt, uploadedAt, pickedUpAt, completedAt, failedAt,
-//     resultVideoUploadedAt
-//   }
+// Postgres helper — 요청별로 짧게 연결
 // ────────────────────────────────────────────────────────────────────────────
-const sessions = new Map();
+async function withDb(fn) {
+  if (!DATABASE_URL) throw new Error('DATABASE_URL not configured');
+  const client = new Client({
+    connectionString: DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    statement_timeout: 10000,
+    query_timeout: 10000,
+  });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    try { await client.end(); } catch (_) {}
+  }
+}
+
+function rowToSession(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    storeToken: row.store_token,
+    cameraAngle: row.camera_angle,
+    backhandStyle: row.backhand_style,
+    pcId: row.pc_id,
+    videoBlobUrl: row.video_blob_url,
+    videoMime: row.video_mime,
+    resultBlobUrl: row.result_blob_url,
+    resultMime: row.result_mime,
+    resultExt: row.result_ext,
+    failReason: row.fail_reason,
+    downloadCount: row.download_count,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    uploadedAt: row.uploaded_at,
+    pickedUpAt: row.picked_up_at,
+    completedAt: row.completed_at,
+    failedAt: row.failed_at,
+    resultUploadedAt: row.result_uploaded_at,
+  };
+}
+
+async function getSession(id) {
+  return withDb(async (c) => {
+    const r = await c.query('SELECT * FROM sessions WHERE id = $1', [id]);
+    return rowToSession(r.rows[0]);
+  });
+}
 
 function isExpired(session) {
   if (!session || !session.expiresAt) return false;
@@ -63,231 +104,65 @@ function isExpired(session) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Store Token (in-memory)
-//   - PC가 매장 모니터에 표시하는 지속형 QR의 토큰
-//   - 만료 시 새 토큰 자동 발급 (rotate)
+// Store token — DB 기반 회전형
 // ────────────────────────────────────────────────────────────────────────────
-const STORE_TOKEN_TTL_DAYS = parseFloat((process.env.STORE_TOKEN_TTL_DAYS || '2').trim());
-const STORE_TOKEN_TTL_MS = STORE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
-
-let currentToken = null; // { value, issuedAt: Date, expiresAt: Date }
-
-function ensureFreshToken() {
-  const now = new Date();
-  if (currentToken && currentToken.expiresAt.getTime() > now.getTime()) {
-    return currentToken;
-  }
-  const value = crypto.randomBytes(8).toString('hex');
-  const expiresAt = new Date(now.getTime() + STORE_TOKEN_TTL_MS);
-  currentToken = { value, issuedAt: now, expiresAt };
-  console.log(`[token] 새 store token 발급 → ${value} (만료: ${expiresAt.toISOString()})`);
-  return currentToken;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// LAN IP 자동 탐지
-// ────────────────────────────────────────────────────────────────────────────
-function detectLanIP() {
-  const ifaces = os.networkInterfaces();
-  for (const name of Object.keys(ifaces)) {
-    for (const iface of ifaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        if (
-          iface.address.startsWith('192.168.') ||
-          iface.address.startsWith('10.') ||
-          /^172\.(1[6-9]|2\d|3[01])\./.test(iface.address)
-        ) {
-          return iface.address;
-        }
-      }
+async function ensureFreshToken() {
+  return withDb(async (c) => {
+    const r = await c.query(
+      'SELECT token, issued_at, expires_at FROM store_tokens ORDER BY issued_at DESC LIMIT 1'
+    );
+    const latest = r.rows[0];
+    if (latest && new Date(latest.expires_at).getTime() > Date.now()) {
+      return {
+        value: latest.token,
+        issuedAt: new Date(latest.issued_at),
+        expiresAt: new Date(latest.expires_at),
+      };
     }
-  }
-  for (const name of Object.keys(ifaces)) {
-    for (const iface of ifaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
-    }
-  }
-  return 'localhost';
-}
-
-const LAN_IP = detectLanIP();
-
-// 호스트 결정 — 외부 host(예: Cloudflare Tunnel)는 그대로, localhost만 LAN IP 치환
-function buildPublicHost(req) {
-  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').toString();
-  const rawHost = (req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`).toString();
-  const [hostname, port] = rawHost.split(':');
-  const isLocal =
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '0.0.0.0' ||
-    hostname === '::1';
-  const finalHost = isLocal ? `${LAN_IP}:${port || PORT}` : rawHost;
-  return `${proto}://${finalHost}`;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// MIME ↔ 확장자 헬퍼
-// ────────────────────────────────────────────────────────────────────────────
-function mimetypeToExt(mimetype) {
-  if (!mimetype) return null;
-  const map = {
-    'video/mp4': 'mp4',
-    'video/quicktime': 'mov',
-    'video/x-msvideo': 'avi',
-    'video/x-matroska': 'mkv',
-    'video/webm': 'webm',
-    'video/3gpp': '3gp',
-  };
-  return map[mimetype] || null;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// ffmpeg 가용성 체크 + webm → mp4 / mp4 → mov 변환
-// ────────────────────────────────────────────────────────────────────────────
-const FFMPEG_PATH = (process.env.FFMPEG_PATH || 'ffmpeg').trim();
-const FFMPEG_TIMEOUT_MS = 60 * 1000;
-
-let FFMPEG_AVAILABLE = false;
-let FFMPEG_VERSION = null;
-
-(function probeFfmpeg() {
-  try {
-    const proc = spawn(FFMPEG_PATH, ['-version']);
-    let out = '';
-    proc.stdout.on('data', (d) => { out += d.toString(); });
-    proc.on('error', () => {
-      FFMPEG_AVAILABLE = false;
-    });
-    proc.on('close', (code) => {
-      if (code === 0) {
-        FFMPEG_AVAILABLE = true;
-        const m = out.match(/ffmpeg version ([^\s]+)/);
-        FFMPEG_VERSION = m ? m[1] : 'unknown';
-      } else {
-        FFMPEG_AVAILABLE = false;
-      }
-    });
-  } catch (_) {
-    FFMPEG_AVAILABLE = false;
-  }
-})();
-
-function runFfmpeg(args, label = 'ffmpeg') {
-  return new Promise((resolve, reject) => {
-    if (!FFMPEG_AVAILABLE) {
-      return reject(new Error('ffmpeg unavailable'));
-    }
-    const proc = spawn(FFMPEG_PATH, args);
-    let stderr = '';
-    const timer = setTimeout(() => {
-      try { proc.kill('SIGKILL'); } catch (_) {}
-      reject(new Error(`${label} timeout (${FFMPEG_TIMEOUT_MS}ms)`));
-    }, FFMPEG_TIMEOUT_MS);
-    proc.stderr.on('data', (d) => { stderr += d.toString(); });
-    proc.on('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-    proc.on('close', (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve();
-      else reject(new Error(`${label} exit code ${code}: ${stderr.slice(-500)}`));
-    });
+    const value = crypto.randomBytes(8).toString('hex');
+    const expiresAt = new Date(Date.now() + STORE_TOKEN_TTL_MS);
+    await c.query(
+      'INSERT INTO store_tokens (token, issued_at, expires_at) VALUES ($1, NOW(), $2)',
+      [value, expiresAt]
+    );
+    console.log(`[token] 새 store token 발급 → ${value}`);
+    return { value, issuedAt: new Date(), expiresAt };
   });
 }
 
-// webm → mp4 (H.264 + AAC). 인스타/사진앱 호환을 위한 표준 mp4.
-async function convertWebmToMp4(webmPath, mp4Path) {
-  await runFfmpeg(
-    [
-      '-y',
-      '-i', webmPath,
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '23',
-      '-pix_fmt', 'yuv420p',
-      '-movflags', '+faststart',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      mp4Path,
-    ],
-    'webm→mp4'
-  );
-}
-
-// mp4 → mov (코덱 그대로 컨테이너만 변경 — iOS Photos 호환)
-async function convertMp4ToMov(mp4Path, movPath) {
-  await runFfmpeg(
-    [
-      '-y',
-      '-i', mp4Path,
-      '-c', 'copy',
-      '-movflags', '+faststart',
-      movPath,
-    ],
-    'mp4→mov'
-  );
-}
-
 // ────────────────────────────────────────────────────────────────────────────
-// multer — 디스크 저장
+// 호스트/URL 결정 — Vercel 배포 시 자동으로 vercel.app 도메인
 // ────────────────────────────────────────────────────────────────────────────
-const uploadVideo = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-    filename: (req, file, cb) => {
-      const ext = mimetypeToExt(file.mimetype) || 'mp4';
-      cb(null, `${req.params.id}.${ext}`);
-    },
-  }),
-  limits: { fileSize: MAX_UPLOAD_BYTES },
-  fileFilter: (_req, file, cb) => {
-    if (!file.mimetype || !file.mimetype.startsWith('video/')) {
-      return cb(new Error('not_video'));
-    }
-    cb(null, true);
-  },
-});
-
-const uploadResult = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-    filename: (req, file, cb) => {
-      const ext = mimetypeToExt(file.mimetype) || 'webm';
-      cb(null, `result-${req.params.id}.${ext}`);
-    },
-  }),
-  limits: { fileSize: MAX_RESULT_VIDEO_BYTES },
-  fileFilter: (_req, file, cb) => {
-    if (!file.mimetype || !file.mimetype.startsWith('video/')) {
-      return cb(new Error('not_video'));
-    }
-    cb(null, true);
-  },
-});
+function buildPublicHost(req) {
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').toString().split(',')[0].trim();
+  const host = (req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`).toString();
+  return `${proto}://${host}`;
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // 미들웨어
 // ────────────────────────────────────────────────────────────────────────────
-app.use(express.json());
-
-// 정적 파일: public/ + uploads/
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(PUBLIC_DIR, { index: false }));
-app.use('/uploads', express.static(UPLOAD_DIR, {
-  setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'no-store');
-  },
-}));
 
 // ────────────────────────────────────────────────────────────────────────────
 // API 라우트
 // ────────────────────────────────────────────────────────────────────────────
 
-// 0) Store token 조회 (PC가 QR 만들 때)
-app.get('/api/store-token', (req, res) => {
+// 헬스체크
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    hasDb: !!DATABASE_URL,
+    hasBlob: !!BLOB_TOKEN,
+    time: new Date().toISOString(),
+  });
+});
+
+// 0) Store token 조회
+app.get('/api/store-token', async (req, res) => {
   try {
-    const token = ensureFreshToken();
+    const token = await ensureFreshToken();
     const base = buildPublicHost(req);
     const qrUrl = `${base}/upload?token=${token.value}`;
     res.json({
@@ -303,58 +178,35 @@ app.get('/api/store-token', (req, res) => {
 });
 
 // 1) 세션 생성 — 토큰 검증
-app.post('/api/sessions', (req, res) => {
+app.post('/api/sessions', async (req, res) => {
   try {
-    const bodyToken = req.body && req.body.token;
-    const queryToken = req.query.token;
-    const providedToken = bodyToken || queryToken;
-    const fresh = ensureFreshToken();
+    const providedToken = (req.body && req.body.token) || req.query.token;
+    const fresh = await ensureFreshToken();
     if (!providedToken || providedToken !== fresh.value) {
       return res.status(401).json({ error: 'invalid_or_expired_token' });
     }
 
     const id = uuidv4();
     const now = new Date();
-    const SESSION_TTL_MS = 30 * 60 * 1000; // 30분
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
     const pcId = req.body && req.body.pcId ? String(req.body.pcId) : null;
 
-    // 카메라 각도 — 모바일에서 대각선/정면 라디오로 지정. 채점 임계치에 직접 영향.
-    // 'side'(측면)는 매장 시나리오에 없으므로 제거. 알 수 없는 값은 기본 'diagonal'.
     const rawAngle = req.body && req.body.cameraAngle;
     const cameraAngle = (rawAngle === 'front' || rawAngle === 'diagonal') ? rawAngle : 'diagonal';
 
-    // 백핸드 스타일 — 모바일에서 자동/한손/양손 선택. 백핸드 영상에만 적용됨.
     const rawBhStyle = req.body && req.body.backhandStyle;
     const backhandStyle = (rawBhStyle === 'one-handed' || rawBhStyle === 'two-handed') ? rawBhStyle : 'auto';
 
-    sessions.set(id, {
-      id,
-      status: 'waiting',
-      storeToken: fresh.value,
-      cameraAngle,
-      backhandStyle,
-      videoFilename: null,
-      videoMime: null,
-      resultVideoFilename: null,
-      resultVideoMime: null,
-      resultVideoExt: null,
-      failReason: null,
-      downloadCount: 0,
-      pcId,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      uploadedAt: null,
-      pickedUpAt: null,
-      completedAt: null,
-      failedAt: null,
-      resultVideoUploadedAt: null,
-    });
+    await withDb((c) => c.query(
+      `INSERT INTO sessions (id, status, store_token, camera_angle, backhand_style, pc_id, expires_at)
+       VALUES ($1, 'waiting', $2, $3, $4, $5, $6)`,
+      [id, fresh.value, cameraAngle, backhandStyle, pcId, expiresAt]
+    ));
 
     const base = buildPublicHost(req);
     const uploadUrl = `${base}/upload?session=${id}`;
 
-    console.log(`[session] 새 세션 ${id} (각도: ${cameraAngle}, 백핸드: ${backhandStyle})`);
+    console.log(`[session] 새 세션 ${id}`);
     res.status(201).json({
       sessionId: id,
       uploadUrl,
@@ -369,265 +221,222 @@ app.post('/api/sessions', (req, res) => {
   }
 });
 
-// 2) 모바일 영상 업로드 (multipart) — uploads/<id>.<ext>
-app.post(
-  '/api/sessions/:id/upload',
-  (req, res, next) => {
-    const session = sessions.get(req.params.id);
+// 1-A) Blob client upload 토큰 발급 — 브라우저가 Blob에 직접 업로드하기 위한 endpoint
+//      (Vercel Blob client upload 흐름의 표준 핸들러)
+app.post('/api/blob/upload-url', async (req, res) => {
+  try {
+    const jsonResponse = await handleUpload({
+      body: req.body,
+      request: req,
+      onBeforeGenerateToken: async (pathname /*, clientPayload */) => {
+        // clientPayload에 sessionId/role 넣을 수 있음 (입력 검증)
+        const allowedPrefixes = ['raw/', 'result/'];
+        if (!allowedPrefixes.some((p) => pathname.startsWith(p))) {
+          throw new Error('invalid_pathname');
+        }
+        return {
+          allowedContentTypes: ['video/mp4', 'video/webm', 'video/quicktime'],
+          maximumSizeInBytes: MAX_UPLOAD_BYTES,
+          tokenPayload: JSON.stringify({ pathname, ts: Date.now() }),
+        };
+      },
+      onUploadCompleted: async (/* { blob, tokenPayload } */) => {
+        // 클라이언트가 직접 /attach 로 DB 업데이트 호출
+      },
+      token: BLOB_TOKEN,
+    });
+    res.json(jsonResponse);
+  } catch (err) {
+    console.error('[blob/upload-url] 실패', err);
+    res.status(400).json({ error: 'blob_token_failed', detail: err.message });
+  }
+});
+
+// 2) 모바일 영상 업로드 완료 보고 — Blob URL을 DB에 첨부
+app.post('/api/sessions/:id/attach', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { blobUrl, mime } = req.body || {};
+    if (!blobUrl) return res.status(400).json({ error: 'blobUrl 누락' });
+
+    const session = await getSession(id);
     if (!session) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
     if (isExpired(session)) return res.status(410).json({ error: '세션이 만료되었습니다' });
     if (session.status !== 'waiting') {
-      return res.status(409).json({ error: `이미 업로드된 세션입니다 (status=${session.status})` });
+      return res.status(409).json({ error: `이미 처리된 세션입니다 (status=${session.status})` });
     }
-    next();
-  },
-  (req, res) => {
-    uploadVideo.single('video')(req, res, (err) => {
-      if (err) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(413).json({ error: '파일 크기 초과 (300MB)' });
-        }
-        if (err.message === 'not_video') {
-          return res.status(400).json({ error: '비디오 파일만 업로드 가능합니다' });
-        }
-        console.error('[upload] multer 오류', err);
-        return res.status(500).json({ error: '업로드 처리 실패', detail: err.message });
-      }
-      if (!req.file) return res.status(400).json({ error: '비디오 파일이 첨부되지 않았습니다' });
 
-      const session = sessions.get(req.params.id);
-      if (!session) {
-        try { fs.unlinkSync(req.file.path); } catch (_) {}
-        return res.status(404).json({ error: '세션이 사라졌습니다' });
-      }
-      session.videoFilename = req.file.filename;
-      session.videoMime = req.file.mimetype;
-      session.status = 'uploaded';
-      session.uploadedAt = new Date().toISOString();
+    await withDb((c) => c.query(
+      `UPDATE sessions SET video_blob_url = $1, video_mime = $2, status = 'uploaded', uploaded_at = NOW()
+       WHERE id = $3`,
+      [blobUrl, mime || 'video/mp4', id]
+    ));
 
-      console.log(`[upload] 세션 ${req.params.id} ← ${req.file.filename} (${req.file.size} bytes)`);
-      res.json({
-        ok: true,
-        sessionId: req.params.id,
-        videoUrl: `/uploads/${req.file.filename}`,
-      });
-    });
+    console.log(`[upload] 세션 ${id} ← ${blobUrl}`);
+    res.json({ ok: true, sessionId: id, videoUrl: blobUrl });
+  } catch (err) {
+    console.error('[attach] 실패', err);
+    res.status(500).json({ error: '업로드 첨부 실패', detail: err.message });
   }
-);
+});
 
 // 3) 세션 상태 조회
-app.get('/api/sessions/:id/status', (req, res) => {
-  const { id } = req.params;
-  const session = sessions.get(id);
-  if (!session) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
+app.get('/api/sessions/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await getSession(id);
+    if (!session) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
 
-  if (isExpired(session) && session.status === 'waiting') {
-    return res.json({
-      sessionId: id,
-      status: 'expired',
-      videoUrl: null,
-      resultVideoUrl: null,
-      downloadUrl: null,
-      expiresAt: session.expiresAt,
-    });
-  }
-
-  const videoUrl = session.videoFilename ? `/uploads/${session.videoFilename}` : null;
-  const resultVideoUrl = session.resultVideoFilename ? `/uploads/${session.resultVideoFilename}` : null;
-  const downloadUrl = session.resultVideoFilename ? `/d/${id}` : null;
-
-  res.json({
-    sessionId: id,
-    status: session.status,
-    videoUrl,
-    resultVideoUrl,
-    downloadUrl,
-    expiresAt: session.expiresAt,
-    uploadedAt: session.uploadedAt,
-    completedAt: session.completedAt,
-  });
-});
-
-// 4) PC 큐 폴링 — 가장 오래된 'uploaded' → 'analyzing'으로 전이
-app.get('/api/queue/next', (req, res) => {
-  let oldest = null;
-  for (const session of sessions.values()) {
-    if (session.status !== 'uploaded') continue;
-    if (!oldest || (session.uploadedAt || '') < (oldest.uploadedAt || '')) {
-      oldest = session;
+    if (isExpired(session) && session.status === 'waiting') {
+      return res.json({
+        sessionId: id,
+        status: 'expired',
+        videoUrl: null,
+        resultVideoUrl: null,
+        downloadUrl: null,
+        expiresAt: session.expiresAt,
+      });
     }
+
+    res.json({
+      sessionId: id,
+      status: session.status,
+      videoUrl: session.videoBlobUrl,
+      resultVideoUrl: session.resultBlobUrl,
+      downloadUrl: session.resultBlobUrl ? `/d/${id}` : null,
+      expiresAt: session.expiresAt,
+      uploadedAt: session.uploadedAt,
+      completedAt: session.completedAt,
+    });
+  } catch (err) {
+    console.error('[status] 실패', err);
+    res.status(500).json({ error: err.message });
   }
-  if (!oldest) return res.status(204).end();
-
-  oldest.status = 'analyzing';
-  oldest.pickedUpAt = new Date().toISOString();
-
-  // 상대 경로로 반환 — PC 브라우저가 어떤 호스트로 접근하든(localhost / LAN IP)
-  // 동일 origin으로 해석되므로 CORS / canvas tainting 문제가 없다.
-  const videoUrl = oldest.videoFilename ? `/uploads/${oldest.videoFilename}` : null;
-
-  console.log(`[queue] 픽업 ${oldest.id} → analyzing (각도: ${oldest.cameraAngle || 'side'})`);
-  res.json({
-    sessionId: oldest.id,
-    videoUrl,
-    cameraAngle: oldest.cameraAngle || 'diagonal',
-    backhandStyle: oldest.backhandStyle || 'auto',
-    status: oldest.status,
-    uploadedAt: oldest.uploadedAt,
-  });
 });
 
-// 5) PC가 분석 완료 보고
-app.post('/api/sessions/:id/complete', (req, res) => {
-  const { id } = req.params;
-  const session = sessions.get(id);
-  if (!session) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
-  session.status = 'completed';
-  session.completedAt = new Date().toISOString();
-  console.log(`[session] ${id} → completed`);
-  res.json({ ok: true });
+// 4) PC 큐 폴링 — 가장 오래된 uploaded → analyzing (원자적 업데이트)
+app.get('/api/queue/next', async (_req, res) => {
+  try {
+    const result = await withDb((c) => c.query(
+      `UPDATE sessions SET status = 'analyzing', picked_up_at = NOW()
+       WHERE id = (
+         SELECT id FROM sessions
+         WHERE status = 'uploaded'
+         ORDER BY uploaded_at ASC NULLS LAST
+         LIMIT 1
+         FOR UPDATE SKIP LOCKED
+       )
+       RETURNING *`
+    ));
+    const session = rowToSession(result.rows[0]);
+    if (!session) return res.status(204).end();
+
+    console.log(`[queue] 픽업 ${session.id}`);
+    res.json({
+      sessionId: session.id,
+      videoUrl: session.videoBlobUrl,
+      cameraAngle: session.cameraAngle || 'diagonal',
+      backhandStyle: session.backhandStyle || 'auto',
+      status: session.status,
+      uploadedAt: session.uploadedAt,
+    });
+  } catch (err) {
+    console.error('[queue] 실패', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// 6) PC가 분석 실패 보고
-app.post('/api/sessions/:id/skip', (req, res) => {
-  const { id } = req.params;
-  const reason = (req.body && req.body.reason) || 'pc_skipped';
-  const session = sessions.get(id);
-  if (!session) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
-  session.status = 'failed';
-  session.failedAt = new Date().toISOString();
-  session.failReason = reason;
-  console.log(`[session] ${id} → failed (${reason})`);
-  res.json({ ok: true });
+// 5) PC 분석 완료 보고
+app.post('/api/sessions/:id/complete', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await withDb((c) => c.query(
+      `UPDATE sessions SET status = 'completed', completed_at = NOW()
+       WHERE id = $1 RETURNING id`,
+      [id]
+    ));
+    if (result.rowCount === 0) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
+    console.log(`[session] ${id} → completed`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// 7) PC가 합성 결과 영상 업로드 (multipart, webm/mp4)
-//    저장 후 ffmpeg로 webm → mp4 + mov 변환. 변환 실패해도 graceful fallback.
-app.post(
-  '/api/sessions/:id/result-video',
-  (req, res, next) => {
-    const session = sessions.get(req.params.id);
+// 6) PC 분석 실패 보고
+app.post('/api/sessions/:id/skip', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reason = (req.body && req.body.reason) || 'pc_skipped';
+    const result = await withDb((c) => c.query(
+      `UPDATE sessions SET status = 'failed', failed_at = NOW(), fail_reason = $2
+       WHERE id = $1 RETURNING id`,
+      [id, reason]
+    ));
+    if (result.rowCount === 0) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
+    console.log(`[session] ${id} → failed (${reason})`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 7) PC 합성 결과 영상 첨부 — Blob URL을 DB에 기록 (mp4 가정, 브라우저가 변환 후 업로드)
+app.post('/api/sessions/:id/attach-result', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { blobUrl, mime, ext } = req.body || {};
+    if (!blobUrl) return res.status(400).json({ error: 'blobUrl 누락' });
+
+    const session = await getSession(id);
     if (!session) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
     if (!['analyzing', 'completed'].includes(session.status)) {
-      return res.status(409).json({ error: `결과 영상을 업로드할 수 없는 상태입니다 (status=${session.status})` });
+      return res.status(409).json({ error: `결과 영상을 첨부할 수 없는 상태 (status=${session.status})` });
     }
-    next();
-  },
-  (req, res) => {
-    uploadResult.single('video')(req, res, async (err) => {
-      if (err) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(413).json({ error: `파일 크기 초과 (${MAX_RESULT_VIDEO_BYTES / 1024 / 1024}MB)` });
-        }
-        if (err.message === 'not_video') {
-          return res.status(400).json({ error: '비디오 파일만 업로드 가능합니다' });
-        }
-        console.error('[result-video] multer 오류', err);
-        return res.status(500).json({ error: '결과 영상 업로드 실패', detail: err.message });
-      }
-      if (!req.file) return res.status(400).json({ error: '비디오 파일이 첨부되지 않았습니다' });
 
-      const { id } = req.params;
-      const session = sessions.get(id);
-      if (!session) {
-        try { fs.unlinkSync(req.file.path); } catch (_) {}
-        return res.status(404).json({ error: '세션이 사라졌습니다' });
-      }
+    await withDb((c) => c.query(
+      `UPDATE sessions SET result_blob_url = $1, result_mime = $2, result_ext = $3, result_uploaded_at = NOW()
+       WHERE id = $4`,
+      [blobUrl, mime || 'video/mp4', ext || 'mp4', id]
+    ));
 
-      const uploadedFilename = req.file.filename; // result-<id>.<ext>
-      const uploadedExt = mimetypeToExt(req.file.mimetype) || 'webm';
-      const baseName = `result-${id}`;
-
-      let finalFilename = uploadedFilename;
-      let finalMime = req.file.mimetype;
-      let finalExt = uploadedExt;
-
-      // webm 업로드 시 mp4 + mov 변환 시도
-      if (uploadedExt === 'webm' && FFMPEG_AVAILABLE) {
-        const webmPath = path.join(UPLOAD_DIR, `${baseName}.webm`);
-        const mp4Path = path.join(UPLOAD_DIR, `${baseName}.mp4`);
-        const movPath = path.join(UPLOAD_DIR, `${baseName}.mov`);
-        try {
-          console.log(`[result-video] ffmpeg 변환 시작: ${baseName} (webm → mp4 → mov)`);
-          const t0 = Date.now();
-          await convertWebmToMp4(webmPath, mp4Path);
-          await convertMp4ToMov(mp4Path, movPath);
-          const elapsed = Date.now() - t0;
-          console.log(`[result-video] ffmpeg 변환 완료 in ${elapsed}ms`);
-
-          // webm 삭제, mp4 + mov 보관
-          try { fs.unlinkSync(webmPath); } catch (_) {}
-          finalFilename = `${baseName}.mov`;
-          finalMime = 'video/quicktime';
-          finalExt = 'mov';
-        } catch (convErr) {
-          console.warn('[result-video] ffmpeg 변환 실패 — webm 그대로 유지', convErr.message);
-          // 변환 실패 시 webm 원본 유지
-        }
-      } else if (uploadedExt === 'webm' && !FFMPEG_AVAILABLE) {
-        console.warn('[result-video] ffmpeg 비가용 — webm 원본 유지');
-      }
-
-      session.resultVideoFilename = finalFilename;
-      session.resultVideoMime = finalMime;
-      session.resultVideoExt = finalExt;
-      session.resultVideoUploadedAt = new Date().toISOString();
-
-      const base = buildPublicHost(req);
-      const downloadUrl = `/d/${id}`;
-      const publicDownloadUrl = `${base}${downloadUrl}`;
-
-      console.log(`[result-video] 세션 ${id} ← ${finalFilename}`);
-      res.json({
-        ok: true,
-        sessionId: id,
-        resultVideoUrl: `/uploads/${finalFilename}`,
-        downloadUrl,
-        publicDownloadUrl,
-      });
+    const base = buildPublicHost(req);
+    const downloadUrl = `/d/${id}`;
+    console.log(`[result-video] 세션 ${id} ← ${blobUrl}`);
+    res.json({
+      ok: true,
+      sessionId: id,
+      resultVideoUrl: blobUrl,
+      downloadUrl,
+      publicDownloadUrl: `${base}${downloadUrl}`,
     });
+  } catch (err) {
+    console.error('[attach-result] 실패', err);
+    res.status(500).json({ error: err.message });
   }
-);
+});
 
-// 8) 다운로드 안내 페이지 (HTML) — 영상 미리보기 + .mov 다운로드 버튼
-app.get('/d/:id', (req, res) => {
-  const { id } = req.params;
-  const session = sessions.get(id);
-  if (!session || !session.resultVideoFilename) {
-    return res.status(404).send('결과 영상을 찾을 수 없습니다');
-  }
+// 8) 다운로드 안내 페이지 (HTML)
+app.get('/d/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await getSession(id);
+    if (!session || !session.resultBlobUrl) {
+      return res.status(404).send('결과 영상을 찾을 수 없습니다');
+    }
 
-  // mov 우선, 없으면 mp4, 없으면 webm
-  const baseName = `result-${id}`;
-  const movPath = path.join(UPLOAD_DIR, `${baseName}.mov`);
-  const mp4Path = path.join(UPLOAD_DIR, `${baseName}.mp4`);
+    const shortId = id.slice(0, 8);
+    const downloadExt = session.resultExt || 'mp4';
+    const previewSrc = session.resultBlobUrl;
+    const downloadSrc = `/d/${id}/raw`;
+    const downloadName = `daily-tennis-${shortId}.${downloadExt}`;
 
-  let downloadFilename;
-  let downloadExt;
-  if (fs.existsSync(movPath)) {
-    downloadFilename = `${baseName}.mov`;
-    downloadExt = 'mov';
-  } else if (fs.existsSync(mp4Path)) {
-    downloadFilename = `${baseName}.mp4`;
-    downloadExt = 'mp4';
-  } else {
-    downloadFilename = session.resultVideoFilename;
-    downloadExt = session.resultVideoExt || 'webm';
-  }
+    await withDb((c) => c.query(
+      'UPDATE sessions SET download_count = download_count + 1 WHERE id = $1',
+      [id]
+    ));
 
-  // 미리보기는 mp4가 있으면 mp4 (Safari가 mov보다 mp4를 더 안정적으로 인라인 재생)
-  const previewFilename = fs.existsSync(mp4Path) ? `${baseName}.mp4` : downloadFilename;
-
-  const shortId = id.slice(0, 8);
-  const previewSrc = `/uploads/${previewFilename}`;
-  const downloadSrc = `/d/${id}/raw`;
-  const downloadName = `daily-tennis-${shortId}.${downloadExt}`;
-
-  session.downloadCount += 1;
-
-  console.log(`[download-page] 세션 ${id} → ${downloadFilename}`);
-
-  const html = `<!doctype html>
+    const html = `<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -720,52 +529,29 @@ app.get('/d/:id', (req, res) => {
 </body>
 </html>`;
 
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.send(html);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.send(html);
+  } catch (err) {
+    console.error('[download-page] 실패', err);
+    res.status(500).send('서버 오류');
+  }
 });
 
-// 8-1) 직접 다운로드 — Content-Disposition: attachment로 강제
-app.get('/d/:id/raw', (req, res) => {
-  const { id } = req.params;
-  const session = sessions.get(id);
-  if (!session || !session.resultVideoFilename) {
-    return res.status(404).send('결과 영상을 찾을 수 없습니다');
-  }
-
-  // mov 우선, 없으면 mp4, 없으면 webm
-  const baseName = `result-${id}`;
-  const candidates = [
-    { ext: 'mov', mime: 'video/quicktime' },
-    { ext: 'mp4', mime: 'video/mp4' },
-    { ext: 'webm', mime: 'video/webm' },
-  ];
-  let chosen = null;
-  for (const c of candidates) {
-    const p = path.join(UPLOAD_DIR, `${baseName}.${c.ext}`);
-    if (fs.existsSync(p)) {
-      chosen = { ...c, filePath: p };
-      break;
+// 8-1) 직접 다운로드 — Blob URL로 302 redirect (Content-Disposition은 Blob 자체에서 처리 불가하므로
+//      클라이언트의 <a download> 속성으로 처리. 파일명은 URL hash 부분 활용)
+app.get('/d/:id/raw', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await getSession(id);
+    if (!session || !session.resultBlobUrl) {
+      return res.status(404).send('결과 영상을 찾을 수 없습니다');
     }
+    res.redirect(302, session.resultBlobUrl);
+  } catch (err) {
+    res.status(500).send('서버 오류');
   }
-  if (!chosen) {
-    // 어떤 조합도 없으면 sessions에 기록된 파일 그대로
-    const p = path.join(UPLOAD_DIR, session.resultVideoFilename);
-    if (!fs.existsSync(p)) return res.status(404).send('결과 영상 파일이 없습니다');
-    chosen = {
-      ext: session.resultVideoExt || 'webm',
-      mime: session.resultVideoMime || 'video/webm',
-      filePath: p,
-    };
-  }
-
-  const shortId = id.slice(0, 8);
-  const downloadName = `daily-tennis-${shortId}.${chosen.ext}`;
-  res.setHeader('Content-Type', chosen.mime);
-  res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
-  res.setHeader('Cache-Control', 'no-store');
-  res.sendFile(chosen.filePath);
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -773,12 +559,41 @@ app.get('/d/:id/raw', (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 const INDEX_HTML = path.join(PUBLIC_DIR, 'index.html');
 
-app.get('/upload', (_req, res) => {
-  res.sendFile(INDEX_HTML);
-});
+app.get('/upload', (_req, res) => res.sendFile(INDEX_HTML));
+app.get('/', (_req, res) => res.sendFile(INDEX_HTML));
 
-app.get('/', (_req, res) => {
-  res.sendFile(INDEX_HTML);
+// 9) 정리 cron — Vercel Cron에서 호출 (vercel.json에 schedule 정의)
+app.get('/api/cron/cleanup', async (req, res) => {
+  // Vercel Cron의 user-agent / Authorization 검증은 단순화: 헤더 토큰만 확인 (선택)
+  try {
+    const COMPLETED_KEEP_MS = 60 * 60 * 1000;
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - COMPLETED_KEEP_MS);
+
+    const expired = await withDb((c) => c.query(
+      `SELECT id, video_blob_url, result_blob_url FROM sessions
+       WHERE (status = 'waiting' AND expires_at < NOW())
+          OR (status IN ('completed', 'failed') AND COALESCE(completed_at, failed_at) < $1)`,
+      [cutoff]
+    ));
+
+    let deleted = 0;
+    for (const row of expired.rows) {
+      const urls = [row.video_blob_url, row.result_blob_url].filter(Boolean);
+      for (const url of urls) {
+        try { await blobDel(url, { token: BLOB_TOKEN }); } catch (_) {}
+      }
+      await withDb((c) => c.query('DELETE FROM sessions WHERE id = $1', [row.id]));
+      deleted += 1;
+    }
+
+    await withDb((c) => c.query("DELETE FROM store_tokens WHERE expires_at < NOW() - interval '1 day'"));
+
+    res.json({ ok: true, deleted });
+  } catch (err) {
+    console.error('[cron/cleanup] 실패', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -790,79 +605,16 @@ app.use((err, _req, res, _next) => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────
-// 정기 정리 — 1분마다
-//   - 만료된 waiting 세션 제거
-//   - completed/failed 세션 1시간 경과 시 파일 + 메모리 정리
-//   - store token 만료 체크 (다음 요청 시 ensureFreshToken이 새로 발급)
+// 서버 시작 (Vercel 환경 외 로컬 실행 시)
 // ────────────────────────────────────────────────────────────────────────────
-const CLEANUP_INTERVAL_MS = 60 * 1000;
-const COMPLETED_KEEP_MS = 60 * 60 * 1000;
-
-function unlinkIfExists(filePath) {
-  try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
-}
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, session] of sessions.entries()) {
-    let shouldDrop = false;
-
-    if (session.status === 'waiting' && session.expiresAt && new Date(session.expiresAt).getTime() < now) {
-      shouldDrop = true;
-    }
-    if (['completed', 'failed'].includes(session.status)) {
-      const ts = session.completedAt || session.failedAt;
-      if (ts && now - new Date(ts).getTime() > COMPLETED_KEEP_MS) {
-        shouldDrop = true;
-      }
-    }
-
-    if (shouldDrop) {
-      // 결과 영상 파일들 (.mov, .mp4, .webm) 정리
-      const baseName = `result-${id}`;
-      ['mov', 'mp4', 'webm'].forEach((ext) => {
-        unlinkIfExists(path.join(UPLOAD_DIR, `${baseName}.${ext}`));
-      });
-      // 원본 영상 정리
-      if (session.videoFilename) {
-        unlinkIfExists(path.join(UPLOAD_DIR, session.videoFilename));
-      }
-      sessions.delete(id);
-      console.log(`[cleanup] 세션 ${id} 정리 (status=${session.status})`);
-    }
-  }
-}, CLEANUP_INTERVAL_MS);
-
-// ────────────────────────────────────────────────────────────────────────────
-// 서버 시작
-// ────────────────────────────────────────────────────────────────────────────
-if (require.main === module) {
-  const token = ensureFreshToken();
-  const expiresKST = token.expiresAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const qrUrl = `http://${LAN_IP}:${PORT}/upload?token=${token.value}`;
-
+if (require.main === module && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log('');
-    console.log('📡 데일리테니스 서버 시작');
+    console.log('📡 데일리테니스 서버 시작 (Vercel 호환 모드)');
     console.log(`   로컬:    http://localhost:${PORT}`);
-    console.log(`   매장 LAN: http://${LAN_IP}:${PORT}  (모바일은 이 주소)`);
-    console.log(`   업로드 디렉토리: ${UPLOAD_DIR}`);
+    console.log(`   DB:      ${DATABASE_URL ? 'configured' : 'MISSING'}`);
+    console.log(`   Blob:    ${BLOB_TOKEN ? 'configured' : 'MISSING'}`);
     console.log('');
-    // ffmpeg probe는 비동기이므로 약간 늦게 출력
-    setTimeout(() => {
-      if (FFMPEG_AVAILABLE) {
-        console.log(`🎬 ffmpeg 사용 가능 (${FFMPEG_VERSION || 'unknown'}) — webm→mp4→mov 자동 변환 활성`);
-      } else {
-        console.log('⚠️  ffmpeg 비활성 — 결과 영상은 webm 원본 그대로 저장됩니다');
-        console.log('    macOS:   brew install ffmpeg');
-        console.log('    Windows: https://www.gyan.dev/ffmpeg/builds/');
-      }
-      console.log('');
-      console.log(`🎟️  Store Token: ${token.value}`);
-      console.log(`   만료: ${expiresKST} (${STORE_TOKEN_TTL_DAYS}일 후)`);
-      console.log(`   QR URL: ${qrUrl}`);
-      console.log('');
-    }, 200);
   });
 }
 

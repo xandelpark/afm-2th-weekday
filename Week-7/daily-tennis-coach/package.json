@@ -2,7 +2,7 @@
   "name": "daily-tennis-coach",
   "version": "1.0.0",
   "private": true,
-  "description": "데일리테니스 자세분석 앱 — 매장 PC 로컬 운영판 (모바일 QR 업로드 + ffmpeg 변환)",
+  "description": "데일리테니스 자세분석 앱 — Vercel 배포판 (Blob + Postgres + 브라우저 ffmpeg.wasm)",
   "main": "server.js",
   "engines": {
     "node": ">=18"
@@ -12,8 +12,9 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@vercel/blob": "^2.3.3",
     "express": "^4.19.2",
-    "multer": "^2.1.1",
+    "pg": "^8.20.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {

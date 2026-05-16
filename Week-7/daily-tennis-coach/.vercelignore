@@ -1,0 +1,12 @@
+node_modules
+references
+uploads
+.env*
+.env*.local
+*.log
+.DS_Store
+DEV.md
+MISSION.md
+start-store.ps1
+start.bat
+db-init.js

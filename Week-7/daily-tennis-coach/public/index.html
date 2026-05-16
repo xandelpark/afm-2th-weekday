@@ -595,75 +595,238 @@
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 업로드 — 매장 PC 로컬 서버로 multipart/form-data POST
-    // 모바일 영상도, PC 합성 영상도 동일하게 XHR + FormData를 쓴다.
-    // 같은 LAN이라 속도 제약이 거의 없고, 함수 페이로드 한도 같은 것도 없다.
+    // 업로드 — Vercel 배포판
+    //  1) ffmpeg.wasm (브라우저)로 자동 변환: 1080p / H.264 / 1분 트림
+    //  2) Vercel Blob에 클라이언트 직접 업로드 (함수 페이로드 제한 우회)
+    //  3) /api/sessions/:id/attach 로 Blob URL을 DB에 첨부
+    //  변환은 첫 실행 시 ffmpeg-core(WASM) 약 30MB를 로드. 이후 캐시됨.
     // ─────────────────────────────────────────────────────────────
-    function xhrUploadMultipart({ url, file, fieldName = "video", onProgress }) {
+
+    // ffmpeg.wasm 싱글톤 — 셀프 호스팅 UMD 사용 (CDN/CORS 의존 제거)
+    //  파일 위치: /vendor/ffmpeg/{ffmpeg.js, util.js, ffmpeg-core.js, ffmpeg-core.wasm, 814.ffmpeg.js}
+    let __ffmpegInstance = null;
+    let __ffmpegLoading = null;
+
+    function injectScript(src) {
       return new Promise((resolve, reject) => {
-        const fd = new FormData();
-        fd.append(fieldName, file, file.name || `${fieldName}.bin`);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", url, true);
-
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable && onProgress) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            onProgress(pct, e.loaded, e.total);
-          }
-        });
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve(JSON.parse(xhr.responseText));
-            } catch (e) {
-              reject(new Error("응답 파싱 실패: " + xhr.responseText.slice(0, 200)));
-            }
-          } else {
-            let detail = xhr.responseText || xhr.statusText;
-            try {
-              const j = JSON.parse(xhr.responseText);
-              detail = j.error || detail;
-            } catch (_) { /* not json */ }
-            reject(new Error(`업로드 실패 (${xhr.status}): ${detail}`));
-          }
-        });
-        xhr.addEventListener("error", () => reject(new Error("네트워크 오류 — 매장 와이파이/PC 연결 확인")));
-        xhr.addEventListener("abort", () => reject(new Error("업로드 취소됨")));
-        xhr.addEventListener("timeout", () => reject(new Error("업로드 타임아웃")));
-
-        xhr.send(fd);
+        // 이미 같은 src의 script가 있으면 재사용
+        const existing = Array.from(document.scripts).find((s) => s.src && s.src.endsWith(src));
+        if (existing && existing.dataset.loaded === '1') return resolve();
+        const s = existing || document.createElement('script');
+        s.src = s.src || new URL(src, window.location.href).href;
+        const onLoad = () => { s.dataset.loaded = '1'; resolve(); };
+        const onError = () => reject(new Error(`스크립트 로드 실패: ${src}`));
+        s.addEventListener('load', onLoad, { once: true });
+        s.addEventListener('error', onError, { once: true });
+        if (!existing) document.head.appendChild(s);
+        if (existing && existing.dataset.loaded === '1') resolve();
       });
     }
 
-    // 모바일 raw 영상 업로드 → /api/sessions/:id/upload
+    async function loadFfmpeg() {
+      if (__ffmpegInstance) return __ffmpegInstance;
+      if (__ffmpegLoading) return __ffmpegLoading;
+      __ffmpegLoading = (async () => {
+        await injectScript('/vendor/ffmpeg/ffmpeg.js');
+        await injectScript('/vendor/ffmpeg/util.js');
+        // 글로벌이 등록될 때까지 짧게 폴링 (UMD 평가 타이밍 보정)
+        for (let i = 0; i < 30; i += 1) {
+          if (window.FFmpegWASM && window.FFmpegUtil) break;
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        if (!window.FFmpegWASM || !window.FFmpegUtil) {
+          throw new Error('ffmpeg 글로벌 변수 미등록 (UMD 로드 실패)');
+        }
+        const { FFmpeg } = window.FFmpegWASM;
+        const { toBlobURL, fetchFile } = window.FFmpegUtil;
+        const ffmpeg = new FFmpeg();
+        await ffmpeg.load({
+          coreURL: await toBlobURL('/vendor/ffmpeg/ffmpeg-core.js', 'text/javascript'),
+          wasmURL: await toBlobURL('/vendor/ffmpeg/ffmpeg-core.wasm', 'application/wasm'),
+        });
+        __ffmpegInstance = { ffmpeg, fetchFile };
+        return __ffmpegInstance;
+      })();
+      try {
+        return await __ffmpegLoading;
+      } catch (err) {
+        __ffmpegLoading = null;
+        throw err;
+      }
+    }
+
+    // 변환: 입력 영상 → 1080p H.264 mp4 (최대 maxSeconds로 트림)
+    async function transcodeTo1080pMp4(file, { maxSeconds = 60, onProgress } = {}) {
+      const { ffmpeg, fetchFile } = await loadFfmpeg();
+      const inputName = `input_${Date.now()}.${(file.name || 'in').split('.').pop() || 'bin'}`;
+      const outputName = `output_${Date.now()}.mp4`;
+
+      const progressHandler = ({ progress }) => {
+        if (typeof onProgress === 'function') {
+          const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+          onProgress(pct);
+        }
+      };
+      ffmpeg.on('progress', progressHandler);
+
+      try {
+        await ffmpeg.writeFile(inputName, await fetchFile(file));
+        // 1080p로 다운스케일 (가로/세로 자동), 1분 트림, H.264 yuv420p, AAC 오디오, faststart
+        const args = [
+          '-i', inputName,
+          '-t', String(maxSeconds),
+          '-vf', "scale='if(gt(iw,ih),-2,1080)':'if(gt(iw,ih),1080,-2)'",
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-crf', '26',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', '+faststart',
+          outputName,
+        ];
+        await ffmpeg.exec(args);
+        const data = await ffmpeg.readFile(outputName);
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        return blob;
+      } finally {
+        ffmpeg.off('progress', progressHandler);
+        try { await ffmpeg.deleteFile(inputName); } catch (_) {}
+        try { await ffmpeg.deleteFile(outputName); } catch (_) {}
+      }
+    }
+
+    // 변환: webm → mp4 (해상도는 원본 유지, 길이 제한 없음)
+    async function transcodeWebmToMp4(blob, { onProgress } = {}) {
+      const { ffmpeg, fetchFile } = await loadFfmpeg();
+      const inputName = `input_${Date.now()}.webm`;
+      const outputName = `output_${Date.now()}.mp4`;
+
+      const progressHandler = ({ progress }) => {
+        if (typeof onProgress === 'function') {
+          onProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
+        }
+      };
+      ffmpeg.on('progress', progressHandler);
+
+      try {
+        await ffmpeg.writeFile(inputName, await fetchFile(blob));
+        await ffmpeg.exec([
+          '-i', inputName,
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-crf', '24',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', '+faststart',
+          outputName,
+        ]);
+        const data = await ffmpeg.readFile(outputName);
+        return new Blob([data.buffer], { type: 'video/mp4' });
+      } finally {
+        ffmpeg.off('progress', progressHandler);
+        try { await ffmpeg.deleteFile(inputName); } catch (_) {}
+        try { await ffmpeg.deleteFile(outputName); } catch (_) {}
+      }
+    }
+
+    // Vercel Blob 공식 클라이언트 (esm.sh 동적 import, 모듈 캐시)
+    let __blobClient = null;
+    async function getBlobClient() {
+      if (__blobClient) return __blobClient;
+      __blobClient = await import('https://esm.sh/@vercel/blob@2.3.3/client');
+      return __blobClient;
+    }
+
+    // Vercel Blob 직접 업로드 — 공식 upload() 사용
+    async function uploadToBlob({ pathname, file, contentType, onProgress }) {
+      const { upload } = await getBlobClient();
+      const blob = await upload(pathname, file, {
+        access: 'public',
+        contentType: contentType || file.type || 'application/octet-stream',
+        handleUploadUrl: `${API_BASE_URL}/blob/upload-url`,
+        onUploadProgress: (event) => {
+          if (typeof onProgress === 'function') {
+            onProgress(Math.round(event.percentage));
+          }
+        },
+      });
+      return blob; // { url, pathname, contentType, contentDisposition }
+    }
+
+    // 모바일 raw 영상 업로드 — 변환 후 Blob 직접 업로드, 마지막에 /attach
     async function apiUploadVideo(sessionId, file, onProgress) {
-      const result = await xhrUploadMultipart({
-        url: `${API_BASE_URL}/sessions/${sessionId}/upload`,
-        file,
-        fieldName: "video",
-        onProgress,
+      if (typeof onProgress === 'function') onProgress(0, '준비 중');
+      // 1) 변환 (1080p, 1분 트림)
+      if (typeof onProgress === 'function') onProgress(0, '영상 변환 중');
+      const mp4Blob = await transcodeTo1080pMp4(file, {
+        maxSeconds: 60,
+        onProgress: (pct) => onProgress && onProgress(Math.round(pct * 0.6), '영상 변환 중'),
       });
-      return result; // { ok: true, sessionId, videoUrl }
+
+      // 2) Blob 직접 업로드
+      if (typeof onProgress === 'function') onProgress(60, '업로드 중');
+      const blobMeta = await uploadToBlob({
+        pathname: `raw/${sessionId}.mp4`,
+        file: mp4Blob,
+        contentType: 'video/mp4',
+        onProgress: (pct) => onProgress && onProgress(60 + Math.round(pct * 0.35), '업로드 중'),
+      });
+
+      // 3) DB에 첨부
+      if (typeof onProgress === 'function') onProgress(95, '마무리 중');
+      const attachRes = await fetch(`${API_BASE_URL}/sessions/${sessionId}/attach`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blobUrl: blobMeta.url, mime: 'video/mp4' }),
+      });
+      const attachBody = await attachRes.json().catch(() => ({}));
+      if (!attachRes.ok) throw new Error(attachBody.error || '업로드 첨부 실패');
+
+      if (typeof onProgress === 'function') onProgress(100, '완료');
+      return { ok: true, sessionId, videoUrl: blobMeta.url };
     }
 
-    // PC 합성 결과 영상 업로드 → /api/sessions/:id/result-video
-    // 서버에서 ffmpeg로 webm → mp4 + mov 변환됨 (시간이 좀 걸릴 수 있음)
+    // PC 합성 결과 영상 업로드 — webm → mp4 변환 후 Blob 직접 업로드
     async function apiUploadResultVideo(sessionId, blob, ext, onProgress) {
-      const finalExt = ext || (blob.type ? blob.type.split("/")[1] : null) || "webm";
-      // multer는 file.originalname을 보지만 우리는 mimetype + sessionId 기반으로 파일명을 정하므로
-      // originalname은 단순 힌트용. ext만 들어가 있으면 충분.
-      const namedFile = new File([blob], `result.${finalExt}`, {
-        type: blob.type || `video/${finalExt}`,
+      // webm이 들어오면 mp4로 변환 (iOS Photos 호환)
+      let finalBlob = blob;
+      let finalExt = 'mp4';
+      if (blob.type && blob.type.includes('webm')) {
+        if (typeof onProgress === 'function') onProgress(0, '영상 변환 중');
+        finalBlob = await transcodeWebmToMp4(blob, {
+          onProgress: (pct) => onProgress && onProgress(Math.round(pct * 0.6), '영상 변환 중'),
+        });
+      } else if (blob.type && blob.type.includes('mp4')) {
+        finalBlob = blob;
+      }
+
+      if (typeof onProgress === 'function') onProgress(60, '업로드 중');
+      const blobMeta = await uploadToBlob({
+        pathname: `result/${sessionId}.${finalExt}`,
+        file: finalBlob,
+        contentType: 'video/mp4',
+        onProgress: (pct) => onProgress && onProgress(60 + Math.round(pct * 0.35), '업로드 중'),
       });
-      const result = await xhrUploadMultipart({
-        url: `${API_BASE_URL}/sessions/${sessionId}/result-video`,
-        file: namedFile,
-        fieldName: "video",
-        onProgress,
+
+      if (typeof onProgress === 'function') onProgress(95, '마무리 중');
+      const attachRes = await fetch(`${API_BASE_URL}/sessions/${sessionId}/attach-result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blobUrl: blobMeta.url, mime: 'video/mp4', ext: finalExt }),
       });
-      return result; // { ok: true, sessionId, resultVideoUrl, downloadUrl, publicDownloadUrl }
+      const attachBody = await attachRes.json().catch(() => ({}));
+      if (!attachRes.ok) throw new Error(attachBody.error || '결과 영상 첨부 실패');
+
+      if (typeof onProgress === 'function') onProgress(100, '완료');
+      return {
+        ok: true,
+        sessionId,
+        resultVideoUrl: blobMeta.url,
+        downloadUrl: `/d/${sessionId}`,
+        publicDownloadUrl: `${window.location.origin}/d/${sessionId}`,
+      };
     }
 
     // 운영 상수
