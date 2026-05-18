@@ -9,3 +9,6 @@ uploads/
 
 # 5개 테니스 영상 분석 레퍼런스 클론 (216MB, 분석 v2 작업용 로컬 보관)
 references/
+
+# Python venv (모델 변환용)
+../.tf-venv/

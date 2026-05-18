@@ -1,0 +1,23 @@
+{
+  "name": "daily-tennis-coach-v2",
+  "version": "2.0.0-dev",
+  "private": true,
+  "description": "데일리테니스 자세분석 v2 — GRU 샷 분류기 통합 (V1 운영판은 daily-tennis-coach)",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.3.3",
+    "express": "^4.19.2",
+    "pg": "^8.20.0",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

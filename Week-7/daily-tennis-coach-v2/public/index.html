@@ -2,7 +2,28 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>데일리테니스 자세분석</title>
+  <title>데일리테니스 자세분석 V2 (DEV)</title>
+  <style>
+    .v2-dev-badge {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 9999;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      border-radius: 10px;
+      box-shadow: 0 6px 18px rgba(245, 158, 11, 0.5);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin=""></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin=""></script>
@@ -343,6 +364,8 @@
   </style>
 <style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.mb-1{margin-bottom:0.25rem}.mb-10{margin-bottom:2.5rem}.mb-3{margin-bottom:0.75rem}.mt-0\.5{margin-top:0.125rem}.mt-1{margin-top:0.25rem}.mt-10{margin-top:2.5rem}.mt-2{margin-top:0.5rem}.mt-3{margin-top:0.75rem}.mt-4{margin-top:1rem}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-2{height:0.5rem}.min-h-screen{min-height:100vh}.w-2{width:0.5rem}.max-w-md{max-width:28rem}@keyframes spin{to{transform:rotate(360deg)}}.animate-spin{animation:spin 1s linear infinite}.grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.flex-col{flex-direction:column}.items-center{align-items:center}.justify-center{justify-content:center}.gap-3{gap:0.75rem}.gap-2{gap:0.5rem}.gap-6{gap:1.5rem}.rounded-full{border-radius:9999px}.rounded-xl{border-radius:0.75rem}.border-2{border-width:2px}.border{border-width:1px}.border-lime-400{--tw-border-opacity:1;border-color:rgb(163 230 53 / var(--tw-border-opacity, 1))}.border-slate-700{--tw-border-opacity:1;border-color:rgb(51 65 85 / var(--tw-border-opacity, 1))}.border-t-transparent{border-top-color:transparent}.bg-slate-900{--tw-bg-opacity:1;background-color:rgb(15 23 42 / var(--tw-bg-opacity, 1))}.bg-lime-400{--tw-bg-opacity:1;background-color:rgb(163 230 53 / var(--tw-bg-opacity, 1))}.bg-slate-800\/60{background-color:rgb(30 41 59 / 0.6)}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-10{padding-top:2.5rem;padding-bottom:2.5rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.text-center{text-align:center}.font-sans{font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-extrabold{font-weight:800}.font-semibold{font-weight:600}.leading-relaxed{line-height:1.625}.tracking-widest{letter-spacing:0.1em}.text-slate-100{--tw-text-opacity:1;color:rgb(241 245 249 / var(--tw-text-opacity, 1))}.text-slate-300{--tw-text-opacity:1;color:rgb(203 213 225 / var(--tw-text-opacity, 1))}.text-lime-400{--tw-text-opacity:1;color:rgb(163 230 53 / var(--tw-text-opacity, 1))}.text-slate-400{--tw-text-opacity:1;color:rgb(148 163 184 / var(--tw-text-opacity, 1))}.text-slate-500{--tw-text-opacity:1;color:rgb(100 116 139 / var(--tw-text-opacity, 1))}.text-slate-600{--tw-text-opacity:1;color:rgb(71 85 105 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.underline{-webkit-text-decoration-line:underline;text-decoration-line:underline}.hover\:text-slate-400:hover{--tw-text-opacity:1;color:rgb(148 163 184 / var(--tw-text-opacity, 1))}</style></head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+  <!-- V2 개발판 식별 뱃지 (V1 운영판과 시각적 구분) -->
+  <div class="v2-dev-badge">🧪 V2 DEV · GRU 분류기 통합 중</div>
   <!-- 디버그 콘솔 박스 — ?debug=1 쿼리스트링이 있을 때만 setupDebugBox가 hidden을 떼서 표시 -->
   <div id="debug-box" class="hidden">
     <div id="debug-header">
@@ -2780,8 +2803,7 @@
       const phaseRef = useRef('normal');  // 'normal' | 'transition' | 'slow'
       const phaseProgressRef = useRef(0);
 
-      // 베스트샷 양쪽 ±900ms → 정상 1.8s + 전환 0.6s + 슬로우 7.2s = 약 9.6s 하이라이트
-      const windowMs = 900 * slowMoFactor;
+      const windowMs = 500 * slowMoFactor;
       const startSec = (bestSwing.time - windowMs) / 1000;
       const endSec = (bestSwing.time + windowMs) / 1000;
 
@@ -3068,63 +3090,17 @@
       };
     }
 
-    // framesData에서 targetMs에 해당하는 프레임을 두 인접 샘플 사이의 선형 보간으로 합성.
-    // 캡처는 ~30fps, 슬로우 재생은 240fps 상당으로 보간 표시되므로 nearest로 고정하면
-    // 같은 좌표가 8번 재사용되어 스켈레톤이 몸 뒤에서 끌려가는 것처럼 보임.
-    // 두 프레임 간격이 너무 크면(>200ms) 보간이 부정확하므로 nearest로 폴백.
+    // framesData에서 targetMs에 가장 가까운 프레임 찾기 (시간순 정렬 가정)
     function findFrameAtTimeMs(framesData, targetMs) {
       if (!framesData || framesData.length === 0) return null;
-      // 1) targetMs 이하의 마지막 인덱스 (lo), 이상의 첫 인덱스 (hi) 찾기 — 이진 탐색
-      let lo = 0, hi = framesData.length - 1;
-      if (targetMs <= framesData[0].t) return framesData[0];
-      if (targetMs >= framesData[hi].t) return framesData[hi];
-      while (lo + 1 < hi) {
-        const mid = (lo + hi) >> 1;
-        if (framesData[mid].t <= targetMs) lo = mid;
-        else hi = mid;
+      let bestI = 0;
+      let bestD = Math.abs(framesData[0].t - targetMs);
+      for (let i = 1; i < framesData.length; i++) {
+        const d = Math.abs(framesData[i].t - targetMs);
+        if (d < bestD) { bestD = d; bestI = i; }
+        else if (framesData[i].t > targetMs && d > bestD) break;
       }
-      const fA = framesData[lo];
-      const fB = framesData[hi];
-      const gap = fB.t - fA.t;
-      if (gap <= 0 || gap > 200) {
-        // 갭이 비정상적으로 크면 (>200ms) 보간 신뢰도 낮음 → nearest
-        return Math.abs(fA.t - targetMs) <= Math.abs(fB.t - targetMs) ? fA : fB;
-      }
-      const alpha = (targetMs - fA.t) / gap;
-      return lerpFrame(fA, fB, alpha, targetMs);
-    }
-
-    // 두 프레임의 랜드마크/라켓끝점을 알파 비율로 선형 보간한 합성 프레임을 만든다.
-    function lerpFrame(fA, fB, alpha, tMs) {
-      const lmA = fA.landmarks;
-      const lmB = fB.landmarks;
-      let landmarks = lmA;
-      if (lmA && lmB && lmA.length === lmB.length) {
-        landmarks = new Array(lmA.length);
-        for (let i = 0; i < lmA.length; i++) {
-          const a = lmA[i];
-          const b = lmB[i];
-          if (!a || !b) { landmarks[i] = a || b; continue; }
-          // visibility가 한쪽만 매우 낮으면 그쪽으로 끌려가지 않도록 max 사용
-          const visA = a.visibility ?? 1;
-          const visB = b.visibility ?? 1;
-          landmarks[i] = {
-            x: a.x + (b.x - a.x) * alpha,
-            y: a.y + (b.y - a.y) * alpha,
-            z: (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * alpha,
-            visibility: Math.max(visA, visB),
-          };
-        }
-      }
-      let racketTip = fA.racketTip;
-      const rA = fA.racketTip;
-      const rB = fB.racketTip;
-      if (rA && rB) {
-        racketTip = { x: rA.x + (rB.x - rA.x) * alpha, y: rA.y + (rB.y - rA.y) * alpha };
-      } else if (rB && !rA) {
-        racketTip = rB;
-      }
-      return { t: tMs, landmarks, racketTip };
+      return framesData[bestI];
     }
 
     // 스켈레톤을 대상 캔버스에 직접 그리기 (cover crop 매핑 적용)
@@ -4869,9 +4845,8 @@
           recorder.onstop = () => resolve();
         });
 
-        // 4) 베스트 샷 윈도우 결정 (±900ms × slowMoFactor)
-        //    정상 1.8s + REPLAY 0.6s + 슬로우 7.2s = 약 9.6s 하이라이트
-        const windowMs = 900 * (result.slowMoFactor || 1);
+        // 4) 베스트 샷 윈도우 결정 (±500ms × slowMoFactor)
+        const windowMs = 500 * (result.slowMoFactor || 1);
         const startSec = Math.max(0, (result.bestSwing.time - windowMs) / 1000);
         const endSec = Math.min(srcVideo.duration || 30, (result.bestSwing.time + windowMs) / 1000);
         // 정상속도 시작 (Phase A)
@@ -4909,9 +4884,9 @@
         //    페이즈 구성: 정상속도(1x) → REPLAY 전환 → 슬로우(0.25x)
         //    윈도우 길이 = 2 × windowMs (예: 1초). 정상은 1초, 슬로우는 4초 실시간.
         recorder.start();
-        const PHASE_NORMAL_MS = Math.round(windowMs * 2);            // 1.0x로 윈도우 한 번 (≈1800ms)
+        const PHASE_NORMAL_MS = Math.round(windowMs * 2);            // 1.0x로 윈도우 한 번 (≈1000ms)
         const PHASE_TRANSITION_MS = 600;                              // 0.6초 REPLAY 오버레이
-        const PHASE_SLOW_MS = Math.round((windowMs * 2) / 0.25);     // 0.25x로 윈도우 한 번 (≈7200ms)
+        const PHASE_SLOW_MS = Math.round((windowMs * 2) / 0.25);     // 0.25x로 윈도우 한 번 (≈4000ms)
         const T_TOTAL_MS = PHASE_NORMAL_MS + PHASE_TRANSITION_MS + PHASE_SLOW_MS;
         const SCORE_ANIM_MS = 1200; // 점수 카운트업
         const t0 = performance.now();
