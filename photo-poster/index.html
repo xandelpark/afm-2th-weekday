@@ -1477,12 +1477,36 @@
           return;
         }
         setBusyKey(styleKey);
+        // ── 캡쳐 안정화: 미리보기와 저장본의 글자 위치가 어긋나지 않도록
+        // 1) 선택 해제 — dashed outline/리사이즈 핸들이 함께 찍히는 것 방지
+        setSelected(null);
+        // 2) 다음 프레임에 setSelected 반영 + 폰트/이미지가 모두 준비된 상태에서 캡쳐 (텍스트 메트릭 일치)
+        await new Promise(r => requestAnimationFrame(r));
+        if (document.fonts && document.fonts.ready) {
+          try { await document.fonts.ready; } catch {}
+        }
+        const imgs = Array.from(node.querySelectorAll('img'));
+        await Promise.all(imgs.map(img =>
+          img.complete && img.naturalWidth > 0
+            ? Promise.resolve()
+            : new Promise((r) => {
+                img.addEventListener('load',  r, { once: true });
+                img.addEventListener('error', r, { once: true });
+              })
+        ));
+        // 3) 폰트 swap·이미지 decode 후 두 프레임 더 기다려 최종 레이아웃 확정
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         try {
+          // 캔버스 크기를 카드 박스 크기로 명시 → aspect-ratio CSS 해석 차이로 인한 height 어긋남 방지
+          const w = node.offsetWidth;
+          const h = node.offsetHeight;
           const canvas = await window.html2canvas(node, {
             backgroundColor: null,
             scale: 3,
             useCORS: true,
             logging: false,
+            width: w,
+            height: h,
           });
           await new Promise(resolve => {
             canvas.toBlob(async (blob) => {
