@@ -1498,27 +1498,60 @@
               })
         ));
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        // ── blob: URL (사용자 업로드 사진) 은 html-to-image가 SVG inline 단계에서 못 가져옴
+        // (crossOrigin="anonymous" + blob URL 조합으로 Image onerror 발생).
+        // 캡쳐 전 base64 dataURL로 임시 교체하고, 끝나면 원본 src로 복원.
+        const restore = [];
+        for (const img of imgs) {
+          if (img.src && img.src.startsWith('blob:')) {
+            try {
+              const r = await fetch(img.src);
+              const b = await r.blob();
+              const du = await new Promise((res, rej) => {
+                const fr = new FileReader();
+                fr.onload  = () => res(fr.result);
+                fr.onerror = () => rej(fr.error);
+                fr.readAsDataURL(b);
+              });
+              restore.push({ img, src: img.src, co: img.getAttribute('crossorigin') });
+              img.removeAttribute('crossorigin');
+              img.src = du;
+            } catch (e) {
+              console.warn('blob → dataURL 변환 실패', e);
+            }
+          }
+        }
+        // 교체한 src 로드 완료 대기
+        if (restore.length) {
+          await Promise.all(restore.map(({ img }) =>
+            img.complete && img.naturalWidth > 0
+              ? Promise.resolve()
+              : new Promise((r) => {
+                  img.addEventListener('load',  r, { once: true });
+                  img.addEventListener('error', r, { once: true });
+                })
+          ));
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        }
+
         try {
-          // html-to-image: SVG foreignObject 기반이라 line-height / object-fit / transform 등
-          // 브라우저 native 렌더링이 그대로 보존됨. pixelRatio로 해상도 업스케일.
-          // toJpeg → dataURL → Blob 으로 변환 (toBlob은 항상 PNG라 quality 조절 불가)
+          // html-to-image: SVG foreignObject 기반 — line-height / object-fit / transform 보존.
+          // toJpeg → dataURL → Blob (toBlob은 PNG만 지원).
+          // cacheBust는 blob URL을 깨뜨릴 수 있어 사용 안 함 (위에서 dataURL로 변환했으므로 캐시 이슈 없음).
           const dataUrl = await lib.toJpeg(node, {
             quality:    0.95,
             pixelRatio: 3,
-            cacheBust:  true,
             backgroundColor: '#ffffff',
           });
           const blob = await (await fetch(dataUrl)).blob();
           if (!blob) { throw new Error('빈 이미지'); }
           const filename = `marian-thankyou-${styleKey}-${Date.now()}.jpg`;
 
-          // 1) 폴더 지정 시 거기에 직접 저장
           if (saveDir) {
             const ok = await writeBlobToSaveDir(blob, filename);
             if (ok) return;
           }
-
-          // 2) 기본: 브라우저 다운로드 폴더
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url; a.download = filename;
@@ -1527,6 +1560,11 @@
         } catch (e) {
           alert('카드 저장 실패: ' + (e?.message || e));
         } finally {
+          // 원본 src·crossorigin 복원 (성공·실패 무관하게)
+          for (const { img, src, co } of restore) {
+            img.src = src;
+            if (co != null) img.setAttribute('crossorigin', co);
+          }
           setBusyKey(null);
         }
       };
