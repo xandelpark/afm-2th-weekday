@@ -19,7 +19,9 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- 카드 캡쳐: html-to-image (SVG foreignObject 기반 — 브라우저 native 렌더링 그대로 보존) -->
+  <!-- html2canvas v1.4.1는 unitless line-height, object-fit:cover, transform 조합을 제대로 못 그려 텍스트가 한 줄씩 내려오거나 사진이 stretched되어 캡쳐됨 -->
+  <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
@@ -1472,16 +1474,17 @@
 
       const downloadCard = async (styleKey, label) => {
         const node = cardRefs.current.get(styleKey);
-        if (!node || !window.html2canvas) {
+        const lib = window.htmlToImage;
+        if (!node || !lib) {
           alert('아직 준비 중입니다. 잠시 후 다시 시도해 주세요.');
           return;
         }
         setBusyKey(styleKey);
-        // ── 캡쳐 안정화: 미리보기와 저장본의 글자 위치가 어긋나지 않도록
-        // 1) 선택 해제 — dashed outline/리사이즈 핸들이 함께 찍히는 것 방지
+        // ── 캡쳐 안정화: 미리보기와 저장본을 똑같이
+        // 1) 선택 해제 — dashed outline/리사이즈 핸들이 함께 찍히지 않게
         setSelected(null);
-        // 2) 다음 프레임에 setSelected 반영 + 폰트/이미지가 모두 준비된 상태에서 캡쳐 (텍스트 메트릭 일치)
         await new Promise(r => requestAnimationFrame(r));
+        // 2) 폰트/이미지 완전 로드 보장
         if (document.fonts && document.fonts.ready) {
           try { await document.fonts.ready; } catch {}
         }
@@ -1494,41 +1497,33 @@
                 img.addEventListener('error', r, { once: true });
               })
         ));
-        // 3) 폰트 swap·이미지 decode 후 두 프레임 더 기다려 최종 레이아웃 확정
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         try {
-          // 캔버스 크기를 카드 박스 크기로 명시 → aspect-ratio CSS 해석 차이로 인한 height 어긋남 방지
-          const w = node.offsetWidth;
-          const h = node.offsetHeight;
-          const canvas = await window.html2canvas(node, {
-            backgroundColor: null,
-            scale: 3,
-            useCORS: true,
-            logging: false,
-            width: w,
-            height: h,
+          // html-to-image: SVG foreignObject 기반이라 line-height / object-fit / transform 등
+          // 브라우저 native 렌더링이 그대로 보존됨. pixelRatio로 해상도 업스케일.
+          // toJpeg → dataURL → Blob 으로 변환 (toBlob은 항상 PNG라 quality 조절 불가)
+          const dataUrl = await lib.toJpeg(node, {
+            quality:    0.95,
+            pixelRatio: 3,
+            cacheBust:  true,
+            backgroundColor: '#ffffff',
           });
-          await new Promise(resolve => {
-            canvas.toBlob(async (blob) => {
-              if (!blob) { resolve(); return; }
-              const filename = `marian-thankyou-${styleKey}-${Date.now()}.jpg`;
+          const blob = await (await fetch(dataUrl)).blob();
+          if (!blob) { throw new Error('빈 이미지'); }
+          const filename = `marian-thankyou-${styleKey}-${Date.now()}.jpg`;
 
-              // 1) 사용자가 폴더를 지정해 둔 경우 → 거기에 바로 저장
-              if (saveDir) {
-                const ok = await writeBlobToSaveDir(blob, filename);
-                if (ok) { resolve(); return; }
-                // 권한 거부/실패 시 다운로드로 폴백
-              }
+          // 1) 폴더 지정 시 거기에 직접 저장
+          if (saveDir) {
+            const ok = await writeBlobToSaveDir(blob, filename);
+            if (ok) return;
+          }
 
-              // 2) 기본: 브라우저 다운로드 폴더로 저장 (PC 전용 정책 — 공유시트 사용 안 함)
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url; a.download = filename;
-              document.body.appendChild(a); a.click(); document.body.removeChild(a);
-              setTimeout(() => URL.revokeObjectURL(url), 1000);
-              resolve();
-            }, 'image/jpeg', 0.95);
-          });
+          // 2) 기본: 브라우저 다운로드 폴더
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
         } catch (e) {
           alert('카드 저장 실패: ' + (e?.message || e));
         } finally {
