@@ -1493,22 +1493,10 @@
               if (saveDir) {
                 const ok = await writeBlobToSaveDir(blob, filename);
                 if (ok) { resolve(); return; }
-                // 폴백으로 진행
+                // 권한 거부/실패 시 다운로드로 폴백
               }
 
-              // 2) 모바일 공유 시트 (iOS Photos 등) — 폴더 미지정일 때만
-              const file = new File([blob], filename, { type: 'image/jpeg' });
-              if (!saveDir && navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                  await navigator.share({ files: [file], title: '마리안 웨딩 땡큐카드', text: label });
-                  resolve(); return;
-                } catch (err) {
-                  if (err && err.name === 'AbortError') { resolve(); return; }
-                  // 실패 시 일반 다운로드로 폴백
-                }
-              }
-
-              // 3) 기본 다운로드
+              // 2) 기본: 브라우저 다운로드 폴더로 저장 (PC 전용 정책 — 공유시트 사용 안 함)
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url; a.download = filename;
