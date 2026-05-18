@@ -311,11 +311,30 @@
       const { error } = await supa.from('signups').delete().eq('id', id);
       if (error) throw error;
     }
+    // (name, weddingDate) 로 행들을 모두 받아 status 우선순위(approved → pending → rejected)로 최고 매치 반환.
+    // maybeSingle()을 쓰지 않는 이유: 과거에 중복 insert된 행이 2건 이상이면 maybeSingle이 PGRST116 에러로 null을 돌려
+    // (1) 가입 신청 중복 차단이 무력화되고 (2) 승인된 사용자 로그인이 "신청 내역 없음"으로 실패함.
     async function findSignupByLogin(name, weddingDate) {
       const { data, error } = await supa.from('signups').select('*')
-        .eq('name', name).eq('wedding_date', weddingDate).maybeSingle();
+        .eq('name', name).eq('wedding_date', weddingDate)
+        .order('applied_at', { ascending: false });
       if (error) { console.error('findSignupByLogin', error); return null; }
-      return fromDB(data);
+      const rows = (data || []).map(fromDB);
+      if (rows.length === 0) return null;
+      const rank = { approved: 0, pending: 1, rejected: 2 };
+      rows.sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9));
+      return rows[0];
+    }
+    // 회원가입 중복 체크: (name, weddingDate, phone4) 가 모두 같은 기존 행이 있는지.
+    // 같은 (name, weddingDate)에 phone4만 다른 행도 별도로 반환 → "전화번호가 다른 이전 신청이 있다"고 안내.
+    async function findDuplicateSignup(name, weddingDate, phone4) {
+      const { data, error } = await supa.from('signups').select('*')
+        .eq('name', name).eq('wedding_date', weddingDate);
+      if (error) { console.error('findDuplicateSignup', error); return { sameAll: null, samePerson: null }; }
+      const rows = (data || []).map(fromDB);
+      const sameAll    = rows.find(r => (r.phone4 || '') === phone4) || null;
+      const samePerson = sameAll || rows[0] || null;  // phone4 까지 같진 않더라도 같은 이름·날짜 행이 있으면
+      return { sameAll, samePerson };
     }
     async function getUserPhotoCount(userId) {
       const { data, error } = await supa.from('signups').select('photo_count').eq('id', userId).maybeSingle();
@@ -2154,16 +2173,34 @@
           return;
         }
         try {
-          const dup = await findSignupByLogin(name, weddingDate);
-          if (dup) {
-            setMsg({ type: 'warn', text: '이미 같은 이름·예식일자로 신청한 내역이 있습니다.' });
+          const { sameAll, samePerson } = await findDuplicateSignup(name, weddingDate, phone4);
+          if (sameAll) {
+            // 이름·예식일자·전화번호 뒷자리까지 모두 일치 → 같은 신청. 상태에 따라 다른 안내.
+            const statusText = sameAll.status === 'approved'
+              ? '이미 승인 완료되었습니다. "로그인" 탭에서 같은 정보로 로그인해 주세요.'
+              : sameAll.status === 'rejected'
+                ? '이전 신청이 거절되었습니다. 마리안 운영자에 문의해 주세요.'
+                : '이미 신청하셨습니다 (승인 대기 중). 운영자 승인 후 로그인 가능합니다.';
+            setMsg({ type: 'warn', text: statusText });
+            return;
+          }
+          if (samePerson) {
+            // 이름·예식일자는 같은데 phone4 가 다름 → 본인이 번호를 잘못 입력했거나, 정말 동명의 다른 커플.
+            // 자동 insert 막고 운영자 확인 요청.
+            setMsg({ type: 'warn', text: '같은 이름·예식일자로 다른 전화번호로 등록된 내역이 있어요. 본인 번호 뒷자리를 다시 확인하시거나, 마리안 운영자에 문의해 주세요.' });
             return;
           }
           await insertSignup({ name, weddingDate, phone4, status: 'pending' });
           setMsg({ type: 'ok', text: '신청 완료. 마리안 운영자 승인 후 로그인하실 수 있습니다.' });
           setSignupForm({ name: '', weddingDate: '', phone4: '' });
         } catch (e) {
-          setMsg({ type: 'error', text: '신청 실패: ' + (e?.message || e) });
+          // DB unique constraint(name+wedding_date+phone4)가 걸려있으면 동시 신청 race condition도 여기서 잡힘
+          const errMsg = String(e?.message || e);
+          if (errMsg.includes('duplicate') || errMsg.includes('unique')) {
+            setMsg({ type: 'warn', text: '이미 신청하셨습니다. "로그인" 탭에서 같은 정보로 로그인해 주세요.' });
+          } else {
+            setMsg({ type: 'error', text: '신청 실패: ' + errMsg });
+          }
         }
       };
 
@@ -2179,13 +2216,17 @@
           setMsg({ type: 'error', text: '전화번호 뒷자리 4자리(숫자)를 정확히 입력해 주세요.' });
           return;
         }
-        const found = await findSignupByLogin(name, weddingDate);
+        // 1) (name, weddingDate, phone4) 가 정확히 일치하는 본인 행을 우선 찾고,
+        //    없으면 (name, weddingDate)만 일치하는 행으로 폴백 (phone4가 다른 경우 사용자에 안내).
+        // 중복 행이 쌓여있어도 findSignupByLogin이 approved → pending → rejected 순으로 best row 반환.
+        const { sameAll } = await findDuplicateSignup(name, weddingDate, phone4);
+        const found = sameAll || await findSignupByLogin(name, weddingDate);
         if (!found) {
           setMsg({ type: 'error', text: '신청 내역이 없습니다. 회원가입 신청을 먼저 진행해 주세요.' });
           return;
         }
         if ((found.phone4 || '') !== phone4) {
-          setMsg({ type: 'error', text: '전화번호 뒷자리가 일치하지 않습니다.' });
+          setMsg({ type: 'error', text: '전화번호 뒷자리가 일치하지 않습니다. (관리자가 승인한 번호로 입력해 주세요. 번호가 바뀌었다면 마리안 운영자에 문의)' });
           return;
         }
         if (found.status === 'pending') {
