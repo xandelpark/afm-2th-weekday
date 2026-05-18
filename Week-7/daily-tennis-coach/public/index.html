@@ -661,16 +661,39 @@
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
         const stopPromise = new Promise((r) => { recorder.onstop = r; });
 
-        await video.play().catch(() => {});
+        // 모바일 사파리는 user-gesture가 async 경계를 넘어가면 play()를 거부함.
+        // play()가 reject되면 그대로 throw → 호출부의 catch가 raw 업로드로 폴백.
+        const playResult = await video.play().then(() => true).catch((e) => e);
+        if (playResult !== true) {
+          throw new Error('영상 재생을 시작할 수 없음 (자동재생 차단)');
+        }
         recorder.start();
 
         const totalMs = Math.min(COMPRESS_MAX_DURATION_SEC, video.duration || COMPRESS_MAX_DURATION_SEC) * 1000;
         let stopped = false;
 
+        // 진척 정체 감지: 3초간 currentTime이 안 늘면 폴백 발동.
+        let lastT = 0;
+        let lastAdvanceAt = performance.now();
+        const STALL_TIMEOUT_MS = 3000;
+        const HARD_TIMEOUT_MS = 60000;
+        const startedAt = performance.now();
+        let stallError = null;
+
         await new Promise((resolveLoop) => {
           const loop = () => {
             if (stopped) return;
             const tMs = video.currentTime * 1000;
+            const now = performance.now();
+            if (tMs > lastT + 1) { lastT = tMs; lastAdvanceAt = now; }
+            if (now - lastAdvanceAt > STALL_TIMEOUT_MS) {
+              stallError = new Error('압축 진척 정체 (자동재생 차단 가능성)');
+              stopped = true; resolveLoop(); return;
+            }
+            if (now - startedAt > HARD_TIMEOUT_MS) {
+              stallError = new Error('압축 타임아웃 (60초)');
+              stopped = true; resolveLoop(); return;
+            }
             if (video.ended || tMs >= totalMs) {
               stopped = true;
               resolveLoop();
@@ -684,6 +707,12 @@
           };
           requestAnimationFrame(loop);
         });
+
+        if (stallError) {
+          try { recorder.stop(); } catch (_) {}
+          try { video.pause(); } catch (_) {}
+          throw stallError;
+        }
 
         try { recorder.stop(); } catch (_) {}
         try { video.pause(); } catch (_) {}
@@ -747,14 +776,25 @@
           xhr.setRequestHeader('x-content-length', String(file.size));
         }
 
-        if (typeof onProgress === 'function') {
-          xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-              onProgress(Math.round((e.loaded / e.total) * 100));
-            }
-          });
-        }
+        // 진척 정체 감지: 20초간 progress 이벤트 없으면 abort (모바일 네트워크 stall 대비)
+        let lastProgressAt = Date.now();
+        const stallChecker = setInterval(() => {
+          if (Date.now() - lastProgressAt > 20000) {
+            try { xhr.abort(); } catch (_) {}
+            clearInterval(stallChecker);
+            reject(new Error('업로드 무응답 — 네트워크 확인 후 다시 시도'));
+          }
+        }, 2000);
+        const clearStall = () => { clearInterval(stallChecker); };
+
+        xhr.upload.addEventListener('progress', (e) => {
+          lastProgressAt = Date.now();
+          if (e.lengthComputable && typeof onProgress === 'function') {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        });
         xhr.addEventListener('load', () => {
+          clearStall();
           if (xhr.status >= 200 && xhr.status < 300) {
             try { resolve(JSON.parse(xhr.responseText)); }
             catch (e) { reject(new Error('Blob 응답 파싱 실패: ' + xhr.responseText.slice(0, 200))); }
@@ -762,8 +802,8 @@
             reject(new Error(`Blob 업로드 실패 (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
           }
         });
-        xhr.addEventListener('error', () => reject(new Error('Blob 네트워크 오류')));
-        xhr.addEventListener('abort', () => reject(new Error('Blob 업로드 취소됨')));
+        xhr.addEventListener('error', () => { clearStall(); reject(new Error('Blob 네트워크 오류')); });
+        xhr.addEventListener('abort', () => { clearStall(); reject(new Error('Blob 업로드 취소됨')); });
         xhr.send(file);
       });
 
@@ -782,6 +822,7 @@
       let workingFile = file;
       const origSizeMb = (file.size / 1024 / 1024).toFixed(0);
       if (file.size > COMPRESS_THRESHOLD_BYTES) {
+        console.log(`[upload] 압축 시작 (${origSizeMb}MB > ${COMPRESS_THRESHOLD_BYTES / 1024 / 1024}MB 임계)`);
         if (typeof onProgress === 'function') onProgress(0, `영상 압축 중 (${origSizeMb}MB → 약 1/5로)`);
         try {
           const { file: compressed, ratio } = await compressVideoForUpload(file, {
@@ -791,8 +832,8 @@
           const newMb = (compressed.size / 1024 / 1024).toFixed(1);
           console.log(`[compress] ${origSizeMb}MB → ${newMb}MB (${(ratio * 100).toFixed(0)}%)`);
         } catch (err) {
-          console.warn('[compress] 실패, 원본 업로드:', err.message);
-          // 압축 실패해도 원본으로 시도 (안전망)
+          console.warn('[compress] 실패, 원본 업로드로 폴백:', err.message);
+          if (typeof onProgress === 'function') onProgress(5, '압축 건너뜀, 원본 업로드 중');
         }
       }
 
@@ -3396,7 +3437,7 @@
 
     // ─────────────────────────────────────────────────────────────
     // 🎓 코칭 멘트 — 결과 카드 캔버스(1080x1920)용
-    //   y=1467~1500 (33px) 안에 1줄만. 인스타 릴스 시청 환경(폰 작은 화면)을
+    //   y=1487~1519 (32px) 안에 1줄만. 인스타 릴스 시청 환경(폰 작은 화면)을
     //   고려해 가독성 우선 — 18px 폰트 한 줄.
     //   우선순위: 가장 약한 축의 처방 → 약점 없으면 가장 강한 축 칭찬
     // ─────────────────────────────────────────────────────────────
@@ -3837,17 +3878,17 @@
       ctx.restore();
 
       // ──────────────────────────────────────────────────────
-      // 5.5) 코칭 멘트 (y=1467-1499, ~32 tall) — 약점 1~2개 + 강점 1개
-      //      가로로 라벨+점수 배지 + 멘트 한 줄. 줄바꿈은 폰트 크기로 회피.
+      // 5.5) 코칭 멘트 (y=1487-1519, ~32 tall) — 약점 1~2개 + 강점 1개
+      //      grid 3행(stars baseline≈1477, 시각 하단≈1479) 아래로 8px 여유.
       // ──────────────────────────────────────────────────────
       const tips = pickCoachingTips(scoreData?.axes ?? {});
-      drawCoachingTipsRow(ctx, tips, PAD, 1467, W - PAD * 2);
+      drawCoachingTipsRow(ctx, tips, PAD, 1487, W - PAD * 2);
 
       // ──────────────────────────────────────────────────────
-      // 6) 푸터 (y=1505-1580, 75 tall) — 안전영역(하단 340px) 안쪽
+      // 6) 푸터 (y=1527-1602, 75 tall) — 안전영역(하단 300px = y≤1620) 안쪽
       //    좌: QR + 핸들  /  우: 매장 + powered by
       // ──────────────────────────────────────────────────────
-      const FOOTER_Y = 1505;
+      const FOOTER_Y = 1527;
       // 푸터 구분선
       const footerLineGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
       footerLineGrad.addColorStop(0, "rgba(163, 230, 53, 0)");

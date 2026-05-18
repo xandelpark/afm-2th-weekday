@@ -39,8 +39,14 @@ const PORT = parseInt((process.env.PORT || '3000').trim(), 10);
 // ────────────────────────────────────────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL;
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-const STORE_TOKEN_TTL_DAYS = parseFloat((process.env.STORE_TOKEN_TTL_DAYS || '2').trim());
-const STORE_TOKEN_TTL_MS = STORE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+// 매장 외부에서 QR 스캔샷을 재사용하지 못하도록 회전형으로 운영.
+// rotate 분마다 새 토큰을 발급하고, 직전 토큰은 grace 분 동안만 추가 수용 (스캔 후 업로드 완료 시간 확보).
+// 한 토큰의 최대 수명 = rotate + grace.
+const STORE_TOKEN_ROTATE_MINUTES = parseFloat((process.env.STORE_TOKEN_ROTATE_MINUTES || '5').trim());
+const STORE_TOKEN_GRACE_MINUTES = parseFloat((process.env.STORE_TOKEN_GRACE_MINUTES || '5').trim());
+const STORE_TOKEN_ROTATE_MS = STORE_TOKEN_ROTATE_MINUTES * 60 * 1000;
+const STORE_TOKEN_GRACE_MS = STORE_TOKEN_GRACE_MINUTES * 60 * 1000;
+const STORE_TOKEN_MAX_AGE_MS = STORE_TOKEN_ROTATE_MS + STORE_TOKEN_GRACE_MS;
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB — 1080p 1분 영상 충분
 
@@ -109,24 +115,49 @@ function isExpired(session) {
 async function ensureFreshToken() {
   return withDb(async (c) => {
     const r = await c.query(
-      'SELECT token, issued_at, expires_at FROM store_tokens ORDER BY issued_at DESC LIMIT 1'
+      'SELECT token, issued_at FROM store_tokens ORDER BY issued_at DESC LIMIT 1'
     );
     const latest = r.rows[0];
-    if (latest && new Date(latest.expires_at).getTime() > Date.now()) {
+    const now = Date.now();
+    // 발급 후 ROTATE_MS 이내면 그대로 노출 (PC 모니터에 표시 중)
+    if (latest && now - new Date(latest.issued_at).getTime() < STORE_TOKEN_ROTATE_MS) {
+      const issuedAt = new Date(latest.issued_at);
       return {
         value: latest.token,
-        issuedAt: new Date(latest.issued_at),
-        expiresAt: new Date(latest.expires_at),
+        issuedAt,
+        expiresAt: new Date(issuedAt.getTime() + STORE_TOKEN_MAX_AGE_MS),
       };
     }
+    // 회전 시점 도달 → 새 토큰. 이전 토큰 row는 grace 동안 validateToken에서 수용됨
     const value = crypto.randomBytes(8).toString('hex');
-    const expiresAt = new Date(Date.now() + STORE_TOKEN_TTL_MS);
+    const issuedAt = new Date(now);
+    const expiresAt = new Date(now + STORE_TOKEN_MAX_AGE_MS);
     await c.query(
-      'INSERT INTO store_tokens (token, issued_at, expires_at) VALUES ($1, NOW(), $2)',
-      [value, expiresAt]
+      'INSERT INTO store_tokens (token, issued_at, expires_at) VALUES ($1, $2, $3)',
+      [value, issuedAt, expiresAt]
     );
-    console.log(`[token] 새 store token 발급 → ${value}`);
-    return { value, issuedAt: new Date(), expiresAt };
+    // 누적 방지: 1시간보다 오래된 row 정리 (grace 한참 지난 것들)
+    await c.query(
+      "DELETE FROM store_tokens WHERE issued_at < NOW() - INTERVAL '1 hour'"
+    );
+    console.log(`[token] 회전 → ${value} (rotate=${STORE_TOKEN_ROTATE_MINUTES}min, grace=${STORE_TOKEN_GRACE_MINUTES}min)`);
+    return { value, issuedAt, expiresAt };
+  });
+}
+
+// 모바일이 제공한 토큰이 현재 또는 직전(grace 내) 토큰인지 검증.
+// /api/sessions에서 이걸로 검증 → 회전 직후에도 직전 토큰을 들고 온 손님 업로드 통과.
+async function validateToken(provided) {
+  if (!provided) return false;
+  return withDb(async (c) => {
+    const r = await c.query(
+      'SELECT token, issued_at FROM store_tokens WHERE token = $1 ORDER BY issued_at DESC LIMIT 1',
+      [provided]
+    );
+    const row = r.rows[0];
+    if (!row) return false;
+    const age = Date.now() - new Date(row.issued_at).getTime();
+    return age < STORE_TOKEN_MAX_AGE_MS;
   });
 }
 
@@ -181,8 +212,9 @@ app.get('/api/store-token', async (req, res) => {
 app.post('/api/sessions', async (req, res) => {
   try {
     const providedToken = (req.body && req.body.token) || req.query.token;
-    const fresh = await ensureFreshToken();
-    if (!providedToken || providedToken !== fresh.value) {
+    // 현재 토큰 또는 grace 내 직전 토큰을 수용 (회전 직후에도 들고 있는 손님 통과)
+    const ok = await validateToken(providedToken);
+    if (!ok) {
       return res.status(401).json({ error: 'invalid_or_expired_token' });
     }
 
@@ -200,7 +232,7 @@ app.post('/api/sessions', async (req, res) => {
     await withDb((c) => c.query(
       `INSERT INTO sessions (id, status, store_token, camera_angle, backhand_style, pc_id, expires_at)
        VALUES ($1, 'waiting', $2, $3, $4, $5, $6)`,
-      [id, fresh.value, cameraAngle, backhandStyle, pcId, expiresAt]
+      [id, providedToken, cameraAngle, backhandStyle, pcId, expiresAt]
     ));
 
     const base = buildPublicHost(req);
@@ -614,6 +646,7 @@ if (require.main === module && !process.env.VERCEL) {
     console.log(`   로컬:    http://localhost:${PORT}`);
     console.log(`   DB:      ${DATABASE_URL ? 'configured' : 'MISSING'}`);
     console.log(`   Blob:    ${BLOB_TOKEN ? 'configured' : 'MISSING'}`);
+    console.log(`   Token:   rotate=${STORE_TOKEN_ROTATE_MINUTES}min, grace=${STORE_TOKEN_GRACE_MINUTES}min`);
     console.log('');
   });
 }
