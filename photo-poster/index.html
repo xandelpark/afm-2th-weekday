@@ -1369,9 +1369,107 @@
         });
       };
 
-      // ─ 카드 → JPG 저장 (iOS Photos 공유 시트 지원, 데스크톱은 일반 다운로드)
+      // ─ 카드 → JPG 저장 (저장 폴더 지정 시 File System Access API 사용, iOS는 공유 시트, 그 외는 일반 다운로드)
       const cardRefs = useRef(new Map());
       const [busyKey, setBusyKey] = useState(null);
+
+      // ── 저장 폴더(FileSystemDirectoryHandle) — IndexedDB에 영속 저장
+      const supportsFsAccess = typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
+      const [saveDir, setSaveDir]         = useState(null);
+      const [saveDirName, setSaveDirName] = useState('');
+
+      const openDirDB = () => new Promise((resolve, reject) => {
+        const req = indexedDB.open('marian-photo-poster', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('handles');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror   = () => reject(req.error);
+      });
+      const idbGet = async (key) => {
+        try {
+          const db = await openDirDB();
+          return await new Promise((resolve, reject) => {
+            const tx = db.transaction('handles', 'readonly');
+            const r  = tx.objectStore('handles').get(key);
+            r.onsuccess = () => resolve(r.result);
+            r.onerror   = () => reject(r.error);
+          });
+        } catch { return null; }
+      };
+      const idbSet = async (key, value) => {
+        try {
+          const db = await openDirDB();
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction('handles', 'readwrite');
+            tx.objectStore('handles').put(value, key);
+            tx.oncomplete = () => resolve();
+            tx.onerror    = () => reject(tx.error);
+          });
+        } catch {}
+      };
+      const idbDel = async (key) => {
+        try {
+          const db = await openDirDB();
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction('handles', 'readwrite');
+            tx.objectStore('handles').delete(key);
+            tx.oncomplete = () => resolve();
+            tx.onerror    = () => reject(tx.error);
+          });
+        } catch {}
+      };
+
+      // 마운트 시 저장된 폴더 핸들 복원
+      useEffect(() => {
+        if (!supportsFsAccess) return;
+        (async () => {
+          const h = await idbGet('saveDir');
+          if (h && h.queryPermission) {
+            setSaveDir(h);
+            setSaveDirName(h.name || '');
+          }
+        })();
+      }, []);
+
+      const pickSaveDir = async () => {
+        if (!supportsFsAccess) {
+          alert('이 브라우저는 폴더 지정 저장을 지원하지 않습니다. Chrome·Edge·Arc 등 크로미움 계열을 이용해 주세요.\n(현재 브라우저는 기본 다운로드 폴더로 저장됩니다.)');
+          return;
+        }
+        try {
+          const h = await window.showDirectoryPicker({ mode: 'readwrite', id: 'marian-thankyou' });
+          setSaveDir(h);
+          setSaveDirName(h.name || '');
+          await idbSet('saveDir', h);
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+          alert('폴더 선택 실패: ' + (e?.message || e));
+        }
+      };
+      const clearSaveDir = async () => {
+        setSaveDir(null);
+        setSaveDirName('');
+        await idbDel('saveDir');
+      };
+
+      // 권한 확인/요청 → 폴더에 blob 저장. 실패 시 false 반환
+      const writeBlobToSaveDir = async (blob, filename) => {
+        if (!saveDir) return false;
+        try {
+          const opts = { mode: 'readwrite' };
+          let perm = await saveDir.queryPermission(opts);
+          if (perm !== 'granted') perm = await saveDir.requestPermission(opts);
+          if (perm !== 'granted') return false;
+          const fh = await saveDir.getFileHandle(filename, { create: true });
+          const w  = await fh.createWritable();
+          await w.write(blob);
+          await w.close();
+          return true;
+        } catch (e) {
+          console.warn('지정 폴더 저장 실패, 기본 다운로드로 폴백:', e);
+          return false;
+        }
+      };
+
       const downloadCard = async (styleKey, label) => {
         const node = cardRefs.current.get(styleKey);
         if (!node || !window.html2canvas) {
@@ -1390,8 +1488,17 @@
             canvas.toBlob(async (blob) => {
               if (!blob) { resolve(); return; }
               const filename = `marian-thankyou-${styleKey}-${Date.now()}.jpg`;
+
+              // 1) 사용자가 폴더를 지정해 둔 경우 → 거기에 바로 저장
+              if (saveDir) {
+                const ok = await writeBlobToSaveDir(blob, filename);
+                if (ok) { resolve(); return; }
+                // 폴백으로 진행
+              }
+
+              // 2) 모바일 공유 시트 (iOS Photos 등) — 폴더 미지정일 때만
               const file = new File([blob], filename, { type: 'image/jpeg' });
-              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              if (!saveDir && navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                   await navigator.share({ files: [file], title: '마리안 웨딩 땡큐카드', text: label });
                   resolve(); return;
@@ -1400,6 +1507,8 @@
                   // 실패 시 일반 다운로드로 폴백
                 }
               }
+
+              // 3) 기본 다운로드
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url; a.download = filename;
@@ -1568,7 +1677,38 @@
                   어울리는 카드를 골라 사용할 수 있도록.
                 </p>
               </div>
-              <div className="eyebrow text-muted-foreground hidden sm:block">click & drag · snap</div>
+              <div className="flex flex-col items-end gap-2">
+                <div className="eyebrow text-muted-foreground hidden sm:block">click & drag · snap</div>
+                {/* 저장 폴더 지정 (Chromium 계열만) */}
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="eyebrow text-muted-foreground">저장 위치</span>
+                  <button
+                    type="button"
+                    onClick={pickSaveDir}
+                    title={supportsFsAccess ? '카드 JPG가 저장될 폴더를 지정합니다 (브라우저에 기억됨)' : '이 브라우저는 폴더 지정을 지원하지 않습니다 — 기본 다운로드 폴더로 저장됩니다'}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2 py-1 border',
+                      saveDirName
+                        ? 'border-primary text-primary hover:bg-primary/10'
+                        : 'border-input text-foreground hover:bg-secondary',
+                      !supportsFsAccess && 'opacity-60 cursor-not-allowed'
+                    )}
+                  >
+                    <span aria-hidden>📁</span>
+                    <span className="max-w-[160px] truncate">
+                      {saveDirName ? saveDirName : (supportsFsAccess ? '폴더 선택' : '기본 다운로드 폴더')}
+                    </span>
+                  </button>
+                  {saveDirName && (
+                    <button
+                      type="button"
+                      onClick={clearSaveDir}
+                      title="지정 해제"
+                      className="px-1 text-muted-foreground hover:text-destructive"
+                    >×</button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
