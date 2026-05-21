@@ -2820,6 +2820,9 @@
       const rafRef = useRef(null);
       const phaseRef = useRef('normal');  // 'normal' | 'transition' | 'slow'
       const phaseProgressRef = useRef(0);
+      // rVFC로 화면에 실제 올라간 비디오 프레임의 mediaTime(ms)을 추적.
+      // RAF만으로 currentTime을 읽으면 currentTime이 디스플레이된 프레임보다 빨리 진행되어 스켈레톤이 몸보다 앞서 나간다.
+      const displayedMediaTimeMsRef = useRef(0);
 
       // 베스트샷 양쪽 ±900ms → 정상 1.8s + 전환 0.6s + 슬로우 7.2s = 약 9.6s 하이라이트
       const windowMs = 900 * slowMoFactor;
@@ -2897,9 +2900,26 @@
 
         const interval = setInterval(updatePhase, 50);
 
+        // 표시된 프레임의 mediaTime 추적 — tick 루프에서 스켈레톤 lookup에 사용.
+        const hasRVFC = typeof v.requestVideoFrameCallback === "function";
+        let rvfcHandle = null;
+        let rvfcStopped = false;
+        if (hasRVFC) {
+          const onFrame = (_now, meta) => {
+            if (rvfcStopped) return;
+            displayedMediaTimeMsRef.current = meta.mediaTime * 1000;
+            rvfcHandle = v.requestVideoFrameCallback(onFrame);
+          };
+          rvfcHandle = v.requestVideoFrameCallback(onFrame);
+        }
+
         return () => {
           clearInterval(interval);
           v.removeEventListener("loadedmetadata", startLoop);
+          rvfcStopped = true;
+          if (hasRVFC && rvfcHandle != null && typeof v.cancelVideoFrameCallback === "function") {
+            v.cancelVideoFrameCallback(rvfcHandle);
+          }
           v.pause();
         };
       }, [videoUrl, startSec, endSec, bestSwing.time, CYCLE_MS, PHASE_NORMAL_MS, PHASE_TRANSITION_MS, PHASE_SLOW_MS]);
@@ -2918,13 +2938,16 @@
         const v = videoRef.current;
         const c = canvasRef.current;
         if (!v || !c || !framesData || framesData.length === 0) return;
+        const hasRVFC = typeof v.requestVideoFrameCallback === "function";
         const tick = () => {
           syncCanvas();
           const ctx = c.getContext("2d");
           ctx.clearRect(0, 0, c.width, c.height);
           const phase = phaseRef.current;
           const phaseProgress = phaseProgressRef.current;
-          const tMs = v.currentTime * 1000;
+          // 화면에 올라간 프레임의 mediaTime을 쓰면 스켈레톤이 정확히 몸 위에 그려진다.
+          // transition 단계(일시정지)에서는 rVFC가 멈춰 있으므로 마지막 ref값이 그대로 유지돼 정상 동작.
+          const tMs = hasRVFC ? displayedMediaTimeMsRef.current : v.currentTime * 1000;
           const f = findFrameAtTimeMs(framesData, tMs);
           if (f && f.landmarks && window.__MediaPipe?.POSE_CONNECTIONS) {
             drawPoseSkeleton(ctx, f.landmarks, window.__MediaPipe.POSE_CONNECTIONS);
