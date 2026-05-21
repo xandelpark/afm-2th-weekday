@@ -23,6 +23,9 @@
  *               /d/:id/raw → Blob 영상 redirect (Content-Disposition 강제)
  */
 
+// 로컬 개발용 — .env.local 자동 로드. Vercel 본환경엔 영향 없음 (이미 env 주입됨, dotenv는 덮어쓰지 않음).
+try { require('dotenv').config({ path: require('path').join(__dirname, '.env.local') }); } catch (_) {}
+
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
@@ -39,10 +42,16 @@ const PORT = parseInt((process.env.PORT || '3000').trim(), 10);
 // ────────────────────────────────────────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL;
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-const STORE_TOKEN_TTL_DAYS = parseFloat((process.env.STORE_TOKEN_TTL_DAYS || '2').trim());
-const STORE_TOKEN_TTL_MS = STORE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+// 매장 외부에서 QR 스캔샷을 재사용하지 못하도록 회전형으로 운영.
+// rotate 분마다 새 토큰을 발급하고, 직전 토큰은 grace 분 동안만 추가 수용 (스캔 후 업로드 완료 시간 확보).
+// 한 토큰의 최대 수명 = rotate + grace.
+const STORE_TOKEN_ROTATE_MINUTES = parseFloat((process.env.STORE_TOKEN_ROTATE_MINUTES || '5').trim());
+const STORE_TOKEN_GRACE_MINUTES = parseFloat((process.env.STORE_TOKEN_GRACE_MINUTES || '5').trim());
+const STORE_TOKEN_ROTATE_MS = STORE_TOKEN_ROTATE_MINUTES * 60 * 1000;
+const STORE_TOKEN_GRACE_MS = STORE_TOKEN_GRACE_MINUTES * 60 * 1000;
+const STORE_TOKEN_MAX_AGE_MS = STORE_TOKEN_ROTATE_MS + STORE_TOKEN_GRACE_MS;
 const SESSION_TTL_MS = 30 * 60 * 1000;
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB — 1080p 1분 영상 충분
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024; // 200MB — 4K 짧은 영상도 압축 없이 통과
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -93,7 +102,7 @@ function rowToSession(row) {
 
 async function getSession(id) {
   return withDb(async (c) => {
-    const r = await c.query('SELECT * FROM sessions_v2 WHERE id = $1', [id]);
+    const r = await c.query('SELECT * FROM sessions WHERE id = $1', [id]);
     return rowToSession(r.rows[0]);
   });
 }
@@ -109,24 +118,66 @@ function isExpired(session) {
 async function ensureFreshToken() {
   return withDb(async (c) => {
     const r = await c.query(
-      'SELECT token, issued_at, expires_at FROM store_tokens_v2 ORDER BY issued_at DESC LIMIT 1'
+      'SELECT token, issued_at FROM store_tokens ORDER BY issued_at DESC LIMIT 1'
     );
     const latest = r.rows[0];
-    if (latest && new Date(latest.expires_at).getTime() > Date.now()) {
+    const now = Date.now();
+    // 발급 후 ROTATE_MS 이내면 그대로 노출 (PC 모니터에 표시 중)
+    if (latest && now - new Date(latest.issued_at).getTime() < STORE_TOKEN_ROTATE_MS) {
+      const issuedAt = new Date(latest.issued_at);
       return {
         value: latest.token,
-        issuedAt: new Date(latest.issued_at),
-        expiresAt: new Date(latest.expires_at),
+        issuedAt,
+        expiresAt: new Date(issuedAt.getTime() + STORE_TOKEN_MAX_AGE_MS),
       };
     }
+    // 회전 시점 도달 → 새 토큰. 이전 토큰 row는 grace 동안 validateToken에서 수용됨
     const value = crypto.randomBytes(8).toString('hex');
-    const expiresAt = new Date(Date.now() + STORE_TOKEN_TTL_MS);
+    const issuedAt = new Date(now);
+    const expiresAt = new Date(now + STORE_TOKEN_MAX_AGE_MS);
     await c.query(
-      'INSERT INTO store_tokens_v2 (token, issued_at, expires_at) VALUES ($1, NOW(), $2)',
-      [value, expiresAt]
+      'INSERT INTO store_tokens (token, issued_at, expires_at) VALUES ($1, $2, $3)',
+      [value, issuedAt, expiresAt]
     );
-    console.log(`[token] 새 store token 발급 → ${value}`);
-    return { value, issuedAt: new Date(), expiresAt };
+    // 누적 방지: 1시간보다 오래된 row 정리 (grace 한참 지난 것들)
+    await c.query(
+      "DELETE FROM store_tokens WHERE issued_at < NOW() - INTERVAL '1 hour'"
+    );
+    console.log(`[token] 회전 → ${value} (rotate=${STORE_TOKEN_ROTATE_MINUTES}min, grace=${STORE_TOKEN_GRACE_MINUTES}min)`);
+    return { value, issuedAt, expiresAt };
+  });
+}
+
+// 세션 완료/실패 시 즉시 토큰 회전. 기존 토큰은 전부 삭제해서 같은 손님이 다시 못 쓰게 막는다.
+// 매장 PC는 store-token 폴링으로 새 토큰을 감지 → QR 자동 갱신.
+async function forceRotateToken() {
+  return withDb(async (c) => {
+    await c.query('DELETE FROM store_tokens');
+    const value = crypto.randomBytes(8).toString('hex');
+    const issuedAt = new Date();
+    const expiresAt = new Date(issuedAt.getTime() + STORE_TOKEN_MAX_AGE_MS);
+    await c.query(
+      'INSERT INTO store_tokens (token, issued_at, expires_at) VALUES ($1, $2, $3)',
+      [value, issuedAt, expiresAt]
+    );
+    console.log(`[token] 강제 회전 → ${value} (세션 완료/실패 trigger)`);
+    return { value, issuedAt, expiresAt };
+  });
+}
+
+// 모바일이 제공한 토큰이 현재 또는 직전(grace 내) 토큰인지 검증.
+// /api/sessions에서 이걸로 검증 → 회전 직후에도 직전 토큰을 들고 온 손님 업로드 통과.
+async function validateToken(provided) {
+  if (!provided) return false;
+  return withDb(async (c) => {
+    const r = await c.query(
+      'SELECT token, issued_at FROM store_tokens WHERE token = $1 ORDER BY issued_at DESC LIMIT 1',
+      [provided]
+    );
+    const row = r.rows[0];
+    if (!row) return false;
+    const age = Date.now() - new Date(row.issued_at).getTime();
+    return age < STORE_TOKEN_MAX_AGE_MS;
   });
 }
 
@@ -181,8 +232,9 @@ app.get('/api/store-token', async (req, res) => {
 app.post('/api/sessions', async (req, res) => {
   try {
     const providedToken = (req.body && req.body.token) || req.query.token;
-    const fresh = await ensureFreshToken();
-    if (!providedToken || providedToken !== fresh.value) {
+    // 현재 토큰 또는 grace 내 직전 토큰을 수용 (회전 직후에도 들고 있는 손님 통과)
+    const ok = await validateToken(providedToken);
+    if (!ok) {
       return res.status(401).json({ error: 'invalid_or_expired_token' });
     }
 
@@ -198,9 +250,9 @@ app.post('/api/sessions', async (req, res) => {
     const backhandStyle = (rawBhStyle === 'one-handed' || rawBhStyle === 'two-handed') ? rawBhStyle : 'auto';
 
     await withDb((c) => c.query(
-      `INSERT INTO sessions_v2 (id, status, store_token, camera_angle, backhand_style, pc_id, expires_at)
+      `INSERT INTO sessions (id, status, store_token, camera_angle, backhand_style, pc_id, expires_at)
        VALUES ($1, 'waiting', $2, $3, $4, $5, $6)`,
-      [id, fresh.value, cameraAngle, backhandStyle, pcId, expiresAt]
+      [id, providedToken, cameraAngle, backhandStyle, pcId, expiresAt]
     ));
 
     const base = buildPublicHost(req);
@@ -267,7 +319,7 @@ app.post('/api/sessions/:id/attach', async (req, res) => {
     }
 
     await withDb((c) => c.query(
-      `UPDATE sessions_v2 SET video_blob_url = $1, video_mime = $2, status = 'uploaded', uploaded_at = NOW()
+      `UPDATE sessions SET video_blob_url = $1, video_mime = $2, status = 'uploaded', uploaded_at = NOW()
        WHERE id = $3`,
       [blobUrl, mime || 'video/mp4', id]
     ));
@@ -318,9 +370,10 @@ app.get('/api/sessions/:id/status', async (req, res) => {
 app.get('/api/queue/next', async (_req, res) => {
   try {
     const result = await withDb((c) => c.query(
-      `UPDATE sessions_v2 SET status = 'analyzing', picked_up_at = NOW()
+      `UPDATE sessions SET status = 'analyzing', picked_up_at = NOW()
        WHERE id = (
-         SELECT id FROM sessions_v2         WHERE status = 'uploaded'
+         SELECT id FROM sessions
+         WHERE status = 'uploaded'
          ORDER BY uploaded_at ASC NULLS LAST
          LIMIT 1
          FOR UPDATE SKIP LOCKED
@@ -350,30 +403,34 @@ app.post('/api/sessions/:id/complete', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await withDb((c) => c.query(
-      `UPDATE sessions_v2 SET status = 'completed', completed_at = NOW()
+      `UPDATE sessions SET status = 'completed', completed_at = NOW()
        WHERE id = $1 RETURNING id`,
       [id]
     ));
     if (result.rowCount === 0) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
     console.log(`[session] ${id} → completed`);
+    // 세션 완료 → store-token 즉시 회전 (해당 손님 재사용 금지 + 매장 PC QR 갱신)
+    try { await forceRotateToken(); } catch (e) { console.warn('[complete] 토큰 회전 실패 (무시):', e.message); }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 6) PC 분석 실패 보고
+// 6) 분석 실패 보고
 app.post('/api/sessions/:id/skip', async (req, res) => {
   try {
     const { id } = req.params;
     const reason = (req.body && req.body.reason) || 'pc_skipped';
     const result = await withDb((c) => c.query(
-      `UPDATE sessions_v2 SET status = 'failed', failed_at = NOW(), fail_reason = $2
+      `UPDATE sessions SET status = 'failed', failed_at = NOW(), fail_reason = $2
        WHERE id = $1 RETURNING id`,
       [id, reason]
     ));
     if (result.rowCount === 0) return res.status(404).json({ error: '세션을 찾을 수 없습니다' });
     console.log(`[session] ${id} → failed (${reason})`);
+    // 실패한 세션도 토큰 회전 — 다음 손님이 새 QR로 시작할 수 있게
+    try { await forceRotateToken(); } catch (e) { console.warn('[skip] 토큰 회전 실패 (무시):', e.message); }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -394,7 +451,7 @@ app.post('/api/sessions/:id/attach-result', async (req, res) => {
     }
 
     await withDb((c) => c.query(
-      `UPDATE sessions_v2 SET result_blob_url = $1, result_mime = $2, result_ext = $3, result_uploaded_at = NOW()
+      `UPDATE sessions SET result_blob_url = $1, result_mime = $2, result_ext = $3, result_uploaded_at = NOW()
        WHERE id = $4`,
       [blobUrl, mime || 'video/mp4', ext || 'mp4', id]
     ));
@@ -431,7 +488,7 @@ app.get('/d/:id', async (req, res) => {
     const downloadName = `daily-tennis-${shortId}.${downloadExt}`;
 
     await withDb((c) => c.query(
-      'UPDATE sessions_v2 SET download_count = download_count + 1 WHERE id = $1',
+      'UPDATE sessions SET download_count = download_count + 1 WHERE id = $1',
       [id]
     ));
 
@@ -570,7 +627,8 @@ app.get('/api/cron/cleanup', async (req, res) => {
     const cutoff = new Date(now.getTime() - COMPLETED_KEEP_MS);
 
     const expired = await withDb((c) => c.query(
-      `SELECT id, video_blob_url, result_blob_url FROM sessions_v2       WHERE (status = 'waiting' AND expires_at < NOW())
+      `SELECT id, video_blob_url, result_blob_url FROM sessions
+       WHERE (status = 'waiting' AND expires_at < NOW())
           OR (status IN ('completed', 'failed') AND COALESCE(completed_at, failed_at) < $1)`,
       [cutoff]
     ));
@@ -581,11 +639,11 @@ app.get('/api/cron/cleanup', async (req, res) => {
       for (const url of urls) {
         try { await blobDel(url, { token: BLOB_TOKEN }); } catch (_) {}
       }
-      await withDb((c) => c.query('DELETE FROM sessions_v2 WHERE id = $1', [row.id]));
+      await withDb((c) => c.query('DELETE FROM sessions WHERE id = $1', [row.id]));
       deleted += 1;
     }
 
-    await withDb((c) => c.query("DELETE FROM store_tokens_v2 WHERE expires_at < NOW() - interval '1 day'"));
+    await withDb((c) => c.query("DELETE FROM store_tokens WHERE expires_at < NOW() - interval '1 day'"));
 
     res.json({ ok: true, deleted });
   } catch (err) {
@@ -612,6 +670,7 @@ if (require.main === module && !process.env.VERCEL) {
     console.log(`   로컬:    http://localhost:${PORT}`);
     console.log(`   DB:      ${DATABASE_URL ? 'configured' : 'MISSING'}`);
     console.log(`   Blob:    ${BLOB_TOKEN ? 'configured' : 'MISSING'}`);
+    console.log(`   Token:   rotate=${STORE_TOKEN_ROTATE_MINUTES}min, grace=${STORE_TOKEN_GRACE_MINUTES}min`);
     console.log('');
   });
 }

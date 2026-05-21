@@ -2,28 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>데일리테니스 자세분석 V2 (DEV)</title>
-  <style>
-    .v2-dev-badge {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      z-index: 9999;
-      padding: 8px 14px;
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: #0f172a;
-      font-weight: 800;
-      font-size: 13px;
-      letter-spacing: 0.05em;
-      border-radius: 10px;
-      box-shadow: 0 6px 18px rgba(245, 158, 11, 0.5);
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      pointer-events: none;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-  </style>
+  <title>데일리테니스 자세분석</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin=""></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin=""></script>
@@ -364,8 +343,6 @@
   </style>
 <style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.mb-1{margin-bottom:0.25rem}.mb-10{margin-bottom:2.5rem}.mb-3{margin-bottom:0.75rem}.mt-0\.5{margin-top:0.125rem}.mt-1{margin-top:0.25rem}.mt-10{margin-top:2.5rem}.mt-2{margin-top:0.5rem}.mt-3{margin-top:0.75rem}.mt-4{margin-top:1rem}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-2{height:0.5rem}.min-h-screen{min-height:100vh}.w-2{width:0.5rem}.max-w-md{max-width:28rem}@keyframes spin{to{transform:rotate(360deg)}}.animate-spin{animation:spin 1s linear infinite}.grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.flex-col{flex-direction:column}.items-center{align-items:center}.justify-center{justify-content:center}.gap-3{gap:0.75rem}.gap-2{gap:0.5rem}.gap-6{gap:1.5rem}.rounded-full{border-radius:9999px}.rounded-xl{border-radius:0.75rem}.border-2{border-width:2px}.border{border-width:1px}.border-lime-400{--tw-border-opacity:1;border-color:rgb(163 230 53 / var(--tw-border-opacity, 1))}.border-slate-700{--tw-border-opacity:1;border-color:rgb(51 65 85 / var(--tw-border-opacity, 1))}.border-t-transparent{border-top-color:transparent}.bg-slate-900{--tw-bg-opacity:1;background-color:rgb(15 23 42 / var(--tw-bg-opacity, 1))}.bg-lime-400{--tw-bg-opacity:1;background-color:rgb(163 230 53 / var(--tw-bg-opacity, 1))}.bg-slate-800\/60{background-color:rgb(30 41 59 / 0.6)}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-10{padding-top:2.5rem;padding-bottom:2.5rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.text-center{text-align:center}.font-sans{font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-extrabold{font-weight:800}.font-semibold{font-weight:600}.leading-relaxed{line-height:1.625}.tracking-widest{letter-spacing:0.1em}.text-slate-100{--tw-text-opacity:1;color:rgb(241 245 249 / var(--tw-text-opacity, 1))}.text-slate-300{--tw-text-opacity:1;color:rgb(203 213 225 / var(--tw-text-opacity, 1))}.text-lime-400{--tw-text-opacity:1;color:rgb(163 230 53 / var(--tw-text-opacity, 1))}.text-slate-400{--tw-text-opacity:1;color:rgb(148 163 184 / var(--tw-text-opacity, 1))}.text-slate-500{--tw-text-opacity:1;color:rgb(100 116 139 / var(--tw-text-opacity, 1))}.text-slate-600{--tw-text-opacity:1;color:rgb(71 85 105 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.underline{-webkit-text-decoration-line:underline;text-decoration-line:underline}.hover\:text-slate-400:hover{--tw-text-opacity:1;color:rgb(148 163 184 / var(--tw-text-opacity, 1))}</style></head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
-  <!-- V2 개발판 식별 뱃지 (V1 운영판과 시각적 구분) -->
-  <div class="v2-dev-badge">🧪 V2 DEV · GRU 분류기 통합 중</div>
   <!-- 디버그 콘솔 박스 — ?debug=1 쿼리스트링이 있을 때만 setupDebugBox가 hidden을 떼서 표시 -->
   <div id="debug-box" class="hidden">
     <div id="debug-header">
@@ -626,11 +603,13 @@
     // ─────────────────────────────────────────────────────────────
 
     // V1.1: 클라이언트 압축 (MediaRecorder + canvas, ffmpeg 없이)
-    //  큰 파일은 720p / 1.5Mbps로 자동 압축 후 업로드 (100MB → ~10MB)
-    const MAX_UPLOAD_BYTES_CLIENT = 200 * 1024 * 1024;     // 압축 후에도 넘으면 거부 (안전망)
-    const COMPRESS_THRESHOLD_BYTES = 25 * 1024 * 1024;     // 25MB 초과 시 자동 압축
+    //  10MB 초과면 720p / 1Mbps + 4배속 재생으로 빠르게 압축. 30초 영상이 ~7초 만에 압축 + 업로드.
+    //  ⚠️ 4배속은 Blob에 저장되는 "백업본"이 4배속 영상이 된다는 의미. 분석/결과 다운로드는 폰의 로컬 원본을 쓰므로 영향 없음.
+    const MAX_UPLOAD_BYTES_CLIENT = 200 * 1024 * 1024;     // 200MB까지 직접 업로드 허용
+    const COMPRESS_THRESHOLD_BYTES = 10 * 1024 * 1024;     // 10MB 초과 시 자동 압축
+    const COMPRESS_PLAYBACK_RATE = 4;                       // 4배속 재생으로 압축 속도 ×4 (iOS는 자체 클램프할 수도 있음)
     const COMPRESS_MAX_LONG_SIDE = 720;                    // 긴 변 720px (16:9 → 1280x720)
-    const COMPRESS_BITRATE = 1_500_000;                    // 1.5 Mbps
+    const COMPRESS_BITRATE = 1_000_000;                    // 1 Mbps (백업 용도라 더 줄임)
     const COMPRESS_MAX_DURATION_SEC = 60;                  // 60초 트림
 
     // 압축 — 원본 영상 → 720p 캔버스 실시간 그리기 → MediaRecorder 녹화
@@ -684,16 +663,41 @@
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
         const stopPromise = new Promise((r) => { recorder.onstop = r; });
 
-        await video.play().catch(() => {});
+        // 4배속 재생으로 압축 속도 가속. iOS Safari는 자체 클램프(보통 ≤2x)할 수 있지만 그래도 2배 빨라짐.
+        try { video.playbackRate = COMPRESS_PLAYBACK_RATE; } catch (_) {}
+        // 모바일 사파리는 user-gesture가 async 경계를 넘어가면 play()를 거부함.
+        // play()가 reject되면 그대로 throw → 호출부의 catch가 raw 업로드로 폴백.
+        const playResult = await video.play().then(() => true).catch((e) => e);
+        if (playResult !== true) {
+          throw new Error('영상 재생을 시작할 수 없음 (자동재생 차단)');
+        }
         recorder.start();
 
         const totalMs = Math.min(COMPRESS_MAX_DURATION_SEC, video.duration || COMPRESS_MAX_DURATION_SEC) * 1000;
         let stopped = false;
 
+        // 진척 정체 감지: 3초간 currentTime이 안 늘면 폴백 발동.
+        let lastT = 0;
+        let lastAdvanceAt = performance.now();
+        const STALL_TIMEOUT_MS = 3000;
+        const HARD_TIMEOUT_MS = 60000;
+        const startedAt = performance.now();
+        let stallError = null;
+
         await new Promise((resolveLoop) => {
           const loop = () => {
             if (stopped) return;
             const tMs = video.currentTime * 1000;
+            const now = performance.now();
+            if (tMs > lastT + 1) { lastT = tMs; lastAdvanceAt = now; }
+            if (now - lastAdvanceAt > STALL_TIMEOUT_MS) {
+              stallError = new Error('압축 진척 정체 (자동재생 차단 가능성)');
+              stopped = true; resolveLoop(); return;
+            }
+            if (now - startedAt > HARD_TIMEOUT_MS) {
+              stallError = new Error('압축 타임아웃 (60초)');
+              stopped = true; resolveLoop(); return;
+            }
             if (video.ended || tMs >= totalMs) {
               stopped = true;
               resolveLoop();
@@ -707,6 +711,12 @@
           };
           requestAnimationFrame(loop);
         });
+
+        if (stallError) {
+          try { recorder.stop(); } catch (_) {}
+          try { video.pause(); } catch (_) {}
+          throw stallError;
+        }
 
         try { recorder.stop(); } catch (_) {}
         try { video.pause(); } catch (_) {}
@@ -770,14 +780,25 @@
           xhr.setRequestHeader('x-content-length', String(file.size));
         }
 
-        if (typeof onProgress === 'function') {
-          xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-              onProgress(Math.round((e.loaded / e.total) * 100));
-            }
-          });
-        }
+        // 진척 정체 감지: 20초간 progress 이벤트 없으면 abort (모바일 네트워크 stall 대비)
+        let lastProgressAt = Date.now();
+        const stallChecker = setInterval(() => {
+          if (Date.now() - lastProgressAt > 20000) {
+            try { xhr.abort(); } catch (_) {}
+            clearInterval(stallChecker);
+            reject(new Error('업로드 무응답 — 네트워크 확인 후 다시 시도'));
+          }
+        }, 2000);
+        const clearStall = () => { clearInterval(stallChecker); };
+
+        xhr.upload.addEventListener('progress', (e) => {
+          lastProgressAt = Date.now();
+          if (e.lengthComputable && typeof onProgress === 'function') {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        });
         xhr.addEventListener('load', () => {
+          clearStall();
           if (xhr.status >= 200 && xhr.status < 300) {
             try { resolve(JSON.parse(xhr.responseText)); }
             catch (e) { reject(new Error('Blob 응답 파싱 실패: ' + xhr.responseText.slice(0, 200))); }
@@ -785,8 +806,8 @@
             reject(new Error(`Blob 업로드 실패 (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
           }
         });
-        xhr.addEventListener('error', () => reject(new Error('Blob 네트워크 오류')));
-        xhr.addEventListener('abort', () => reject(new Error('Blob 업로드 취소됨')));
+        xhr.addEventListener('error', () => { clearStall(); reject(new Error('Blob 네트워크 오류')); });
+        xhr.addEventListener('abort', () => { clearStall(); reject(new Error('Blob 업로드 취소됨')); });
         xhr.send(file);
       });
 
@@ -805,17 +826,18 @@
       let workingFile = file;
       const origSizeMb = (file.size / 1024 / 1024).toFixed(0);
       if (file.size > COMPRESS_THRESHOLD_BYTES) {
-        if (typeof onProgress === 'function') onProgress(0, `영상 압축 중 (${origSizeMb}MB → 약 1/5로)`);
+        console.log(`[upload] 압축 시작 (${origSizeMb}MB > ${COMPRESS_THRESHOLD_BYTES / 1024 / 1024}MB 임계)`);
+        if (typeof onProgress === 'function') onProgress(0, `화질 줄이는 중 (${origSizeMb}MB → 1MB대)`);
         try {
           const { file: compressed, ratio } = await compressVideoForUpload(file, {
-            onProgress: (pct) => onProgress && onProgress(Math.round(pct * 0.7), '영상 압축 중'),
+            onProgress: (pct) => onProgress && onProgress(Math.round(pct * 0.7), '화질 줄이는 중'),
           });
           workingFile = compressed;
           const newMb = (compressed.size / 1024 / 1024).toFixed(1);
           console.log(`[compress] ${origSizeMb}MB → ${newMb}MB (${(ratio * 100).toFixed(0)}%)`);
         } catch (err) {
-          console.warn('[compress] 실패, 원본 업로드:', err.message);
-          // 압축 실패해도 원본으로 시도 (안전망)
+          console.warn('[compress] 실패, 원본 업로드로 폴백:', err.message);
+          if (typeof onProgress === 'function') onProgress(5, '압축 건너뜀, 원본 업로드 중');
         }
       }
 
@@ -883,7 +905,7 @@
     }
 
     // 운영 상수
-    const PC_TOKEN_REFRESH_MS = 30 * 1000;     // 30초마다 토큰 회전 체크
+    const PC_TOKEN_REFRESH_MS = 3 * 1000;      // 3초마다 토큰 회전 체크 (손님 완료 후 즉시 QR 갱신)
     const PC_QUEUE_POLL_MS = 1000;              // 1초마다 큐 폴링
     const RESULT_AUTO_TIMEOUT_MS = 5 * 60 * 1000; // 결과 화면 5분 자동 타임아웃
 
@@ -2802,16 +2824,18 @@
       const rafRef = useRef(null);
       const phaseRef = useRef('normal');  // 'normal' | 'transition' | 'slow'
       const phaseProgressRef = useRef(0);
+      // rVFC로 화면에 실제 올라간 비디오 프레임의 mediaTime(ms)을 추적.
+      // RAF만으로 currentTime을 읽으면 currentTime이 디스플레이된 프레임보다 빨리 진행되어 스켈레톤이 몸보다 앞서 나간다.
+      const displayedMediaTimeMsRef = useRef(0);
 
-      const windowMs = 500 * slowMoFactor;
+      // 베스트샷 양쪽 ±5000ms 윈도우 (총 10s 클립). 1배속 한 번 재생으로 10초 하이라이트.
+      const windowMs = 5000;
       const startSec = (bestSwing.time - windowMs) / 1000;
       const endSec = (bestSwing.time + windowMs) / 1000;
 
-      // 페이즈 사이클 — 정상속도(1x) → REPLAY 전환 → 슬로우(0.25x) → (반복)
-      const PHASE_NORMAL_MS = Math.round(windowMs * 2);
-      const PHASE_TRANSITION_MS = 600;
-      const PHASE_SLOW_MS = Math.round((windowMs * 2) / 0.25);
-      const CYCLE_MS = PHASE_NORMAL_MS + PHASE_TRANSITION_MS + PHASE_SLOW_MS;
+      // 1배속(1.0x) 한 번 재생으로 10초. 끝까지 가면 다시 처음으로 루프.
+      const PHASE_NORMAL_MS = Math.round(windowMs * 2);  // = 10000ms
+      const CYCLE_MS = PHASE_NORMAL_MS;
 
       useEffect(() => {
         const v = videoRef.current;
@@ -2833,38 +2857,19 @@
         const updatePhase = () => {
           const now = performance.now();
           const elapsedInCycle = (now - cycleStartT) % CYCLE_MS;
-          let p, pp;
-          if (elapsedInCycle < PHASE_NORMAL_MS) {
-            p = 'normal';
-            pp = elapsedInCycle / PHASE_NORMAL_MS;
-          } else if (elapsedInCycle < PHASE_NORMAL_MS + PHASE_TRANSITION_MS) {
-            p = 'transition';
-            pp = (elapsedInCycle - PHASE_NORMAL_MS) / PHASE_TRANSITION_MS;
-          } else {
-            p = 'slow';
-            pp = (elapsedInCycle - PHASE_NORMAL_MS - PHASE_TRANSITION_MS) / PHASE_SLOW_MS;
-          }
-          phaseRef.current = p;
-          phaseProgressRef.current = pp;
+          phaseRef.current = 'normal';
+          phaseProgressRef.current = elapsedInCycle / PHASE_NORMAL_MS;
 
-          // 페이즈 전환 시 비디오 제어
-          if (p !== lastPhase) {
-            if (p === 'normal') {
-              v.playbackRate = 1.0;
-              seekToStart();
-              v.play().catch(() => {});
-            } else if (p === 'transition') {
-              v.pause();
-              seekToStart();
-            } else if (p === 'slow') {
-              v.playbackRate = 0.25;
-              v.play().catch(() => {});
-            }
-            lastPhase = p;
+          // 첫 진입 시 1배속 재생 시작
+          if (lastPhase !== 'normal') {
+            v.playbackRate = 1.0;
+            seekToStart();
+            v.play().catch(() => {});
+            lastPhase = 'normal';
           }
 
-          // 윈도우 끝에 도달하면 시작으로 (정상/슬로우 phase만)
-          if ((p === 'normal' || p === 'slow') && v.currentTime >= endSec) {
+          // 윈도우 끝에 도달하면 시작으로 (루프)
+          if (v.currentTime >= endSec) {
             seekToStart();
           }
         };
@@ -2878,12 +2883,29 @@
 
         const interval = setInterval(updatePhase, 50);
 
+        // 표시된 프레임의 mediaTime 추적 — tick 루프에서 스켈레톤 lookup에 사용.
+        const hasRVFC = typeof v.requestVideoFrameCallback === "function";
+        let rvfcHandle = null;
+        let rvfcStopped = false;
+        if (hasRVFC) {
+          const onFrame = (_now, meta) => {
+            if (rvfcStopped) return;
+            displayedMediaTimeMsRef.current = meta.mediaTime * 1000;
+            rvfcHandle = v.requestVideoFrameCallback(onFrame);
+          };
+          rvfcHandle = v.requestVideoFrameCallback(onFrame);
+        }
+
         return () => {
           clearInterval(interval);
           v.removeEventListener("loadedmetadata", startLoop);
+          rvfcStopped = true;
+          if (hasRVFC && rvfcHandle != null && typeof v.cancelVideoFrameCallback === "function") {
+            v.cancelVideoFrameCallback(rvfcHandle);
+          }
           v.pause();
         };
-      }, [videoUrl, startSec, endSec, bestSwing.time, CYCLE_MS, PHASE_NORMAL_MS, PHASE_TRANSITION_MS, PHASE_SLOW_MS]);
+      }, [videoUrl, startSec, endSec, bestSwing.time, CYCLE_MS, PHASE_NORMAL_MS]);
 
       const syncCanvas = useCallback(() => {
         const v = videoRef.current;
@@ -2899,13 +2921,16 @@
         const v = videoRef.current;
         const c = canvasRef.current;
         if (!v || !c || !framesData || framesData.length === 0) return;
+        const hasRVFC = typeof v.requestVideoFrameCallback === "function";
         const tick = () => {
           syncCanvas();
           const ctx = c.getContext("2d");
           ctx.clearRect(0, 0, c.width, c.height);
           const phase = phaseRef.current;
           const phaseProgress = phaseProgressRef.current;
-          const tMs = v.currentTime * 1000;
+          // 화면에 올라간 프레임의 mediaTime을 쓰면 스켈레톤이 정확히 몸 위에 그려진다.
+          // transition 단계(일시정지)에서는 rVFC가 멈춰 있으므로 마지막 ref값이 그대로 유지돼 정상 동작.
+          const tMs = hasRVFC ? displayedMediaTimeMsRef.current : v.currentTime * 1000;
           const f = findFrameAtTimeMs(framesData, tMs);
           if (f && f.landmarks && window.__MediaPipe?.POSE_CONNECTIONS) {
             drawPoseSkeleton(ctx, f.landmarks, window.__MediaPipe.POSE_CONNECTIONS);
@@ -3090,17 +3115,63 @@
       };
     }
 
-    // framesData에서 targetMs에 가장 가까운 프레임 찾기 (시간순 정렬 가정)
+    // framesData에서 targetMs에 해당하는 프레임을 두 인접 샘플 사이의 선형 보간으로 합성.
+    // 캡처는 ~30fps, 슬로우 재생은 240fps 상당으로 보간 표시되므로 nearest로 고정하면
+    // 같은 좌표가 8번 재사용되어 스켈레톤이 몸 뒤에서 끌려가는 것처럼 보임.
+    // 두 프레임 간격이 너무 크면(>200ms) 보간이 부정확하므로 nearest로 폴백.
     function findFrameAtTimeMs(framesData, targetMs) {
       if (!framesData || framesData.length === 0) return null;
-      let bestI = 0;
-      let bestD = Math.abs(framesData[0].t - targetMs);
-      for (let i = 1; i < framesData.length; i++) {
-        const d = Math.abs(framesData[i].t - targetMs);
-        if (d < bestD) { bestD = d; bestI = i; }
-        else if (framesData[i].t > targetMs && d > bestD) break;
+      // 1) targetMs 이하의 마지막 인덱스 (lo), 이상의 첫 인덱스 (hi) 찾기 — 이진 탐색
+      let lo = 0, hi = framesData.length - 1;
+      if (targetMs <= framesData[0].t) return framesData[0];
+      if (targetMs >= framesData[hi].t) return framesData[hi];
+      while (lo + 1 < hi) {
+        const mid = (lo + hi) >> 1;
+        if (framesData[mid].t <= targetMs) lo = mid;
+        else hi = mid;
       }
-      return framesData[bestI];
+      const fA = framesData[lo];
+      const fB = framesData[hi];
+      const gap = fB.t - fA.t;
+      if (gap <= 0 || gap > 200) {
+        // 갭이 비정상적으로 크면 (>200ms) 보간 신뢰도 낮음 → nearest
+        return Math.abs(fA.t - targetMs) <= Math.abs(fB.t - targetMs) ? fA : fB;
+      }
+      const alpha = (targetMs - fA.t) / gap;
+      return lerpFrame(fA, fB, alpha, targetMs);
+    }
+
+    // 두 프레임의 랜드마크/라켓끝점을 알파 비율로 선형 보간한 합성 프레임을 만든다.
+    function lerpFrame(fA, fB, alpha, tMs) {
+      const lmA = fA.landmarks;
+      const lmB = fB.landmarks;
+      let landmarks = lmA;
+      if (lmA && lmB && lmA.length === lmB.length) {
+        landmarks = new Array(lmA.length);
+        for (let i = 0; i < lmA.length; i++) {
+          const a = lmA[i];
+          const b = lmB[i];
+          if (!a || !b) { landmarks[i] = a || b; continue; }
+          // visibility가 한쪽만 매우 낮으면 그쪽으로 끌려가지 않도록 max 사용
+          const visA = a.visibility ?? 1;
+          const visB = b.visibility ?? 1;
+          landmarks[i] = {
+            x: a.x + (b.x - a.x) * alpha,
+            y: a.y + (b.y - a.y) * alpha,
+            z: (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * alpha,
+            visibility: Math.max(visA, visB),
+          };
+        }
+      }
+      let racketTip = fA.racketTip;
+      const rA = fA.racketTip;
+      const rB = fB.racketTip;
+      if (rA && rB) {
+        racketTip = { x: rA.x + (rB.x - rA.x) * alpha, y: rA.y + (rB.y - rA.y) * alpha };
+      } else if (rB && !rA) {
+        racketTip = rB;
+      }
+      return { t: tMs, landmarks, racketTip };
     }
 
     // 스켈레톤을 대상 캔버스에 직접 그리기 (cover crop 매핑 적용)
@@ -3372,7 +3443,7 @@
 
     // ─────────────────────────────────────────────────────────────
     // 🎓 코칭 멘트 — 결과 카드 캔버스(1080x1920)용
-    //   y=1467~1500 (33px) 안에 1줄만. 인스타 릴스 시청 환경(폰 작은 화면)을
+    //   y=1487~1519 (32px) 안에 1줄만. 인스타 릴스 시청 환경(폰 작은 화면)을
     //   고려해 가독성 우선 — 18px 폰트 한 줄.
     //   우선순위: 가장 약한 축의 처방 → 약점 없으면 가장 강한 축 칭찬
     // ─────────────────────────────────────────────────────────────
@@ -3813,17 +3884,17 @@
       ctx.restore();
 
       // ──────────────────────────────────────────────────────
-      // 5.5) 코칭 멘트 (y=1467-1499, ~32 tall) — 약점 1~2개 + 강점 1개
-      //      가로로 라벨+점수 배지 + 멘트 한 줄. 줄바꿈은 폰트 크기로 회피.
+      // 5.5) 코칭 멘트 (y=1487-1519, ~32 tall) — 약점 1~2개 + 강점 1개
+      //      grid 3행(stars baseline≈1477, 시각 하단≈1479) 아래로 8px 여유.
       // ──────────────────────────────────────────────────────
       const tips = pickCoachingTips(scoreData?.axes ?? {});
-      drawCoachingTipsRow(ctx, tips, PAD, 1467, W - PAD * 2);
+      drawCoachingTipsRow(ctx, tips, PAD, 1487, W - PAD * 2);
 
       // ──────────────────────────────────────────────────────
-      // 6) 푸터 (y=1505-1580, 75 tall) — 안전영역(하단 340px) 안쪽
+      // 6) 푸터 (y=1527-1602, 75 tall) — 안전영역(하단 300px = y≤1620) 안쪽
       //    좌: QR + 핸들  /  우: 매장 + powered by
       // ──────────────────────────────────────────────────────
-      const FOOTER_Y = 1505;
+      const FOOTER_Y = 1527;
       // 푸터 구분선
       const footerLineGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
       footerLineGrad.addColorStop(0, "rgba(163, 230, 53, 0)");
@@ -3910,6 +3981,7 @@
       composeProgress = 0,         // 0 ~ 100 (rendering 중)
       composeError = "",           // composeStatus === "error" 일 때 실제 에러 메시지
       downloadUrl = "",            // composeStatus === "ready" 일 때 publicDownloadUrl
+      phoneMode = false,           // v2 phone mode — 푸터 QR 대신 "다운로드 버튼" 안내
     }) {
       const total = scoreData?.total ?? 0;
       const axes = scoreData?.axes ?? {};
@@ -4135,7 +4207,18 @@
                       border: composeStatus === "ready" ? "none" : "1px dashed rgba(163,230,53,0.35)",
                     }}
                   >
-                    {composeStatus === "ready" && downloadUrl ? (
+                    {phoneMode && composeStatus === "ready" ? (
+                      <div className="text-2xl">⬇️</div>
+                    ) : phoneMode && composeStatus === "rendering" ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <Spinner size={4} />
+                        <span className="text-[9px] text-lime-300 font-bold leading-none">{composeProgress}%</span>
+                      </div>
+                    ) : phoneMode && composeStatus === "error" ? (
+                      <span className="text-[10px] text-rose-300 font-semibold">실패</span>
+                    ) : phoneMode ? (
+                      <span className="text-[9px] text-slate-500 font-medium">준비중</span>
+                    ) : composeStatus === "ready" && downloadUrl ? (
                       <div style={{ transform: "scale(0.46)", transformOrigin: "center", margin: -34 }}>
                         <QrCode value={downloadUrl} size={200} dark="#0a0f08" light="#ffffff" />
                       </div>
@@ -4158,7 +4241,29 @@
 
                   {/* 안내 텍스트 — 상태별 */}
                   <div className="leading-tight max-w-[180px]">
-                    {composeStatus === "ready" ? (
+                    {phoneMode && composeStatus === "ready" ? (
+                      <>
+                        <div className="text-xs font-bold text-lime-300">📥 다운로드 버튼 누르세요</div>
+                        <div className="text-[10px] text-slate-300 mt-0.5">바로 폰에 저장</div>
+                      </>
+                    ) : phoneMode && composeStatus === "rendering" ? (
+                      <>
+                        <div className="text-xs font-bold text-slate-100">📹 영상 만드는 중</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{composeProgress}% · 잠시만요</div>
+                      </>
+                    ) : phoneMode && composeStatus === "error" ? (
+                      <>
+                        <div className="text-xs font-bold text-rose-300">❌ 영상 생성 실패</div>
+                        <div className="text-[10px] text-rose-200 mt-0.5 break-all" style={{ wordBreak: 'break-word' }}>
+                          {composeError || '다시 시도해 주세요'}
+                        </div>
+                      </>
+                    ) : phoneMode ? (
+                      <>
+                        <div className="text-xs font-bold text-slate-100">⏳ 영상 준비중</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">합성 시작</div>
+                      </>
+                    ) : composeStatus === "ready" ? (
                       <>
                         <div className="text-xs font-bold text-lime-300">📱 폰으로 스캔</div>
                         <div className="text-[10px] text-slate-300 mt-0.5">갤러리에 저장</div>
@@ -4222,12 +4327,10 @@
     //     - 30초마다 토큰 회전 체크 (값이 바뀌면 QR 새로 그림)
     //     - 1초마다 GET /api/queue/next → 200이면 onPickup, 204면 계속 대기
     // ========================================
-    function WaitingScreen({ onPickup }) {
+    function WaitingScreen() {
       const [tokenInfo, setTokenInfo] = useState(null); // { token, qrUrl, expiresAt }
       const [error, setError] = useState("");
-      const [stats, setStats] = useState({ rotations: 0, lastCheckedAt: null });
       const tokenRef = useRef(null);
-      const pickupHandledRef = useRef(false);
 
       // 1) 초기 토큰 조회
       useEffect(() => {
@@ -4251,12 +4354,10 @@
         const id = setInterval(async () => {
           try {
             const t = await apiGetStoreToken();
-            setStats(s => ({ ...s, lastCheckedAt: new Date().toISOString() }));
             if (t.token !== tokenRef.current) {
               console.log("[token] 회전 감지 — QR 갱신");
               tokenRef.current = t.token;
               setTokenInfo(t);
-              setStats(s => ({ ...s, rotations: s.rotations + 1 }));
             }
           } catch (err) {
             console.warn("[token] 회전 체크 실패", err);
@@ -4264,33 +4365,7 @@
         }, PC_TOKEN_REFRESH_MS);
         return () => clearInterval(id);
       }, [tokenInfo]);
-
-      // 3) 큐 폴링 — 1초 간격. 새 업로드 감지되면 onPickup
-      useEffect(() => {
-        if (!tokenInfo) return;
-        let stopped = false;
-        const tick = async () => {
-          if (stopped || pickupHandledRef.current) return;
-          try {
-            const next = await apiQueueNext();
-            if (stopped || pickupHandledRef.current) return;
-            if (next && next.sessionId && next.videoUrl) {
-              pickupHandledRef.current = true;
-              onPickup({
-                sessionId: next.sessionId,
-                videoUrl: next.videoUrl,
-                cameraAngle: next.cameraAngle || 'diagonal',
-              });
-            }
-          } catch (err) {
-            console.warn("[queue] 폴링 실패", err);
-          }
-        };
-        const id = setInterval(tick, PC_QUEUE_POLL_MS);
-        // 즉시 1회
-        tick();
-        return () => { stopped = true; clearInterval(id); };
-      }, [tokenInfo, onPickup]);
+      // v2: 큐 폴링 제거 — PC는 영상 픽업/분석 안 함. 분석은 손님 폰에서 직접.
 
       if (error) {
         return (
@@ -4371,9 +4446,6 @@
             </div>
             <div className="mt-1">
               만료: {new Date(tokenInfo.expiresAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
-              {stats.rotations > 0 && (
-                <span className="ml-2 text-slate-500">· 자동 갱신 {stats.rotations}회</span>
-              )}
             </div>
           </div>
         </div>
@@ -4445,7 +4517,38 @@
         }
       }, []);
 
-      // 분석 루프
+      // 분석 루프 — rVFC가 있으면 그것을 우선 사용 (실제 프레임의 mediaTime을 정확히 t로 기록).
+      //  → 추후 미리보기/다운로드 영상에서 findFrameAtTimeMs(rVFC mediaTime)가 같은 프레임의 pose를 가져와 alignment 정확.
+      const runInference = useCallback((video, canvas, lm, frameMediaTimeMs) => {
+        const tMs = frameMediaTimeMs;
+        videoTsRef.current = Math.max(videoTsRef.current + 1, Math.floor(tMs));
+        const ts = videoTsRef.current;
+        let result = null;
+        try { result = lm.detectForVideo(video, ts); }
+        catch (err) { console.warn("[detectForVideo]", err); }
+
+        syncCanvasSize();
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (result?.landmarks?.length > 0) {
+          const landmarks = result.landmarks[0];
+          const racketTip = estimateRacketTip(landmarks, hand);
+          framesRef.current.push({
+            t: tMs,
+            landmarks: landmarks.map(p => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility })),
+            racketTip,
+          });
+          if (racketTip) racketTrailRef.current.push({ x: racketTip.x, y: racketTip.y, t: tMs });
+          racketTrailRef.current = racketTrailRef.current.filter(p => tMs - p.t <= TRAIL_DURATION_MS);
+          drawPoseSkeleton(ctx, landmarks, window.__MediaPipe.POSE_CONNECTIONS);
+          drawRacketTrail(ctx, racketTrailRef.current, tMs);
+        }
+        if (video.duration) {
+          setProgress(Math.min(100, Math.round((video.currentTime / video.duration) * 100)));
+        }
+      }, [hand, syncCanvasSize]);
+
+      // RAF 폴백 — rVFC 미지원 환경용 (currentTime이 frame mediaTime과 거의 같다고 가정)
       const processFrame = useCallback(() => {
         const video = videoRef.current;
         const canvas = canvasRef.current;
@@ -4460,53 +4563,43 @@
           return;
         }
         lastFrameTimeRef.current = video.currentTime;
-        // ⚠️ 추론은 동기 호출(블로킹)이며 10~50ms 걸린다. 그 사이 video가 계속 재생되므로
-        //    추론 후에 video.currentTime을 다시 읽으면 실제 추론된 프레임의 시간보다 미래값이 된다.
-        //    → 결과 화면 0.25x 슬로모에서 스켈레톤이 몸을 못 따라가는 원인.
-        //    추론 직전의 currentTime을 기준 시간으로 고정해서 기록한다.
-        const captureTimeMs = video.currentTime * 1000;
-        videoTsRef.current += 16;
-        const ts = videoTsRef.current;
-        let result = null;
-        try { result = lm.detectForVideo(video, ts); }
-        catch (err) { console.warn("[detectForVideo]", err); }
-
-        syncCanvasSize();
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (result?.landmarks?.length > 0) {
-          const landmarks = result.landmarks[0];
-          const tMs = captureTimeMs;
-          const racketTip = estimateRacketTip(landmarks, hand);
-          framesRef.current.push({
-            t: tMs,
-            landmarks: landmarks.map(p => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility })),
-            racketTip,
-          });
-          if (racketTip) racketTrailRef.current.push({ x: racketTip.x, y: racketTip.y, t: tMs });
-          racketTrailRef.current = racketTrailRef.current.filter(p => tMs - p.t <= TRAIL_DURATION_MS);
-          drawPoseSkeleton(ctx, landmarks, window.__MediaPipe.POSE_CONNECTIONS);
-          drawRacketTrail(ctx, racketTrailRef.current, tMs);
-        }
-        // 진행률 — currentTime / duration
-        if (video.duration) {
-          setProgress(Math.min(100, Math.round((video.currentTime / video.duration) * 100)));
-        }
+        runInference(video, canvas, lm, video.currentTime * 1000);
         rafIdRef.current = requestAnimationFrame(processFrame);
-      }, [hand, syncCanvasSize]);
+      }, [runInference]);
 
       // 비디오 이벤트
       useEffect(() => {
         const v = videoRef.current;
         if (!v) return;
+        const hasRVFC = typeof v.requestVideoFrameCallback === "function";
         const onPlay = () => {
           framesRef.current = [];
           racketTrailRef.current = [];
           videoTsRef.current = 0;
-          rafIdRef.current = requestAnimationFrame(processFrame);
+          if (hasRVFC) {
+            // rVFC: 새 프레임이 컴포지터에 올라올 때마다 그 프레임의 mediaTime으로 추론.
+            const onFrame = (_now, meta) => {
+              const canvas = canvasRef.current;
+              const lm = landmarkerRef.current;
+              if (!v || !canvas || !lm) return;
+              if (v.paused || v.ended) return;
+              runInference(v, canvas, lm, meta.mediaTime * 1000);
+              rafIdRef.current = v.requestVideoFrameCallback(onFrame);
+            };
+            rafIdRef.current = v.requestVideoFrameCallback(onFrame);
+          } else {
+            rafIdRef.current = requestAnimationFrame(processFrame);
+          }
         };
         const onEnded = () => {
-          if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+          // rafIdRef는 RAF id 또는 rVFC handle. 둘 다 cancel 시도 (실패해도 안전).
+          if (rafIdRef.current != null) {
+            try { cancelAnimationFrame(rafIdRef.current); } catch (_) {}
+            if (typeof v.cancelVideoFrameCallback === "function") {
+              try { v.cancelVideoFrameCallback(rafIdRef.current); } catch (_) {}
+            }
+            rafIdRef.current = null;
+          }
           // 분석 + 스코어링
           setStage("scoring");
           setTimeout(() => {
@@ -4609,9 +4702,15 @@
           v.removeEventListener("ended", onEnded);
           v.removeEventListener("loadedmetadata", onLoadedMeta);
           v.removeEventListener("error", onErr);
-          if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+          if (rafIdRef.current != null) {
+            try { cancelAnimationFrame(rafIdRef.current); } catch (_) {}
+            if (typeof v.cancelVideoFrameCallback === "function") {
+              try { v.cancelVideoFrameCallback(rafIdRef.current); } catch (_) {}
+            }
+            rafIdRef.current = null;
+          }
         };
-      }, [processFrame, session?.videoUrl, syncCanvasSize, onComplete, onError, slowMoFactor]);
+      }, [processFrame, runInference, session?.videoUrl, syncCanvasSize, onComplete, onError, slowMoFactor]);
 
       // 단계 정의 — 사용자에게 흐름 보여주기 위함
       const stages = [
@@ -4718,7 +4817,7 @@
     //   - 다운로드 3종: 영상(MediaRecorder webm), PNG, 원본 mp4
     //   - 안전 영역 오버레이 토글
     // ========================================
-    function ResultScreen({ result, onRestart }) {
+    function ResultScreen({ result, onRestart, phoneMode = false }) {
       const cardRef = useRef(null);
       const [downloadingPng, setDownloadingPng] = useState(false);
       const [downloadingVideo, setDownloadingVideo] = useState(false);
@@ -4737,14 +4836,16 @@
       const composedExtRef = useRef("webm");         // 확장자 (mp4 / webm)
       const autoComposeStartedRef = useRef(false);   // 한 번만 실행
 
-      // 5분 타임아웃 → 자동으로 QR 화면 복귀
+      // PC 매장 모드: 5분 타임아웃 → 자동으로 QR 화면 복귀.
+      // 폰 모드: 타임아웃 없음 — 폰은 개인 디바이스라 다음 손님 차단 우려 없음.
       useEffect(() => {
+        if (phoneMode) return;
         const t = setTimeout(() => onRestart(), RESULT_AUTO_TIMEOUT_MS);
         const tick = setInterval(() => {
           setSecondsLeft(s => Math.max(0, s - 1));
         }, 1000);
         return () => { clearTimeout(t); clearInterval(tick); };
-      }, [onRestart]);
+      }, [onRestart, phoneMode]);
 
       // PNG 다운로드 (1080x1920)
       const handlePngDownload = async () => {
@@ -4802,18 +4903,31 @@
           throw new Error("베스트 샷이 없어 영상을 만들 수 없습니다");
         }
 
-        // 1) Offscreen video 만들기 (audio off)
+        // 1) Offscreen video 만들기 (audio off).
+        //    ⚠️ iOS Safari는 DOM에 붙지 않은 video 요소의 재생/디코딩을 거부한다.
+        //    화면 밖에 작게 attach해서 손님 화면에 노출은 안 시키되 실제로는 DOM에 존재하도록.
+        console.log('[compose] start, videoUrl prefix:', String(result.videoUrl).slice(0, 30));
         const srcVideo = document.createElement("video");
         srcVideo.crossOrigin = "anonymous";
         srcVideo.muted = true;
         srcVideo.playsInline = true;
+        srcVideo.preload = "auto";
+        srcVideo.setAttribute('webkit-playsinline', 'true');
+        Object.assign(srcVideo.style, {
+          position: 'fixed', left: '-9999px', top: '-9999px',
+          width: '2px', height: '2px', opacity: '0.01', pointerEvents: 'none',
+        });
+        document.body.appendChild(srcVideo);
         srcVideo.src = result.videoUrl;
         await new Promise((resolve, reject) => {
-          const ok = () => resolve();
-          const ng = () => reject(new Error("영상 로딩 실패"));
+          let done = false;
+          const ok = () => { if (done) return; done = true; resolve(); };
+          const ng = (e) => { if (done) return; done = true; reject(new Error("영상 로딩 실패: " + (e?.message || ''))); };
           srcVideo.addEventListener("loadedmetadata", ok, { once: true });
           srcVideo.addEventListener("error", ng, { once: true });
+          setTimeout(() => ng(new Error("loadedmetadata 타임아웃 10s")), 10000);
         });
+        console.log('[compose] loadedmetadata OK', srcVideo.videoWidth, 'x', srcVideo.videoHeight, 'dur=', srcVideo.duration);
 
         // 2) Offscreen canvas (1080x1920)
         const canvas = document.createElement("canvas");
@@ -4838,6 +4952,7 @@
         );
         if (!mimeType) throw new Error("이 브라우저는 영상 녹화를 지원하지 않습니다");
 
+        console.log('[compose] mimeType chosen:', mimeType);
         const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 });
         const chunks = [];
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
@@ -4845,18 +4960,29 @@
           recorder.onstop = () => resolve();
         });
 
-        // 4) 베스트 샷 윈도우 결정 (±500ms × slowMoFactor)
-        const windowMs = 500 * (result.slowMoFactor || 1);
+        // 4) 베스트 샷 윈도우 결정 (±5000ms)
+        //    1배속(1.0x) 한 번 재생 = 10초 하이라이트.
+        const windowMs = 5000;
         const startSec = Math.max(0, (result.bestSwing.time - windowMs) / 1000);
         const endSec = Math.min(srcVideo.duration || 30, (result.bestSwing.time + windowMs) / 1000);
-        // 정상속도 시작 (Phase A)
+        // 정상속도 시작 (Phase A) — seeked 이벤트가 안 뜨는 케이스(이미 같은 시점 / 등록 race)를 대비해 타임아웃 안전망 둔다.
         srcVideo.playbackRate = 1.0;
-        srcVideo.currentTime = startSec;
+        console.log('[compose] seeking to', startSec, 'from', srcVideo.currentTime);
         await new Promise((resolve) => {
-          const onSeek = () => { srcVideo.removeEventListener("seeked", onSeek); resolve(); };
-          srcVideo.addEventListener("seeked", onSeek);
+          if (Math.abs(srcVideo.currentTime - startSec) < 0.01) { resolve(); return; }
+          let done = false;
+          const finish = (src) => { if (done) return; done = true; srcVideo.removeEventListener("seeked", finishEvt); console.log('[compose] seek done via', src, 'currentTime=', srcVideo.currentTime); resolve(); };
+          const finishEvt = () => finish('event');
+          srcVideo.addEventListener("seeked", finishEvt);
+          srcVideo.currentTime = startSec;
+          setTimeout(() => finish('timeout-1.5s'), 1500); // seeked 안 뜨면 1.5초 후 강제 진행
         });
-        await srcVideo.play().catch(() => {});
+        try {
+          await srcVideo.play();
+          console.log('[compose] play OK, entering RAF loop');
+        } catch (e) {
+          console.warn('[compose] play rejected (계속 진행):', e?.message);
+        }
 
         // 🔍 진단 로그 (1회) — 합성 영상 좌표/타임라인 검증용 (contain fit 방식)
         try {
@@ -4880,86 +5006,102 @@
           }
         } catch (e) { /* diag only */ }
 
-        // 5) 녹화 시작 + 페이즈 기반 렌더링 루프
-        //    페이즈 구성: 정상속도(1x) → REPLAY 전환 → 슬로우(0.25x)
-        //    윈도우 길이 = 2 × windowMs (예: 1초). 정상은 1초, 슬로우는 4초 실시간.
-        recorder.start();
-        const PHASE_NORMAL_MS = Math.round(windowMs * 2);            // 1.0x로 윈도우 한 번 (≈1000ms)
-        const PHASE_TRANSITION_MS = 600;                              // 0.6초 REPLAY 오버레이
-        const PHASE_SLOW_MS = Math.round((windowMs * 2) / 0.25);     // 0.25x로 윈도우 한 번 (≈4000ms)
-        const T_TOTAL_MS = PHASE_NORMAL_MS + PHASE_TRANSITION_MS + PHASE_SLOW_MS;
+        // 5) 녹화 시작 + 1배속 단일 페이즈 렌더링 루프
+        //    1.0x 한 번 재생으로 10초. 윈도우 끝에 도달하면 처음으로 seek해 반복.
+        srcVideo.playbackRate = 1.0;
+        try {
+          recorder.start();
+          console.log('[compose] recorder.start() OK, state=', recorder.state);
+        } catch (e) {
+          console.error('[compose] recorder.start() 실패:', e);
+          throw e;
+        }
+        // 실제 윈도우 길이(클램프 반영) — 짧은 영상에서 startSec=0, endSec=duration일 수 있음.
+        // T_TOTAL_MS을 이걸로 맞춰서 seek-back loop 없이 한 번에 자연스럽게 재생 → 다운로드 mp4 끊김 방지.
+        const actualWindowMs = Math.max(1000, Math.round((endSec - startSec) * 1000));
+        const PHASE_NORMAL_MS = actualWindowMs;
+        const T_TOTAL_MS = actualWindowMs;
         const SCORE_ANIM_MS = 1200; // 점수 카운트업
         const t0 = performance.now();
         let stopped = false;
-        let transitionStarted = false;
-        let slowPhaseStarted = false;
+
+        // rVFC 콜백 안에서 drawImage(body) + drawSkeleton(at meta.mediaTime)을 같이 호출하면
+        // 두 픽셀이 같은 비디오 프레임을 가리킨다 (유체이탈 방지).
+        // 백업: rVFC 미지원/스톨 시 RAF에서 currentTime 기반으로 그림.
+        const hasRVFC = typeof srcVideo.requestVideoFrameCallback === "function";
+
+        const drawAt = (mediaTimeMs) => {
+          const elapsed = performance.now() - t0;
+          if (elapsed >= T_TOTAL_MS) return false;
+          const pct = Math.min(99, Math.floor((elapsed / T_TOTAL_MS) * 100));
+          if (onProgress) onProgress(pct);
+          // seek-back 제거 — T_TOTAL_MS을 실제 윈도우 길이로 맞췄으므로 자연 재생 종료 시점과 일치.
+          // 중간에 seek-back 일어나면 mp4가 끊김.
+          const animT = Math.min(1, elapsed / SCORE_ANIM_MS);
+          const easeT = 1 - Math.pow(1 - animT, 3);
+          drawInstaCardFrame(ctx, {
+            videoEl: srcVideo,
+            framesData: result.framesData,
+            bestSwing: result.bestSwing,
+            scoreData: result.scoreData,
+            nickname: result.nickname,
+            nicknameDesc: result.nicknameDesc,
+            currentVideoTimeMs: mediaTimeMs,
+            scoreAnimT: easeT,
+            phase: 'normal',
+            phaseProgress: elapsed / PHASE_NORMAL_MS,
+          });
+          return true;
+        };
+
+        let nextLogAt = 1000;
+        // 마지막으로 rVFC가 보고한 mediaTime — RAF 헬퍼가 score 애니메이션 갱신할 때 같은 시각으로 다시 그림.
+        let lastReportedMediaTimeMs = srcVideo.currentTime * 1000;
 
         await new Promise((resolveLoop) => {
-          const loop = () => {
-            if (stopped) return;
-            const elapsed = performance.now() - t0;
-            if (elapsed >= T_TOTAL_MS) {
-              stopped = true;
-              resolveLoop();
-              return;
+          let rvfcHandle = null;
+          let rafHandle = null;
+          let watchdog = null;
+          const finish = () => {
+            stopped = true;
+            if (watchdog) clearTimeout(watchdog);
+            if (rafHandle) cancelAnimationFrame(rafHandle);
+            if (hasRVFC && rvfcHandle != null && typeof srcVideo.cancelVideoFrameCallback === "function") {
+              try { srcVideo.cancelVideoFrameCallback(rvfcHandle); } catch (_) {}
             }
-            const pct = Math.min(99, Math.floor((elapsed / T_TOTAL_MS) * 100));
-            if (onProgress) onProgress(pct);
-
-            // 페이즈 결정
-            let phase, phaseProgress;
-            if (elapsed < PHASE_NORMAL_MS) {
-              phase = 'normal';
-              phaseProgress = elapsed / PHASE_NORMAL_MS;
-              // 정상속도 phase 내 윈도우 루프 (window가 더 짧으면 한번 더 루프)
-              if (srcVideo.currentTime >= endSec) {
-                srcVideo.currentTime = startSec;
-              }
-            } else if (elapsed < PHASE_NORMAL_MS + PHASE_TRANSITION_MS) {
-              phase = 'transition';
-              phaseProgress = (elapsed - PHASE_NORMAL_MS) / PHASE_TRANSITION_MS;
-              if (!transitionStarted) {
-                transitionStarted = true;
-                try { srcVideo.pause(); } catch (_) {}
-                // 슬로우 시작 전에 미리 startSec로 seek (transition 동안 완료되도록)
-                srcVideo.currentTime = startSec;
-              }
-            } else {
-              phase = 'slow';
-              phaseProgress = (elapsed - PHASE_NORMAL_MS - PHASE_TRANSITION_MS) / PHASE_SLOW_MS;
-              if (!slowPhaseStarted) {
-                slowPhaseStarted = true;
-                srcVideo.playbackRate = 0.25;
-                srcVideo.play().catch(() => {});
-              }
-              if (srcVideo.currentTime >= endSec) {
-                srcVideo.currentTime = startSec;
-              }
-            }
-
-            const animT = Math.min(1, elapsed / SCORE_ANIM_MS);
-            const easeT = 1 - Math.pow(1 - animT, 3); // ease-out cubic
-            drawInstaCardFrame(ctx, {
-              videoEl: srcVideo,
-              framesData: result.framesData,
-              bestSwing: result.bestSwing,
-              scoreData: result.scoreData,
-              nickname: result.nickname,
-              nicknameDesc: result.nicknameDesc,
-              currentVideoTimeMs: srcVideo.currentTime * 1000,
-              scoreAnimT: easeT,
-              phase,
-              phaseProgress,
-            });
-
-            requestAnimationFrame(loop);
+            resolveLoop();
           };
-          requestAnimationFrame(loop);
+
+          if (hasRVFC) {
+            // rVFC: 새 비디오 프레임이 컴포지터에 올라올 때마다 같은 시각으로 body+skeleton을 함께 그림.
+            const onFrame = (_now, meta) => {
+              if (stopped) return;
+              lastReportedMediaTimeMs = meta.mediaTime * 1000;
+              if (performance.now() - t0 >= nextLogAt) {
+                console.log('[compose] tick', { elapsedMs: Math.round(performance.now() - t0), frameMediaTimeS: meta.mediaTime.toFixed(3) });
+                nextLogAt += 1000;
+              }
+              if (!drawAt(lastReportedMediaTimeMs)) { finish(); return; }
+              rvfcHandle = srcVideo.requestVideoFrameCallback(onFrame);
+            };
+            rvfcHandle = srcVideo.requestVideoFrameCallback(onFrame);
+            // 안전 타임아웃 — rVFC가 멈춰도 T_TOTAL_MS + 2s 후 강제 종료
+            watchdog = setTimeout(finish, T_TOTAL_MS + 2000);
+          } else {
+            // rVFC 미지원: RAF 폴백 (currentTime 기반 — 작은 스큐 가능)
+            const loop = () => {
+              if (stopped) return;
+              if (!drawAt(srcVideo.currentTime * 1000)) { finish(); return; }
+              rafHandle = requestAnimationFrame(loop);
+            };
+            rafHandle = requestAnimationFrame(loop);
+          }
         });
 
         recorder.stop();
         srcVideo.pause();
         await stopPromise;
+        try { srcVideo.remove(); } catch (_) {}
 
         // mimeType이 'video/mp4; codecs="..."' 형태라도 startsWith("video/mp4")로 정확히 잡음
         const isMp4 = mimeType.startsWith("video/mp4");
@@ -4982,7 +5124,13 @@
           composedBlobRef.current = blob;
           composedExtRef.current = ext;
 
-          // Blob CDN 직접 업로드 → 다운로드 URL 받기
+          if (phoneMode) {
+            // 폰 모드: 합성본을 Blob에 안 올림. 사용자가 다운로드 버튼 누르면 즉시 로컬 다운.
+            setComposeStatus("ready");
+            return;
+          }
+
+          // PC 모드: Blob CDN 직접 업로드 → 다운로드 URL을 푸터 QR로 노출
           setComposeStatus("uploading");
           const data = await apiUploadResultVideo(result.sessionId, blob, ext, () => {
             // 진행률은 별도 표시 안 함 (PC 환경 빠름) — 필요시 setComposeProgress(p) 추가
@@ -5072,26 +5220,66 @@
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div>
                 <div className="text-xl font-extrabold tracking-widest accent-lime">{BRAND.name}</div>
-                <div className="text-sm text-slate-400">분석 완료 · 다음 손님까지 {minutesLeft}:{String(secsLeftMod).padStart(2, "0")}</div>
+                <div className="text-sm text-slate-400">
+                  {phoneMode
+                    ? '분석 완료'
+                    : `분석 완료 · 다음 손님까지 ${minutesLeft}:${String(secsLeftMod).padStart(2, "0")}`}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 accent-lime-400"
-                    checked={showSafeArea}
-                    onChange={(e) => setShowSafeArea(e.target.checked)}
-                  />
-                  인스타 안전 영역 보기
-                </label>
-                <PrimaryButton onClick={onRestart}>다음 손님 →</PrimaryButton>
-              </div>
+              {!phoneMode && (
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 accent-lime-400"
+                      checked={showSafeArea}
+                      onChange={(e) => setShowSafeArea(e.target.checked)}
+                    />
+                    인스타 안전 영역 보기
+                  </label>
+                  <PrimaryButton onClick={onRestart}>다음 손님 →</PrimaryButton>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              {/* 좌측: 컨트롤/요약 */}
-              <div className="lg:col-span-1 space-y-4">
-                <Card>
+            <div className={phoneMode
+              ? "flex flex-col gap-6 items-stretch max-w-md mx-auto w-full"
+              : "grid grid-cols-1 lg:grid-cols-3 gap-8 items-start"
+            }>
+              {/* phoneMode: 분석 영상 카드를 맨 위로. 좌우폭은 부모(max-w-md)에 맞춰 통일. */}
+              {phoneMode && (
+                <div className="order-1 w-full">
+                  <div className="relative w-full">
+                    <ResultInstaCard
+                      nickname={result.nickname}
+                      nicknameDesc={result.nicknameDesc}
+                      scoreData={result.scoreData}
+                      bestSwing={result.bestSwing}
+                      framesData={result.framesData}
+                      videoUrl={result.videoUrl}
+                      slowMoFactor={result.slowMoFactor}
+                      cardRef={cardRef}
+                      showSafeArea={showSafeArea}
+                      composeStatus={composeStatus}
+                      composeProgress={composeProgress}
+                      composeError={composeError}
+                      downloadUrl={downloadUrl}
+                      phoneMode={phoneMode}
+                    />
+                    {downloadingVideo && (
+                      <div className="render-overlay">
+                        <Spinner size={6} />
+                        <div className="text-lime-300 font-semibold text-lg">
+                          🎬 영상 만드는 중... {videoRenderProgress}%
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* 좌측(PC) / 중단(phone): 컨트롤/요약 */}
+              <div className={phoneMode ? "flex flex-col gap-4 order-2" : "lg:col-span-1 space-y-4"}>
+                <Card className={phoneMode ? "order-2" : ""}>
                   <h3 className="text-sm font-medium text-slate-400 mb-3">요약</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -5123,10 +5311,12 @@
                   </div>
                 </Card>
 
-                <Card>
+                <Card className={phoneMode ? "order-3" : ""}>
                   <h3 className="text-sm font-medium text-slate-400 mb-3">📥 분석 영상 다운로드</h3>
                   <p className="text-xs text-slate-500 mb-3">
-                    결과 영상이 자동 생성됩니다. 푸터의 QR을 폰으로 스캔하면 폰에 저장되거나, PC에서 직접 받으세요.
+                    {phoneMode
+                      ? "결과 영상이 자동 생성됩니다. 아래 버튼으로 폰 사진앱에 저장하세요."
+                      : "결과 영상이 자동 생성됩니다. 푸터의 QR을 폰으로 스캔하면 폰에 저장되거나, PC에서 직접 받으세요."}
                   </p>
 
                   {/* 자동 합성 상태 표시 */}
@@ -5134,15 +5324,17 @@
                     {composeStatus === "rendering" && (
                       <span className="text-lime-300">📹 영상 자동 생성 중... {composeProgress}%</span>
                     )}
-                    {composeStatus === "uploading" && (
+                    {composeStatus === "uploading" && !phoneMode && (
                       <span className="text-lime-300">📤 서버 업로드 중...</span>
                     )}
                     {composeStatus === "ready" && (
-                      <span className="text-lime-300">✅ QR 준비 완료 — 폰으로 스캔하면 폰에 저장</span>
+                      <span className="text-lime-300">
+                        {phoneMode ? "✅ 준비 완료 — 아래 버튼 누르면 폰에 저장" : "✅ QR 준비 완료 — 폰으로 스캔하면 폰에 저장"}
+                      </span>
                     )}
                     {composeStatus === "error" && (
                       <span className="text-rose-300 break-all">
-                        ❌ 업로드 실패 — {composeError || '아래 버튼으로 PC에 받으세요'}
+                        ❌ {composeError || '영상 생성 실패 — 다시 시도해 주세요'}
                       </span>
                     )}
                     {composeStatus === "idle" && (
@@ -5150,7 +5342,7 @@
                     )}
                   </div>
 
-                  {/* 메인 — 영상 다운로드 (PC) */}
+                  {/* 메인 — 영상 다운로드 */}
                   <PrimaryButton
                     onClick={handleVideoCompose}
                     disabled={downloadingVideo || downloadingPng || composeStatus === "rendering" || composeStatus === "uploading"}
@@ -5159,10 +5351,10 @@
                     {downloadingVideo
                       ? `🎬 영상 만드는 중... ${videoRenderProgress}%`
                       : composeStatus === "ready"
-                        ? "🎬 PC로 영상 다운로드"
+                        ? (phoneMode ? "📱 폰에 영상 저장" : "🎬 PC로 영상 다운로드")
                         : composeStatus === "rendering" || composeStatus === "uploading"
                           ? "🎬 영상 준비 중..."
-                          : "🎬 영상 다운로드"}
+                          : (phoneMode ? "📱 폰에 영상 저장" : "🎬 영상 다운로드")}
                   </PrimaryButton>
 
                   {/* 보조 — PNG (합성 완료 후 활성화) */}
@@ -5193,12 +5385,14 @@
 
                 </Card>
 
-                {/* 📱 폰으로 저장하는 법 — iPhone / Android 단계별 안내 */}
-                <Card>
-                  <h3 className="text-sm font-medium text-slate-400 mb-3">📱 폰으로 저장하는 법</h3>
+                {/* 📱 폰으로 저장하는 법 — PC 모드는 QR 스캔 흐름, 폰 모드는 다운로드 후 갤러리 이동 흐름 */}
+                <Card className={phoneMode ? "order-4" : ""}>
+                  <h3 className="text-sm font-medium text-slate-400 mb-3">📱 갤러리에 저장하는 법</h3>
 
                   <div className="text-xs text-slate-300 mb-3 leading-relaxed">
-                    우측 QR 코드를 폰으로 스캔 → 다운로드 페이지가 열립니다.
+                    {phoneMode
+                      ? '위의 "📱 폰에 영상 저장" 버튼을 누르면 영상이 다운로드돼요. 그 후 OS별로 갤러리/사진앱으로 옮기는 단계입니다.'
+                      : '우측 QR 코드를 폰으로 스캔 → 다운로드 페이지가 열립니다.'}
                   </div>
 
                   {/* iPhone 안내 */}
@@ -5207,13 +5401,14 @@
                       <span>🍎</span><span>iPhone (아이폰)</span>
                     </div>
                     <ol className="text-[11px] text-slate-200 leading-relaxed pl-4 space-y-1" style={{ listStyleType: 'decimal' }}>
-                      <li><b className="text-lime-300">"파일로 다운로드"</b> 버튼 누르기</li>
-                      <li>iPhone <b>"파일" 앱</b> 열기 → <b>"다운로드"</b> 폴더로 이동</li>
-                      <li>다운로드된 영상을 <b>길게 누르기</b> → <b>"공유"</b> 선택</li>
-                      <li>공유 메뉴에서 <b>"비디오 저장"</b> 선택 → 사진앱에 저장 완료</li>
+                      <li>위 <b className="text-lime-300">"📱 폰에 영상 저장"</b> 버튼 누르면 다운로드 시작</li>
+                      <li>다운로드 완료 시 화면 상단 다운로드 아이콘(↓) 탭 → "파일에서 보기"</li>
+                      <li>또는 <b>"파일" 앱</b> 열기 → <b>"다운로드"</b> 폴더로 이동</li>
+                      <li>영상을 <b>길게 누름</b> → <b>"공유"</b> → <b>"비디오 저장"</b></li>
+                      <li>사진 앱(갤러리)에 영상이 저장됩니다 ✅</li>
                     </ol>
                     <div className="mt-2 pt-2 border-t border-slate-700/60 text-[10px] text-amber-300/80 leading-relaxed">
-                      ⚠️ 갤러리에 바로 저장되지 않습니다. <b>"파일" 앱</b> 거쳐 옮기는 단계가 꼭 필요합니다.
+                      ⚠️ iPhone은 사진 앱으로 바로 저장 안 되고 <b>"파일" 앱</b> 거쳐야 합니다.
                     </div>
                   </div>
 
@@ -5223,18 +5418,19 @@
                       <span>🤖</span><span>Android (안드로이드)</span>
                     </div>
                     <ol className="text-[11px] text-slate-200 leading-relaxed pl-4 space-y-1" style={{ listStyleType: 'decimal' }}>
-                      <li><b className="text-lime-300">"파일로 다운로드"</b> 버튼 누르기</li>
-                      <li><b>"내 파일"</b> 또는 <b>"파일"</b> 앱 → <b>"Downloads"</b> 폴더</li>
-                      <li>다운로드된 영상이 <b>갤러리에 자동 인식</b>됩니다</li>
+                      <li>위 <b className="text-lime-300">"📱 폰에 영상 저장"</b> 버튼 누르면 다운로드 시작</li>
+                      <li><b>"내 파일"</b>(삼성) 또는 <b>"파일"</b> 앱 → <b>"Download"</b> 폴더</li>
+                      <li>대부분 <b>갤러리 앱에서 자동 인식</b>되어 바로 보입니다 ✅</li>
+                      <li>안 보이면 갤러리 새로고침 (당겨서 새로고침) 또는 재시작</li>
                     </ol>
                   </div>
 
                   <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
-                    영상 포맷은 WebM입니다. iOS는 갤러리 직접 저장이 안 되므로 위 단계로 옮겨야 합니다.
+                    영상 포맷은 mp4 또는 webm입니다. iOS는 webm을 갤러리에 못 올리므로 mp4가 우선 시도됩니다.
                   </p>
                 </Card>
 
-                <Card>
+                <Card className={phoneMode ? "order-2" : ""}>
                   <h3 className="text-sm font-medium text-slate-400 mb-3">베스트 샷</h3>
                   {result.bestSwing && (
                     <div className="text-sm space-y-1">
@@ -5264,7 +5460,8 @@
                 </Card>
               </div>
 
-              {/* 우측: 9:16 인스타 카드 (가운데 정렬) */}
+              {/* 우측: 9:16 인스타 카드 (PC 모드만 — phoneMode에선 위쪽에 이미 그림) */}
+              {!phoneMode && (
               <div className="lg:col-span-2 flex justify-center">
                 <div className="relative">
                   <ResultInstaCard
@@ -5281,6 +5478,7 @@
                     composeProgress={composeProgress}
                     composeError={composeError}
                     downloadUrl={downloadUrl}
+                    phoneMode={phoneMode}
                   />
                   {downloadingVideo && (
                     <div className="render-overlay">
@@ -5298,6 +5496,7 @@
                   )}
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -5321,71 +5520,11 @@
     }
 
     // ========================================
-    // 🖥️ PCApp — PC 화면 상태 머신
-    //   waiting (지속 QR) → analyzing (큐 픽업 후) → result → waiting (다음 손님)
+    // 🖥️ PCApp — v2에선 PC가 QR 표시 역할만 한다.
+    //   분석/결과는 손님 폰에서 직접 처리(MobileUploadApp). PC는 큐 픽업도 안 함.
     // ========================================
     function PCApp() {
-      const [phase, setPhase] = useState("waiting"); // waiting | analyzing | result | error
-      const [session, setSession] = useState(null);   // { sessionId, videoUrl }
-      const [result, setResult] = useState(null);
-      const [errorMsg, setErrorMsg] = useState("");
-
-      // 큐에서 새 업로드 픽업
-      const handlePickup = useCallback((s) => {
-        setSession(s);
-        setPhase("analyzing");
-      }, []);
-
-      // 분석 완료 → 결과 화면 진입 시 서버에 즉시 complete 통보
-      const handleAnalysisComplete = useCallback((r) => {
-        setResult(r);
-        setPhase("result");
-        if (r?.sessionId) {
-          apiSessionComplete(r.sessionId).catch(err => {
-            console.warn("[complete] 보고 실패 (무시)", err);
-          });
-        }
-      }, []);
-
-      // 분석 실패 → skip 보고
-      const handleAnalysisError = useCallback((msg) => {
-        setErrorMsg(msg);
-        setPhase("error");
-        if (session?.sessionId) {
-          apiSessionSkip(session.sessionId, "analysis_error").catch(() => {});
-        }
-      }, [session]);
-
-      // [다음 손님] — QR 화면 복귀
-      const handleRestart = useCallback(() => {
-        setSession(null);
-        setResult(null);
-        setErrorMsg("");
-        setPhase("waiting");
-        // 다음 사이클의 큐 폴링/픽업 핸들러가 다시 작동하도록 페이지 리로드
-        // (WaitingScreen 안의 pickupHandledRef를 초기화하기 위함)
-        // 부드럽게: WaitingScreen은 재마운트되면서 ref가 false로 초기화됨
-      }, []);
-
-      if (phase === "waiting") {
-        return <WaitingScreen key="waiting" onPickup={handlePickup} />;
-      }
-      if (phase === "analyzing" && session) {
-        return (
-          <AnalyzingScreen
-            session={session}
-            onComplete={handleAnalysisComplete}
-            onError={handleAnalysisError}
-          />
-        );
-      }
-      if (phase === "result" && result) {
-        return <ResultScreen result={result} onRestart={handleRestart} />;
-      }
-      if (phase === "error") {
-        return <ErrorScreen message={errorMsg} onRestart={handleRestart} />;
-      }
-      return null;
+      return <WaitingScreen key="waiting" />;
     }
 
     // ========================================
@@ -5403,8 +5542,12 @@
       const [file, setFile] = useState(null);
       const [previewUrl, setPreviewUrl] = useState("");
       const [progress, setProgress] = useState(0);
-      const [stage, setStage] = useState("idle"); // idle | creating | uploading | done | error
+      // v2: idle → creating → uploading → analyzing → result → (error)
+      // 분석/결과는 폰에서 직접. PC는 QR 표시만.
+      const [stage, setStage] = useState("idle");
       const [errorMsg, setErrorMsg] = useState("");
+      const [analyzeSession, setAnalyzeSession] = useState(null); // AnalyzingScreen에 넘길 세션 데이터
+      const [result, setResult] = useState(null);                 // ResultScreen에 넘길 분석 결과
 
       // 쿼리에서 token 추출 (구 session= 도 폴백 지원)
       useEffect(() => {
@@ -5458,10 +5601,19 @@
             const s = await apiCreateSessionWithToken(storeToken, cameraAngle, backhandStyle);
             sessionId = s.sessionId;
           }
-          // 2) 영상 업로드
+          // 2) 영상 업로드 (원본은 Blob에 보관 — 추후 백업/재분석용)
           setStage("uploading");
           await apiUploadVideo(sessionId, file, setProgress);
-          setStage("done");
+
+          // 3) 폰에서 직접 분석 — 로컬 objectURL을 써서 재다운로드 없이 바로 MediaPipe로 넘김
+          const localUrl = URL.createObjectURL(file);
+          setAnalyzeSession({
+            sessionId,
+            videoUrl: localUrl,
+            cameraAngle,
+            backhandStyle,
+          });
+          setStage("analyzing");
         } catch (err) {
           if (err.status === 401) {
             setErrorMsg("유효하지 않은 토큰입니다. 매장 모니터의 새 QR을 다시 스캔해주세요.");
@@ -5471,6 +5623,57 @@
           setStage("error");
         }
       };
+
+      const handleAnalysisComplete = useCallback((r) => {
+        setResult(r);
+        setStage("result");
+        // 세션 종료 보고 → 서버가 store-token 강제 회전 → PC 화면의 QR이 새 토큰으로 갱신됨.
+        // 같은 손님이 다른 영상을 다시 못 올림 (기존 토큰 무효화).
+        if (r?.sessionId) {
+          apiSessionComplete(r.sessionId).catch(err => {
+            console.warn("[complete] 보고 실패 (무시)", err);
+          });
+        }
+      }, []);
+
+      const handleAnalysisError = useCallback((msg) => {
+        setErrorMsg(msg || "분석 실패");
+        setStage("error");
+        // 실패도 동일 — 토큰 회전해서 다음 손님이 즉시 새 QR로 진행 가능.
+        if (analyzeSession?.sessionId) {
+          apiSessionSkip(analyzeSession.sessionId, "phone_analysis_error").catch(() => {});
+        }
+      }, [analyzeSession]);
+
+      const handleRestart = useCallback(() => {
+        if (analyzeSession?.videoUrl?.startsWith("blob:")) {
+          URL.revokeObjectURL(analyzeSession.videoUrl);
+        }
+        setAnalyzeSession(null);
+        setResult(null);
+        setFile(null);
+        setProgress(0);
+        setErrorMsg("");
+        setStage("idle");
+      }, [analyzeSession]);
+
+      // 분석 단계 — 폰 화면 전체를 차지
+      if (stage === "analyzing" && analyzeSession) {
+        return (
+          <AnalyzingScreen
+            session={analyzeSession}
+            onComplete={handleAnalysisComplete}
+            onError={handleAnalysisError}
+          />
+        );
+      }
+      // 결과 단계 — 폰에서 직접 다운로드 (Blob 업로드 안 함)
+      if (stage === "result" && result) {
+        return <ResultScreen result={result} onRestart={handleRestart} phoneMode={true} />;
+      }
+      if (stage === "error" && errorMsg && !file) {
+        // 토큰 없음/세션 실패 등 초기 에러는 기존 inline 메시지로 처리
+      }
 
       return (
         <div className="min-h-screen px-5 py-8">
