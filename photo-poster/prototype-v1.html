@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapPoster — Prototype v1 · Design Gallery</title>
+  <!--
+    AFM Design System / Marian Editorial Palette (shadcn token)
+    프로젝트: SnapPoster (사진 스튜디오용 자동 포스터 합성)
+    팔레트 선택 사유: 도메인이 "웨딩/포토 스튜디오/포트폴리오" — README 가이드의 마리안 권장 케이스.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Allura&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Great+Vibes&family=Noto+Serif+KR:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary:     { DEFAULT: 'hsl(var(--primary))',     foreground: 'hsl(var(--primary-foreground))' },
+            secondary:   { DEFAULT: 'hsl(var(--secondary))',   foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted:       { DEFAULT: 'hsl(var(--muted))',       foreground: 'hsl(var(--muted-foreground))' },
+            accent:      { DEFAULT: 'hsl(var(--accent))',      foreground: 'hsl(var(--accent-foreground))' },
+            popover:     { DEFAULT: 'hsl(var(--popover))',     foreground: 'hsl(var(--popover-foreground))' },
+            card:        { DEFAULT: 'hsl(var(--card))',        foreground: 'hsl(var(--card-foreground))' },
+          },
+          borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+          fontFamily: {
+            sans: ['Pretendard Variable', 'Pretendard', '"Helvetica Neue"', 'Helvetica', 'Arial', 'system-ui', 'sans-serif'],
+            display: ['"Helvetica Neue"', 'Helvetica', 'Inter', 'Arial', 'sans-serif'],
+            'serif-kr': ['"Noto Serif KR"', 'serif'],
+            cormorant: ['"Cormorant Garamond"', 'serif'],
+            playfair: ['"Playfair Display"', 'serif'],
+            script: ['"Allura"', '"Great Vibes"', 'cursive'],
+          },
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ==== Marian Editorial palette ==== */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 13%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 13%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 0 0% 13%;
+      --primary: 224 75% 14%;          /* #091940 deep midnight navy */
+      --primary-foreground: 0 0% 100%;
+      --secondary: 0 0% 96%;
+      --secondary-foreground: 0 0% 20%;
+      --muted: 0 0% 96%;
+      --muted-foreground: 0 0% 40%;
+      --accent: 224 75% 14%;
+      --accent-foreground: 0 0% 100%;
+      --destructive: 0 70% 45%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 0 0% 87%;
+      --input: 0 0% 87%;
+      --ring: 224 75% 14%;
+      --radius: 0rem;
+    }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .display-bold {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    .eyebrow {
+      font-family: 'Helvetica Neue', Helvetica, 'Inter', Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+    }
+    /* 청첩장 스타일에서 사용하는 세로 디바이더 */
+    .vline::after { content:''; display:block; width:1px; height:36px; background: currentColor; margin: 6px auto 0; opacity:.5; }
+    /* 러블리 톤 — 누드 핑크/크림 베이스 (포스터 결과물 한정) */
+    .lovely-cream { background: linear-gradient(180deg, #fbf2eb 0%, #f8e9df 100%); }
+    .lovely-blush { background: linear-gradient(180deg, #fdf3ee 0%, #fbe6dc 100%); }
+    /* 손글씨 hero "thank you" */
+    .font-script { font-family: 'Allura', 'Great Vibes', cursive; font-weight: 400; }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useMemo } = React;
+    const cn = (...c) => c.filter(Boolean).join(' ');
+
+    // ========================================
+    // 🎨 Design System (shadcn 토큰 기반 — components.md 규약)
+    // ========================================
+    function Button({ variant = 'default', size = 'default', className = '', ...p }) {
+      const base = 'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+      const variants = {
+        default:     'bg-primary text-primary-foreground hover:bg-primary/90 tracking-wider uppercase',
+        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 tracking-wider uppercase',
+        outline:     'border border-foreground/30 bg-transparent text-foreground hover:bg-primary hover:border-primary hover:text-primary-foreground tracking-wider uppercase',
+        secondary:   'bg-secondary text-secondary-foreground hover:bg-secondary/80 tracking-wider uppercase',
+        ghost:       'text-foreground hover:bg-secondary',
+        link:        'text-primary underline-offset-4 hover:underline',
+      };
+      const sizes = { default: 'h-11 px-6', sm: 'h-9 px-4 text-xs', lg: 'h-14 px-10 text-sm', icon: 'h-10 w-10' };
+      return <button className={cn(base, variants[variant], sizes[size], className)} {...p} />;
+    }
+    function Input({ className = '', ...p }) {
+      return <input className={cn('flex h-11 w-full border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring', className)} {...p} />;
+    }
+    function Select({ className = '', children, ...p }) {
+      return <select className={cn('flex h-11 border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring', className)} {...p}>{children}</select>;
+    }
+    function Label({ className = '', htmlFor, children }) {
+      return <label htmlFor={htmlFor} className={cn('eyebrow text-foreground', className)}>{children}</label>;
+    }
+    function Card({ className = '', ...p })        { return <div className={cn('border border-border bg-card text-card-foreground', className)} {...p} />; }
+    function CardHeader({ className = '', ...p })  { return <div className={cn('flex flex-col space-y-2 p-6 border-b border-border', className)} {...p} />; }
+    function CardTitle({ className = '', ...p })   { return <h3 className={cn('display-bold text-xl text-foreground', className)} {...p} />; }
+    function CardDescription({ className = '', ...p }) { return <p className={cn('text-sm text-muted-foreground', className)} {...p} />; }
+    function CardContent({ className = '', ...p }) { return <div className={cn('p-6', className)} {...p} />; }
+    function CardFooter({ className = '', ...p })  { return <div className={cn('flex items-center p-6 pt-0', className)} {...p} />; }
+    function Badge({ variant = 'default', className = '', ...p }) {
+      const base = 'inline-flex items-center border px-2.5 py-0.5 eyebrow';
+      const variants = {
+        default:     'border-transparent bg-primary text-primary-foreground',
+        secondary:   'border-transparent bg-secondary text-secondary-foreground',
+        destructive: 'border-transparent bg-destructive text-destructive-foreground',
+        outline:     'border-foreground/40 text-foreground',
+      };
+      return <span className={cn(base, variants[variant], className)} {...p} />;
+    }
+    function Separator({ className = '' }) { return <div className={cn('h-px w-full bg-border', className)} />; }
+
+    // 작은 잎 라인 일러스트 — 러블리 톤 장식 (좌·우 미러)
+    function LeafSprig({ className = '', mirror = false }) {
+      return (
+        <svg viewBox="0 0 60 24" className={className} fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" style={mirror ? { transform: 'scaleX(-1)' } : undefined}>
+          <path d="M3 12 C 18 12, 30 12, 56 12" />
+          <path d="M14 12 C 14 8, 16 6, 19 5"  />
+          <path d="M14 12 C 14 16, 16 18, 19 19" />
+          <path d="M24 12 C 24 9, 26 7, 29 6.5" />
+          <path d="M24 12 C 24 15, 26 17, 29 17.5" />
+          <path d="M34 12 C 34 9.5, 36 8, 39 7.6" />
+          <path d="M34 12 C 34 14.5, 36 16, 39 16.4" />
+          <path d="M44 12 C 44 10.5, 46 9.5, 48 9.2" />
+          <path d="M44 12 C 44 13.5, 46 14.5, 48 14.8" />
+        </svg>
+      );
+    }
+    function HeartTiny({ className = '' }) {
+      return (
+        <svg viewBox="0 0 20 20" className={className} fill="currentColor">
+          <path d="M10 17s-6-3.6-6-8a4 4 0 0 1 6-3.5A4 4 0 0 1 16 9c0 4.4-6 8-6 8z" opacity="0.85" />
+        </svg>
+      );
+    }
+
+    // ========================================
+    // 📚 Domain Data — 카테고리, 더미 사진, 카피 풀
+    // ========================================
+    const PHOTOS = {
+      wedding:   'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=80',
+      outdoor:   'https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=1400&q=80',
+      product:   'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1400&q=80',
+      landscape: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1400&q=80',
+    };
+    const CATEGORIES = [
+      { key: 'wedding',   label: '본식 스냅', en: 'Wedding'   },
+      { key: 'outdoor',   label: '야외 스냅', en: 'Outdoor'   },
+      { key: 'product',   label: '제품 사진', en: 'Product'   },
+      { key: 'landscape', label: '풍경 사진', en: 'Landscape' },
+    ];
+    const COPY = {
+      wedding:   {
+        // ※ 본식 스냅 카테고리 = 결혼식 후 보내는 땡큐카드. 식 당일 촬영 사진 위에 감사 메시지.
+        minimalEn: 'Thank You for Being There', minimalKr: '함께해 주셔서 감사합니다',
+        emotiveKr: '당신이 있던 자리, 가장 환했습니다', emotiveSub: '— thank you, from both of us',
+        invitation: {
+          coupleEn: 'JIHYE  ·  MINSU',
+          dateEn: '2026 . 06 . 14  SUN',
+          venueKr: '그랜드 컨벤션 5F 더 그레이스홀',
+          // 땡큐카드 격식형 전용 메시지
+          thanksHeadEn: 'with all our love',
+          thanksKr: '오신 자리 덕분에 더 빛나는 날이었습니다',
+        },
+        no: 'No. 0421',
+      },
+      outdoor: {
+        minimalEn: 'A Quiet Afternoon', minimalKr: '오후의 햇살 아래, 너와 나',
+        emotiveKr: '바람이 적당히 스치는 오후였다', emotiveSub: '— an afternoon worth keeping',
+        invitation: { coupleEn: 'AN  AFTERNOON  TOGETHER', dateEn: '2026 . 05 . 16  SAT  PM 4:00', venueKr: '서울숲, 두 사람의 산책' },
+        no: 'No. 0182',
+      },
+      product: {
+        minimalEn: 'Crafted, Not Made', minimalKr: '한 장으로 충분한 디테일',
+        emotiveKr: '오래도록 곁에 두고 싶은 것', emotiveSub: '— made to be kept',
+        invitation: { coupleEn: 'STUDIO  ATELIER  09', dateEn: 'NEW  RELEASE  ·  SPRING  2026', venueKr: 'a small object, a long story' },
+        no: 'No. 0093',
+      },
+      landscape: {
+        minimalEn: 'Where Wind Belongs', minimalKr: '바람이 머무는 자리',
+        emotiveKr: '말이 사라지고, 풍경만 남았다', emotiveSub: '— and the world stayed still',
+        invitation: { coupleEn: 'A  DAY  AT  JEJU', dateEn: '2026 . 04 . 22  TUE  AM 6:14', venueKr: '제주, 바람이 가장 먼저 닿는 곳' },
+        no: 'No. 0307',
+      },
+    };
+
+    // ========================================
+    // 🖼️ Poster Renders (제품 결과물 — 자체 비주얼 정책 유지, 셸 토큰과 분리)
+    // ========================================
+    function PosterMinimal({ category, photo }) {
+      const c = COPY[category];
+      const src = photo || PHOTOS[category];
+      // 본식 = 땡큐카드 · 러블리 미니멀 (인스타 피드용)
+      if (category === 'wedding') {
+        const i = c.invitation;
+        return (
+          <div className="aspect-[4/5] w-full lovely-cream relative overflow-hidden">
+            <div className="absolute inset-0 px-6 pt-6 pb-7 flex flex-col">
+              <div className="flex items-center justify-between text-[9px] tracking-[0.42em] uppercase" style={{ color: '#9b6b5e' }}>
+                <span>Thank You · Wedding Day</span>
+                <span>{c.no}</span>
+              </div>
+              <div className="mt-4 flex-1 overflow-hidden rounded-md">
+                <img src={src} className="w-full h-full object-cover" />
+              </div>
+              {/* 컬리그래피 thank you + 작은 잎 장식 */}
+              <div className="mt-4 flex items-center justify-center gap-3" style={{ color: '#9b6b5e' }}>
+                <LeafSprig className="w-12 h-3 opacity-70" />
+                <span className="font-script text-[34px] leading-none" style={{ color: '#7d4f47' }}>thank you</span>
+                <LeafSprig className="w-12 h-3 opacity-70" mirror />
+              </div>
+              {/* 한국어 + 신랑·신부 + 일자 */}
+              <div className="mt-3 text-center">
+                <div className="font-serif-kr text-[12px]" style={{ color: '#5a3c36' }}>{c.minimalKr}</div>
+                <div className="mt-2 inline-flex items-center gap-2 text-[10px] tracking-[0.22em] uppercase" style={{ color: '#9b6b5e' }}>
+                  <span>{i.coupleEn}</span>
+                  <HeartTiny className="w-2.5 h-2.5" />
+                  <span>06.14.2026</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      // 베이스 (다른 카테고리 — 추후 카테고리별 확장 예정)
+      return (
+        <div className="aspect-[4/5] w-full bg-[#f6f4ef] relative overflow-hidden">
+          <div className="absolute inset-0 p-5 flex flex-col">
+            <div className="flex items-center justify-between text-[10px] tracking-[0.4em] text-zinc-500 uppercase">
+              <span>{CATEGORIES.find(x=>x.key===category).en}</span>
+              <span>{c.no}</span>
+            </div>
+            <div className="mt-3 flex-1 overflow-hidden">
+              <img src={src} className="w-full h-full object-cover" />
+            </div>
+            <div className="pt-4 flex items-end justify-between">
+              <div>
+                <div className="text-[10px] tracking-[0.32em] text-zinc-500 uppercase">{c.minimalEn}</div>
+                <div className="text-[13px] text-zinc-800 mt-1">{c.minimalKr}</div>
+              </div>
+              <div className="text-[10px] text-zinc-400 tracking-widest">SnapPoster</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    function PosterInvitation({ category, photo }) {
+      const i = COPY[category].invitation;
+      const src = photo || PHOTOS[category];
+      // 본식 = 땡큐카드 격식형 · 러블리 톤 (누드 핑크 베이스 + 큰 컬리그래피 thank you)
+      if (category === 'wedding') {
+        return (
+          <div className="aspect-[4/5] w-full lovely-blush relative overflow-hidden">
+            <div className="absolute inset-0 px-7 pt-7 pb-7 flex flex-col items-center text-center" style={{ color: '#5a3c36' }}>
+              {/* 상단 모노그램 + 잎 */}
+              <div className="flex items-center gap-3" style={{ color: '#9b6b5e' }}>
+                <LeafSprig className="w-10 h-3 opacity-80" />
+                <span className="font-cormorant italic text-[22px] tracking-wide leading-none">J <span className="opacity-60">&</span> M</span>
+                <LeafSprig className="w-10 h-3 opacity-80" mirror />
+              </div>
+              <div className="font-cormorant italic text-[13px] mt-2" style={{ color: '#7d4f47' }}>{i.thanksHeadEn}</div>
+
+              {/* 큰 컬리그래피 hero "Thank You" */}
+              <div className="font-script text-[56px] leading-[0.9] mt-3" style={{ color: '#7d4f47' }}>Thank you</div>
+
+              {/* 사진 — 둥근 모서리 */}
+              <div className="flex-1 w-full mt-5 overflow-hidden rounded-md">
+                <img src={src} className="w-full h-full object-cover" />
+              </div>
+
+              {/* 한국어 감사 메시지 + 식 정보 */}
+              <div className="font-serif-kr text-[12px] mt-5 leading-[1.75]" style={{ color: '#5a3c36' }}>{i.thanksKr}</div>
+              <div className="flex items-center gap-2 mt-3" style={{ color: '#c89789' }}>
+                <span className="w-8 h-px bg-current" />
+                <HeartTiny className="w-2.5 h-2.5" />
+                <span className="w-8 h-px bg-current" />
+              </div>
+              <div className="font-cormorant text-[11px] tracking-[0.22em] mt-3" style={{ color: '#7d4f47' }}>{i.dateEn}</div>
+              <div className="font-serif-kr text-[10px] mt-1" style={{ color: '#9b6b5e' }}>{i.venueKr}</div>
+              <div className="font-cormorant italic text-[12px] tracking-wide mt-2" style={{ color: '#5a3c36' }}>{i.coupleEn}</div>
+            </div>
+          </div>
+        );
+      }
+      // 베이스 (그 외 카테고리)
+      return (
+        <div className="aspect-[4/5] w-full bg-[#fbf7f1] relative overflow-hidden">
+          <div className="absolute inset-0 p-6 flex flex-col items-center text-center">
+            <div className="font-cormorant italic text-[15px] text-zinc-700">we are getting married</div>
+            <div className="vline text-zinc-500" />
+            <div className="font-serif-kr text-[18px] tracking-[0.18em] text-zinc-900 mt-1">{i.coupleEn}</div>
+            <div className="flex-1 w-full mt-4 overflow-hidden">
+              <img src={src} className="w-full h-full object-cover" />
+            </div>
+            <div className="font-cormorant text-[12px] tracking-[0.18em] text-zinc-700 mt-4">{i.dateEn}</div>
+            <div className="font-serif-kr text-[11px] text-zinc-500 mt-1">{i.venueKr}</div>
+          </div>
+        </div>
+      );
+    }
+    function PosterEmotive({ category, photo }) {
+      const c = COPY[category];
+      const src = photo || PHOTOS[category];
+      if (category === 'wedding') {
+        return (
+          <div className="aspect-[4/5] w-full relative overflow-hidden bg-zinc-900">
+            <img src={src} className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/65" />
+
+            {/* 좌상단 메타 — 땡큐카드 명시 */}
+            <div className="absolute left-6 top-6 text-white/80">
+              <div className="text-[9px] tracking-[0.42em] uppercase">Thank You · Wedding Day</div>
+              <div className="font-cormorant italic text-[11px] mt-1">06.14.2026</div>
+            </div>
+            <div className="absolute right-6 top-6 text-white/60 text-[9px] tracking-[0.3em] uppercase">No. 0421</div>
+
+            {/* 한국어 감사 메시지 + 영문 sub + 신랑·신부 라인 */}
+            <div className="absolute left-6 right-6 bottom-7 text-white">
+              <div className="font-cormorant italic text-[16px] tracking-wide opacity-90">thank you</div>
+              <div className="font-serif-kr text-[20px] leading-[1.55] tracking-[-0.012em] mt-2">
+                당신이 있던 자리,<br />가장 환했습니다
+              </div>
+              <div className="font-cormorant italic text-[12px] mt-3 opacity-85">— from both of us</div>
+              <div className="mt-4 flex items-center gap-3 text-white/80 text-[10px] tracking-[0.32em] uppercase">
+                <span>Jihye</span>
+                <span className="w-px h-2.5 bg-white/50" />
+                <span>Minsu</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div className="aspect-[4/5] w-full relative overflow-hidden bg-zinc-900">
+          <img src={src} className="absolute inset-0 w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/55" />
+          <div className="absolute left-5 right-5 bottom-6 text-white">
+            <div className="font-serif-kr text-[18px] leading-[1.55] tracking-[-0.01em]">{c.emotiveKr}</div>
+            <div className="font-cormorant italic text-[12px] mt-2 opacity-85">{c.emotiveSub}</div>
+          </div>
+          <div className="absolute left-5 top-5 text-white/70 text-[10px] tracking-[0.4em] uppercase">{CATEGORIES.find(x=>x.key===category).en}</div>
+        </div>
+      );
+    }
+    const STYLE_DEFS = [
+      { key: 'minimal',    label: '미니멀',    desc: 'yoshisnap 풍 · 산세리프 · 여백 ↑',     Render: PosterMinimal },
+      { key: 'invitation', label: '청첩장',    desc: '세리프 · 신랑/신부/일시 슬롯',          Render: PosterInvitation },
+      { key: 'emotive',    label: '감성문구',  desc: 'miela 풍 · 풀블리드 + 한 두 줄 카피',   Render: PosterEmotive },
+    ];
+
+    // ========================================
+    // 🧩 Layout — Top Nav (sticky, 흰 배경 · 토큰)
+    // ========================================
+    function TopNav({ active, onNav, right }) {
+      return (
+        <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border">
+          <div className="max-w-[1280px] mx-auto px-6 h-16 flex items-center gap-6">
+            <div className="display-bold text-lg tracking-[0.22em] uppercase text-foreground">SnapPoster</div>
+            <Badge variant="outline">v1 Prototype</Badge>
+            <nav className="hidden md:flex items-center gap-6 ml-4 eyebrow text-muted-foreground">
+              {[
+                { key: 'gallery', label: 'Gallery' },
+                { key: 'flow',    label: 'User Flow' },
+                { key: 'admin',   label: 'Admin' },
+              ].map(t => (
+                <button key={t.key} onClick={() => onNav(t.key)}
+                  className={cn('hover:text-primary transition-colors', active === t.key && 'text-primary')}>
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+            <div className="ml-auto flex items-center gap-2">{right}</div>
+          </div>
+        </header>
+      );
+    }
+
+    // ========================================
+    // 📄 Page · Gallery (디자인 검토 메인)
+    // ========================================
+    function GalleryScreen({ onNav }) {
+      const [size, setSize] = useState('1080x1350');
+      const ratioCls = size === '1080x1080' ? 'aspect-square' : 'aspect-[4/5]';
+      const [userPhotos, setUserPhotos] = useState({});
+      const [uploadCat, setUploadCat] = useState('wedding');
+
+      const handleFile = (catKey, file) => {
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        setUserPhotos(prev => ({ ...prev, [catKey]: url }));
+      };
+      const clearPhoto = (catKey) => {
+        setUserPhotos(prev => {
+          const { [catKey]: gone, ...rest } = prev;
+          if (gone) URL.revokeObjectURL(gone);
+          return rest;
+        });
+      };
+
+      const sizeToggle = (
+        <div className="flex items-center border border-input">
+          {['1080x1350','1080x1080'].map(s => (
+            <button key={s} onClick={() => setSize(s)}
+              className={cn('h-10 px-4 text-xs eyebrow', size===s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary')}>
+              {s}
+            </button>
+          ))}
+        </div>
+      );
+
+      return (
+        <div className="min-h-screen">
+          <TopNav active="gallery" onNav={onNav} right={<>{sizeToggle}</>} />
+
+          {/* Page header */}
+          <section className="max-w-[1280px] mx-auto px-6 pt-12 pb-8">
+            <div className="eyebrow text-primary mb-3">3 Styles × 4 Categories</div>
+            <h1 className="display-bold text-4xl md:text-5xl text-foreground leading-tight">12개 자동 시안</h1>
+            <p className="text-sm text-muted-foreground mt-4 max-w-xl leading-relaxed">
+              v1에서 자동 생성될 카테고리×스타일 매트릭스. 같은 사진이라도 카테고리에 따라 카피·여백·폰트가 달라집니다.
+              "수정 없이 그대로 쓸 수 있는" 완성도가 목표.
+            </p>
+          </section>
+
+          {/* === 내 사진으로 미리보기 === */}
+          <section className="max-w-[1280px] mx-auto px-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="text-xl">내 사진으로 미리보기</CardTitle>
+                    <CardDescription>
+                      파일은 브라우저 안에서만 미리보기에 사용됩니다 — 서버·Supabase 저장 없음.
+                      Phase 2(실제 업로드·DB)는 디자인 확정 후.
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={uploadCat} onChange={e => setUploadCat(e.target.value)}>
+                      {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                    </Select>
+                    <label className="inline-flex">
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={(e) => handleFile(uploadCat, e.target.files?.[0])} />
+                      <span className="inline-flex items-center justify-center gap-2 h-11 px-6 bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium tracking-wider uppercase cursor-pointer">
+                        사진 선택
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
+                  {CATEGORIES.map(cat => {
+                    const has = !!userPhotos[cat.key];
+                    return (
+                      <div key={cat.key} className="bg-background">
+                        <div className="aspect-[4/5] relative">
+                          {has ? (
+                            <img src={userPhotos[cat.key]} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center eyebrow text-muted-foreground text-center px-4">
+                              stock
+                            </div>
+                          )}
+                        </div>
+                        <div className="px-4 py-3 flex items-center justify-between border-t border-border">
+                          <span className="text-sm text-foreground">{cat.label}</span>
+                          {has ? (
+                            <button onClick={() => clearPhoto(cat.key)} className="eyebrow text-destructive hover:opacity-70">제거</button>
+                          ) : (
+                            <label className="eyebrow text-muted-foreground hover:text-primary cursor-pointer">
+                              업로드
+                              <input type="file" accept="image/*" className="hidden"
+                                onChange={(e) => handleFile(cat.key, e.target.files?.[0])} />
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* === 본식 스냅 = 땡큐카드 (Featured · v1 완성도 100% 목표) === */}
+          <section className="max-w-[1280px] mx-auto px-6 mt-16">
+            <div className="flex items-end justify-between border-b border-border pb-4">
+              <div>
+                <div className="eyebrow text-primary">Featured · Thank You Card</div>
+                <h2 className="display-bold text-3xl md:text-4xl text-foreground mt-2">
+                  본식 스냅 — 땡큐카드
+                  {userPhotos.wedding && <Badge className="ml-3 align-middle">MY PHOTO</Badge>}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-2 max-w-xl leading-relaxed">
+                  결혼식 후 보내는 감사 카드. 식 당일 촬영된 본식 스냅 위에 "와주셔서 감사합니다" 메시지를
+                  3가지 톤으로 자동 합성합니다 — 미니멀(인스타용) · 격식(청첩장 톤의 정중한 감사장) · 감성(풀블리드 한 줄 카피).
+                </p>
+              </div>
+              <div className="eyebrow text-muted-foreground hidden sm:block">3 styles</div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+              {STYLE_DEFS.map(s => {
+                // 본식(=땡큐카드) 컨텍스트에서는 스타일 라벨/설명을 의미에 맞춰 덮어쓴다.
+                const weddingMeta = {
+                  minimal:    { label: '미니멀 땡큐',  desc: 'yoshisnap 톤 · 인스타 피드용 감사' },
+                  invitation: { label: '격식형 땡큐',  desc: '청첩장 톤의 정중한 감사장' },
+                  emotive:    { label: '감성 땡큐',    desc: 'miela 톤 · 풀블리드 + 한 줄 카피' },
+                }[s.key];
+                return (
+                  <Card key={s.key}>
+                    <CardHeader className="p-5 border-b border-border">
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <div className="display-bold text-base text-foreground">{weddingMeta.label}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{weddingMeta.desc}</div>
+                        </div>
+                        <Badge variant="outline">{size}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                      <div className={cn('overflow-hidden border border-border', ratioCls)}>
+                        <s.Render category="wedding" photo={userPhotos.wedding} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* === 다른 카테고리 — 다음 단계 자리 === */}
+          <section className="max-w-[1280px] mx-auto px-6 mt-20 pb-24">
+            <div className="flex items-end justify-between border-b border-border pb-4">
+              <div>
+                <div className="eyebrow text-muted-foreground">Coming up</div>
+                <h2 className="display-bold text-2xl text-foreground mt-2">다른 카테고리</h2>
+                <p className="text-sm text-muted-foreground mt-2 max-w-lg">
+                  본식이 확정되면 야외 / 제품 / 풍경 카테고리를 동일한 완성도로 차례로 적용합니다.
+                  지금은 베이스 레이아웃 + 카테고리별 카피만 들어가 있는 상태입니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 space-y-12">
+              {CATEGORIES.filter(c => c.key !== 'wedding').map(cat => (
+                <div key={cat.key}>
+                  <div className="flex items-end justify-between mb-4">
+                    <div>
+                      <div className="eyebrow text-muted-foreground">{cat.en}</div>
+                      <div className="display-bold text-lg text-foreground mt-1">
+                        {cat.label}
+                        {userPhotos[cat.key] && <Badge className="ml-3 align-middle">MY PHOTO</Badge>}
+                      </div>
+                    </div>
+                    <Badge variant="outline">Base layout</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {STYLE_DEFS.map(s => (
+                      <Card key={s.key} className="opacity-95">
+                        <CardContent className="p-3">
+                          <div className={cn('overflow-hidden border border-border', ratioCls)}>
+                            <s.Render category={cat.key} photo={userPhotos[cat.key]} />
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-2 px-1">{s.label}</div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 디자인 노트 */}
+          <section className="max-w-[1280px] mx-auto px-6 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border">
+              {[
+                { t: '미니멀',   en: 'MINIMAL',     body: '여백을 사진 면적의 18~22%로 고정. 산세리프 1종 + 트래킹(0.32em)으로 무드 형성.' },
+                { t: '청첩장',   en: 'INVITATION',  body: 'Cormorant Garamond(라틴) + Noto Serif KR(국문) 2종. we → 이름 → 사진 → 일시 → 장소 5단 구조.' },
+                { t: '감성문구', en: 'EMOTIVE',     body: '풀블리드 + 하단 그라디언트(black/55). 한국어 1줄 + 영문 sub 1줄. 분위기 연출이 핵심.' },
+              ].map(n => (
+                <div key={n.en} className="bg-background p-6">
+                  <div className="eyebrow text-primary mb-2">{n.en}</div>
+                  <div className="display-bold text-lg text-foreground">{n.t}</div>
+                  <p className="text-sm text-muted-foreground leading-relaxed mt-3">{n.body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <footer className="border-t border-border bg-secondary/40">
+            <div className="max-w-[1280px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <div className="display-bold tracking-[0.22em] uppercase text-foreground">SnapPoster</div>
+              <div className="eyebrow text-muted-foreground">PHOTO STUDIO · POSTER AUTOMATION</div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Page · User Flow (Login → Upload → Result → Edit)
+    // ========================================
+    function FlowScreen({ onNav }) {
+      const [step, setStep] = useState('login'); // login | upload | result | edit
+      const [submitted, setSubmitted] = useState({ category: 'wedding' });
+      const [editing, setEditing] = useState(null);
+
+      return (
+        <div className="min-h-screen">
+          <TopNav active="flow" onNav={onNav} right={<Badge variant="outline">{step.toUpperCase()}</Badge>} />
+          <div className="max-w-[480px] mx-auto px-6 py-10">
+            {step === 'login' && <LoginPanel onNext={() => setStep('upload')} />}
+            {step === 'upload' && <UploadPanel
+              onSubmit={(s) => { setSubmitted(s); setStep('result'); }}
+              onBack={() => setStep('login')} />}
+            {step === 'result' && <ResultPanel
+              category={submitted.category}
+              onBack={() => setStep('upload')}
+              onEdit={(k) => { setEditing(k); setStep('edit'); }} />}
+            {step === 'edit' && <EditPanel
+              styleKey={editing} category={submitted.category}
+              onBack={() => setStep('result')} />}
+          </div>
+        </div>
+      );
+    }
+
+    function LoginPanel({ onNext }) {
+      const [email, setEmail] = useState('');
+      const [pw, setPw] = useState('');
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>로그인</CardTitle>
+            <CardDescription>스튜디오에서 발급받은 계정으로 로그인하세요. 자유 가입은 지원하지 않습니다.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="em">이메일</Label>
+              <Input id="em" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pw">비밀번호</Label>
+              <Input id="pw" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="••••••••" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full" onClick={onNext}>로그인</Button>
+          </CardFooter>
+        </Card>
+      );
+    }
+
+    function UploadPanel({ onSubmit, onBack }) {
+      const [category, setCategory] = useState('wedding');
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>새 포스터 만들기</CardTitle>
+            <CardDescription>사진과 카테고리를 선택하면 3가지 스타일을 동시에 생성합니다.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label>사진</Label>
+              <div className="aspect-[4/5] border border-dashed border-border bg-secondary/30 flex items-center justify-center text-sm text-muted-foreground">
+                + 사진 업로드 (JPEG/PNG/HEIC, ≤20MB)
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>카테고리</Label>
+              <div className="grid grid-cols-2 gap-px bg-border">
+                {CATEGORIES.map(c => (
+                  <button key={c.key} onClick={() => setCategory(c.key)}
+                    className={cn(
+                      'h-12 text-sm transition-colors',
+                      category === c.key ? 'bg-primary text-primary-foreground' : 'bg-background text-foreground hover:bg-secondary'
+                    )}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="gap-3">
+            <Button variant="outline" className="flex-1" onClick={onBack}>이전</Button>
+            <Button className="flex-1" onClick={() => onSubmit({ category })}>3가지 스타일로 만들기</Button>
+          </CardFooter>
+        </Card>
+      );
+    }
+
+    function ResultPanel({ category, onBack, onEdit }) {
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <button onClick={onBack} className="eyebrow text-muted-foreground hover:text-primary">← 새로 만들기</button>
+            <Badge variant="outline">{CATEGORIES.find(c => c.key === category)?.label}</Badge>
+          </div>
+          <div className="space-y-6">
+            {STYLE_DEFS.map(s => (
+              <Card key={s.key}>
+                <CardHeader className="p-5 border-b border-border">
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <div className="display-bold text-base text-foreground">{s.label}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{s.desc}</div>
+                    </div>
+                    <Badge variant="outline">1080×1350</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-5 space-y-4">
+                  <div className="overflow-hidden border border-border">
+                    <s.Render category={category} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" onClick={() => onEdit(s.key)}>텍스트 조정</Button>
+                    <Button>PNG 다운로드</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function EditPanel({ styleKey, category, onBack }) {
+      const [color, setColor] = useState('#ffffff');
+      const [opacity, setOpacity] = useState(100);
+      const [pos, setPos] = useState({ x: 50, y: 80 });
+      const Style = STYLE_DEFS.find(s => s.key === styleKey);
+      const colorPresets = ['#ffffff', '#111111', '#7c5a3a', '#8a4a4a', '#3a5a7c', '#cfa75a'];
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <button onClick={onBack} className="eyebrow text-muted-foreground hover:text-primary">← 결과로</button>
+            <Badge variant="outline">{Style.label} · 텍스트만 조정</Badge>
+          </div>
+          <div className="overflow-hidden border border-border">
+            <Style.Render category={category} />
+          </div>
+          <Card>
+            <CardContent className="space-y-6">
+              <div>
+                <Label>텍스트 색</Label>
+                <div className="flex gap-2 mt-2">
+                  {colorPresets.map(c => (
+                    <button key={c} onClick={() => setColor(c)}
+                      className={cn('w-9 h-9 border', color === c ? 'ring-2 ring-ring ring-offset-2' : 'border-border')}
+                      style={{ background: c }} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label>불투명도 — {opacity}%</Label>
+                <input type="range" min={0} max={100} value={opacity} onChange={e => setOpacity(+e.target.value)} className="w-full mt-2" />
+              </div>
+              <div>
+                <Label>위치 (프로토타입에서는 슬라이더)</Label>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <span className="text-xs text-muted-foreground">X</span>
+                    <input type="range" min={0} max={100} value={pos.x} onChange={e => setPos({...pos, x: +e.target.value})} className="w-full" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Y</span>
+                    <input type="range" min={0} max={100} value={pos.y} onChange={e => setPos({...pos, y: +e.target.value})} className="w-full" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 Page · Admin
+    // ========================================
+    function AdminScreen({ onNav }) {
+      const [accounts, setAccounts] = useState([
+        { id: 'u-001', email: 'bride.jihye@gmail.com', status: 'active',   expiresAt: '2026-06-09', quotaUsed: 7,  quotaTotal: 50 },
+        { id: 'u-002', email: 'groom.minsu@gmail.com', status: 'active',   expiresAt: '2026-06-09', quotaUsed: 12, quotaTotal: 50 },
+        { id: 'u-003', email: 'studio.kim@naver.com',  status: 'disabled', expiresAt: '2026-04-30', quotaUsed: 50, quotaTotal: 50 },
+      ]);
+      const [draft, setDraft] = useState({ email: '', expiresAt: '2026-06-09', quotaTotal: 50 });
+      const issue = () => {
+        if (!draft.email) return;
+        setAccounts(prev => [{
+          id: 'u-' + (Math.random()*1e4|0).toString(36),
+          email: draft.email, status: 'active',
+          expiresAt: draft.expiresAt, quotaUsed: 0, quotaTotal: draft.quotaTotal,
+        }, ...prev]);
+        setDraft({ email: '', expiresAt: '2026-06-09', quotaTotal: 50 });
+      };
+      const toggle = (id) => setAccounts(prev => prev.map(a =>
+        a.id === id ? { ...a, status: a.status === 'active' ? 'disabled' : 'active' } : a
+      ));
+      return (
+        <div className="min-h-screen">
+          <TopNav active="admin" onNav={onNav} />
+          <div className="max-w-[860px] mx-auto px-6 py-12 space-y-8">
+            <div>
+              <div className="eyebrow text-primary mb-2">Admin</div>
+              <h1 className="display-bold text-3xl text-foreground">계정 관리</h1>
+              <p className="text-sm text-muted-foreground mt-2">자유 가입 없음. 관리자만 ID/PW를 발급·만료·할당량을 관리합니다.</p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">계정 발급</CardTitle>
+                <CardDescription>발급 시 임시 비밀번호가 사용자 이메일로 발송됩니다 (Phase 4 연동).</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-12 sm:col-span-5 space-y-2">
+                    <Label>이메일</Label>
+                    <Input value={draft.email} onChange={e => setDraft({...draft, email: e.target.value})} placeholder="customer@example.com" />
+                  </div>
+                  <div className="col-span-7 sm:col-span-4 space-y-2">
+                    <Label>만료일</Label>
+                    <Input value={draft.expiresAt} onChange={e => setDraft({...draft, expiresAt: e.target.value})} placeholder="YYYY-MM-DD" />
+                  </div>
+                  <div className="col-span-5 sm:col-span-2 space-y-2">
+                    <Label>할당량</Label>
+                    <Input type="number" value={draft.quotaTotal} onChange={e => setDraft({...draft, quotaTotal: +e.target.value})} />
+                  </div>
+                  <div className="col-span-12 sm:col-span-1 flex items-end">
+                    <Button className="w-full" onClick={issue}>발급</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">계정 목록 ({accounts.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-border">
+                  {accounts.map(a => (
+                    <div key={a.id} className="px-6 py-4 flex items-center gap-4 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate text-foreground">{a.email}</div>
+                        <div className="eyebrow text-muted-foreground mt-1">EXP {a.expiresAt} · {a.quotaUsed}/{a.quotaTotal}</div>
+                      </div>
+                      <Badge variant={a.status === 'active' ? 'default' : 'destructive'}>{a.status}</Badge>
+                      <Button variant="outline" size="sm" onClick={() => toggle(a.id)}>
+                        {a.status === 'active' ? '비활성' : '재활성'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Root
+    // ========================================
+    function App() {
+      const [view, setView] = useState('gallery'); // gallery | flow | admin
+      if (view === 'flow')  return <FlowScreen  onNav={setView} />;
+      if (view === 'admin') return <AdminScreen onNav={setView} />;
+      return <GalleryScreen onNav={setView} />;
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

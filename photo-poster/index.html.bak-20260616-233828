@@ -18,10 +18,15 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<<<<<<< Updated upstream
   <!-- 카드 캡쳐: html-to-image (SVG foreignObject 기반 — 브라우저 native 렌더링 그대로 보존) -->
   <!-- html2canvas v1.4.1는 unitless line-height, object-fit:cover, transform 조합을 제대로 못 그려 텍스트가 한 줄씩 내려오거나 사진이 stretched되어 캡쳐됨 -->
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+=======
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.min.js"></script>
+>>>>>>> Stashed changes
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
@@ -237,7 +242,7 @@
     }
   </script>
 
-  <script type="text/babel" data-presets="react">
+  <script type="text/babel">
     // ========================================
     // React Hooks
     // ========================================
@@ -344,7 +349,8 @@
     // 카드 비율을 viewport에 무관하게 유지하기 위한 scale wrapper.
     // 자식 카드는 항상 baseWidth × (baseWidth/ratio) 사이즈로 렌더하고, 외부 wrapper의
     // 실제 폭에 맞춰 transform: scale로 축소·확대한다. ResizeObserver로 wrapper 폭 추적.
-    function ScaledPoster({ className = '', baseWidth = 480, ratio = 4/5, children }) {
+    // innerRef를 받으면 1080×1350 베이스 div 자체를 노출 — html2canvas가 1:1로 캡처하기 위함.
+    function ScaledPoster({ className = '', baseWidth = 480, ratio = 4/5, children, innerRef }) {
       const wrapRef = useRef(null);
       const [scale, setScale] = useState(1);
       useEffect(() => {
@@ -362,7 +368,7 @@
       const baseHeight = baseWidth / ratio;
       return (
         <div ref={wrapRef} className={cn('relative overflow-hidden', className)} style={{ aspectRatio: `${ratio}` }}>
-          <div style={{ width: `${baseWidth}px`, height: `${baseHeight}px`, transformOrigin: 'top left', transform: `scale(${scale})` }}>
+          <div ref={innerRef} style={{ width: `${baseWidth}px`, height: `${baseHeight}px`, transformOrigin: 'top left', transform: `scale(${scale})` }}>
             {children}
           </div>
         </div>
@@ -440,71 +446,79 @@
       const ctx = useContext(SurfaceContext);
 
       // 드래그 시 스냅 + 가이드 계산
+      // 카드는 transform: scale로 시각 축소돼 있어 getBoundingClientRect는 화면(축소된) 좌표를 돌려준다.
+      // proposed/e.x/e.y는 내부(베이스 1080) 좌표라서, 스냅 계산도 내부 좌표로 통일해야 한다.
       const computeSnap = (proposedX, proposedY) => {
         const surface = ctx?.surfaceRef?.current;
         const me = ref.current;
         if (!surface || !me) return { x: proposedX, y: proposedY, guides: [] };
         const sr = surface.getBoundingClientRect();
         const myR = me.getBoundingClientRect();
-        const dx = proposedX - e.x;  // 현재 transform 대비 추가 변화량
+        const sf = sr.width ? (surface.offsetWidth / sr.width) : 1;
+        const dx = proposedX - e.x;  // 내부 좌표 변화량
         const dy = proposedY - e.y;
         const pr = {
-          left:   myR.left - sr.left + dx,
-          top:    myR.top  - sr.top  + dy,
-          width:  myR.width,
-          height: myR.height,
+          left:   (myR.left - sr.left) * sf + dx,
+          top:    (myR.top  - sr.top)  * sf + dy,
+          width:  myR.width  * sf,
+          height: myR.height * sf,
         };
         pr.right  = pr.left + pr.width;
         pr.bottom = pr.top  + pr.height;
         pr.cx     = pr.left + pr.width / 2;
         pr.cy     = pr.top  + pr.height / 2;
 
-        // surface 기준점
+        // surface 기준점 (모두 내부 좌표)
+        const surfaceW = sr.width * sf;
+        const surfaceH = sr.height * sf;
         const targetsX = [
           { x: 0,            kind: 's-l' },
-          { x: sr.width / 2, kind: 's-c' },
-          { x: sr.width,     kind: 's-r' },
+          { x: surfaceW / 2, kind: 's-c' },
+          { x: surfaceW,     kind: 's-r' },
         ];
         const targetsY = [
           { y: 0,             kind: 's-t' },
-          { y: sr.height / 2, kind: 's-m' },
-          { y: sr.height,     kind: 's-b' },
+          { y: surfaceH / 2,  kind: 's-m' },
+          { y: surfaceH,      kind: 's-b' },
         ];
-        // 다른 형제 텍스트 블록 기준점
+        // 다른 형제 텍스트 블록 기준점 (내부 좌표로 변환)
         surface.querySelectorAll('[data-textblock]').forEach(el => {
           if (el === me) return;
           const r = el.getBoundingClientRect();
           targetsX.push(
-            { x: r.left  - sr.left,                   kind: 'b-l' },
-            { x: r.left  - sr.left + r.width / 2,     kind: 'b-c' },
-            { x: r.right - sr.left,                   kind: 'b-r' },
+            { x: (r.left  - sr.left) * sf,                       kind: 'b-l' },
+            { x: (r.left  - sr.left + r.width / 2) * sf,         kind: 'b-c' },
+            { x: (r.right - sr.left) * sf,                       kind: 'b-r' },
           );
           targetsY.push(
-            { y: r.top    - sr.top,                   kind: 'b-t' },
-            { y: r.top    - sr.top + r.height / 2,    kind: 'b-m' },
-            { y: r.bottom - sr.top,                   kind: 'b-b' },
+            { y: (r.top    - sr.top) * sf,                       kind: 'b-t' },
+            { y: (r.top    - sr.top + r.height / 2) * sf,        kind: 'b-m' },
+            { y: (r.bottom - sr.top) * sf,                       kind: 'b-b' },
           );
         });
 
         const myXs = [pr.left, pr.cx, pr.right];
         const myYs = [pr.top,  pr.cy, pr.bottom];
+        // SNAP_PX는 화면 픽셀이지만 내부 좌표계로 비교하므로 곱해서 환산
+        const snapTol = SNAP_PX * sf;
         let bestX = null, bestY = null;
         myXs.forEach(my => targetsX.forEach(t => {
           const d = t.x - my;
-          if (Math.abs(d) <= SNAP_PX && (!bestX || Math.abs(d) < Math.abs(bestX.delta))) {
+          if (Math.abs(d) <= snapTol && (!bestX || Math.abs(d) < Math.abs(bestX.delta))) {
             bestX = { delta: d, pos: t.x };
           }
         }));
         myYs.forEach(my => targetsY.forEach(t => {
           const d = t.y - my;
-          if (Math.abs(d) <= SNAP_PX && (!bestY || Math.abs(d) < Math.abs(bestY.delta))) {
+          if (Math.abs(d) <= snapTol && (!bestY || Math.abs(d) < Math.abs(bestY.delta))) {
             bestY = { delta: d, pos: t.y };
           }
         }));
 
+        // 가이드는 surface 내 시각 좌표가 필요(화면 px로 위치잡힘) → 내부 좌표를 다시 시각으로 변환
         const guides = [];
-        if (bestX) guides.push({ type: 'v', pos: bestX.pos });
-        if (bestY) guides.push({ type: 'h', pos: bestY.pos });
+        if (bestX) guides.push({ type: 'v', pos: bestX.pos / sf });
+        if (bestY) guides.push({ type: 'h', pos: bestY.pos / sf });
         return {
           x: proposedX + (bestX?.delta ?? 0),
           y: proposedY + (bestY?.delta ?? 0),
@@ -521,9 +535,13 @@
         try { target.setPointerCapture(ev.pointerId); } catch {}
         const startX = ev.clientX, startY = ev.clientY;
         const base = { x: e.x, y: e.y };
+        // 카드는 ScaledPoster로 transform: scale 축소돼 화면에 보인다.
+        // 화면 드래그 1px이 내부 좌표계로는 (1/scale)px이므로 보정해야 위치가 1:1로 따라온다.
+        const surface = ctx?.surfaceRef?.current;
+        const scaleFactor = surface ? (surface.offsetWidth / surface.getBoundingClientRect().width) : 1;
         const move = (mv) => {
-          const proposedX = base.x + (mv.clientX - startX);
-          const proposedY = base.y + (mv.clientY - startY);
+          const proposedX = base.x + (mv.clientX - startX) * scaleFactor;
+          const proposedY = base.y + (mv.clientY - startY) * scaleFactor;
           const snap = computeSnap(proposedX, proposedY);
           ctx?.setGuides?.(snap.guides);
           onChange?.(id, { x: snap.x, y: snap.y });
@@ -563,7 +581,11 @@
         target.addEventListener('pointerup', up);
         target.addEventListener('pointercancel', up);
       };
-      const transform = `translate(${e.x}px, ${e.y}px) scale(${e.scale ?? 1})`;
+      // 편집되지 않은 기본 상태에서는 transform을 아예 안 건다 — html2canvas가 부모 rotate와
+      // 자식 translate/scale을 겹쳐 잘못 그리는 케이스(키치 인용구 박스 텍스트 누락)를 피한다.
+      const sc = e.scale ?? 1;
+      const hasXform = e.x !== 0 || e.y !== 0 || sc !== 1;
+      const transform = hasXform ? `translate(${e.x}px, ${e.y}px) scale(${sc})` : undefined;
       const origin = anchor === 'top-left' ? 'top left' : anchor === 'top-center' ? 'top center' : anchor === 'bottom-left' ? 'bottom left' : 'center';
       return (
         <div
@@ -572,7 +594,7 @@
           onPointerDown={onPointerDown}
           onClick={(ev) => ev.stopPropagation()}
           className={cn('relative select-none cursor-move', selected && 'outline outline-1 outline-dashed outline-primary outline-offset-4', className)}
-          style={{ transform, transformOrigin: origin }}
+          style={hasXform ? { transform, transformOrigin: origin } : undefined}
         >
           {children}
           {selected && (
@@ -840,8 +862,10 @@
             <div className="absolute inset-x-0 top-0 h-[72%] overflow-hidden">
               <img src={src} crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-cover" style={imgStyle} />
             </div>
-            {/* 하단 28% — 누드 핑크 띠 + 컴팩트 캡션 */}
-            <div className="absolute inset-x-0 bottom-0 h-[28%] flex flex-col items-center justify-center text-center px-6" style={ov}>
+            {/* 하단 28% — 누드 핑크 띠 + 컴팩트 캡션
+                cursive 폰트 ascender 보정이 downloadCard에서 적용되므로 브라우저 native 정상 중앙 정렬 사용. */}
+            <div className="absolute inset-x-0 bottom-0 h-[28%] flex items-center justify-center" style={{ ...ov, padding: '0 6%' }}>
+              <div className="flex flex-col items-center text-center w-full">
               {TB('thanks', 'top-center', '', (
                 <div className="flex items-center gap-3" style={{ color: '#a3554a' }}>
                   <FlowerSprig className="w-10 h-3 opacity-85" />
@@ -859,6 +883,7 @@
                   <span>{getCopy('couple_date', '06.14.2026')}</span>
                 </div>
               ))}
+              </div>
             </div>
           </PosterSurface>
         );
@@ -1161,15 +1186,17 @@
             </div>
           </div>
 
-          {/* 형광 핑크 인용구 카드 (메인 폴라로이드 우하단과 작은 사진 아래 겹침, -4도) */}
+          {/* 형광 핑크 인용구 카드 (메인 폴라로이드 우하단과 작은 사진 아래 겹침, -4도)
+              flex justify-center는 html2canvas 버그로 텍스트가 사라지므로 grid place-items로 우회. */}
           <div
-            className="absolute flex flex-col justify-center items-start px-3 py-2.5 neon-pink-box"
+            className="absolute grid place-items-center px-3 py-2.5 neon-pink-box"
             style={{
               width: '40%', height: '20%',
               top: '54%', right: '3%',
               transform: 'rotate(-4deg)',
               color: '#fff7ec',
               zIndex: 4,
+              justifyItems: 'start',
             }}
           >
             {TB('quote', 'top-left', '', (
@@ -1377,19 +1404,25 @@
           }
         }
         setUploadError(null);
-        const url = URL.createObjectURL(file);
-        setUserPhotos(prev => ({ ...prev, [catKey]: url }));
+        // blob: URL이 아닌 data: URL로 저장 — html-to-image가 SVG foreignObject로 직렬화할 때
+        // 외부 blob URL을 못 읽는 문제를 회피.
+        const dataUrl = await new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result);
+          fr.onerror = rej;
+          fr.readAsDataURL(file);
+        });
+        setUserPhotos(prev => ({ ...prev, [catKey]: dataUrl }));
       };
       const clearPhoto = (catKey) => {
         setUploadError(null);
         setUserPhotos(prev => {
-          const u = prev[catKey];
-          if (u) URL.revokeObjectURL(u);
           const { [catKey]: gone, ...rest } = prev;
           return rest;
         });
       };
 
+<<<<<<< Updated upstream
       // ─ 카드 → JPG 저장 (저장 폴더 지정 시 File System Access API 사용, iOS는 공유 시트, 그 외는 일반 다운로드)
       const cardRefs = useRef(new Map());
       const [busyKey, setBusyKey] = useState(null);
@@ -1489,16 +1522,102 @@
           console.warn('지정 폴더 저장 실패, 기본 다운로드로 폴백:', e);
           return false;
         }
+=======
+      // ─ 카드 → JPG 저장 (iOS Photos 공유 시트 지원, 데스크톱은 일반 다운로드)
+      // 카드는 ScaledPoster로 항상 540×675 베이스 사이즈로 렌더되고 화면에는 transform: scale로 맞춤.
+      // 저장 파이프라인:
+      //   1) 페이지의 모든 @font-face 폰트 파일을 base64로 인라인한 CSS를 1회 캐시 (window.__marianFontCSS)
+      //      → 두 번째 저장부터는 즉시
+      //   2) 베이스 div를 클론해서 transform 제거하고 오프스크린에 둠
+      //   3) 사진(object-fit:cover)을 미리 비트맵 캔버스로 잘라서 inner img src에 데이터 URL로 박음
+      //      (html-to-image의 SVG foreignObject 경로는 cover를 다르게 처리하므로 사전에 베이크)
+      //   4) html-to-image.toJpeg로 1080×1350 출력 — 브라우저 자체 렌더러를 SVG로 굽기 때문에
+      //      텍스트 위치/폰트 메트릭이 미리보기와 픽셀 단위로 일치 (html2canvas는 위치가 살짝 안쪽으로 밀림)
+      const cardRefs = useRef(new Map());
+      const [busyKey, setBusyKey] = useState(null);
+
+      // 폰트 임베드 CSS를 한 번만 만들어서 메모리 캐시.
+      const ensureFontCSS = async () => {
+        if (window.__marianFontCSS) return window.__marianFontCSS;
+        if (!window.htmlToImage || !window.htmlToImage.getFontEmbedCSS) return '';
+        if (window.__marianFontCSSPromise) return window.__marianFontCSSPromise;
+        window.__marianFontCSSPromise = (async () => {
+          try {
+            const fullCSS = await window.htmlToImage.getFontEmbedCSS(document.body);
+            // getFontEmbedCSS는 페이지에 로드된 @font-face를 전부 base64로 박아서 70MB+가 나온다.
+            // 모바일 사파리는 SVG data URL이 ~2MB 넘으면 로드 실패("object Event") → 카드에 실제 쓰는
+            // 폰트만 필터링해서 작은 CSS로 줄인다.
+            // 카드에서 실제 쓰는 weight + style만 + unicode-range 슬라이스 1~2개.
+            // Pretendard 400은 한글 글리프 때문에 2.5MB 단일 파일이지만 본문에 필수라 포함.
+            // 합계 ~3MB → 모바일 사파리 data URL 한도 안에 들어감 (필터 안 하면 75MB로 즉시 실패).
+            const NEEDED = {
+              'Pretendard': { weights: new Set(['400']), italic: 'any' },
+              'Allura': { weights: new Set(['400']), italic: 'any' },
+              'Cormorant Garamond': { weights: new Set(['400', '500']), italic: 'italic' },
+              'Permanent Marker': { weights: new Set(['400']), italic: 'any' },
+              'Kalam': { weights: new Set(['700']), italic: 'any' },
+              'Caveat': { weights: new Set(['500']), italic: 'any' },
+              'Noto Serif KR': { weights: new Set(['400']), italic: 'any' },
+            };
+            const faces = fullCSS.match(/@font-face\s*\{[^}]+\}/g) || [];
+            const out = [];
+            const sliceCount = {};
+            for (const face of faces) {
+              const ff = face.match(/font-family:\s*['"]?([^;'"]+)/);
+              const name = ff && ff[1].trim();
+              if (!name || !(name in NEEDED)) continue;
+              const spec = NEEDED[name];
+              const fw = (face.match(/font-weight:\s*([^;]+)/) || [, '400'])[1].trim();
+              if (!spec.weights.has(fw)) continue;
+              if (spec.italic !== 'any') {
+                const fs = (face.match(/font-style:\s*([^;]+)/) || [, 'normal'])[1].trim();
+                if (fs !== spec.italic) continue;
+              }
+              // 같은 패밀리·weight의 unicode-range 슬라이스 전부 포함 (라틴+한글+기타 빠지면
+              // 글리프 매트릭이 달라져 wrap이 깨진다). Noto Serif KR도 weight 필터만 적용해서
+              // 풀 슬라이스 유지 → 한글 본문 wrap 일치.
+              out.push(face);
+            }
+            window.__marianFontCSS = out.join('\n');
+            console.log('font embed: full=' + fullCSS.length + ' filtered=' + window.__marianFontCSS.length + ' faces=' + out.length);
+            return window.__marianFontCSS;
+          } catch (e) { console.warn('font embed failed', e); return ''; }
+        })();
+        return window.__marianFontCSSPromise;
+      };
+      // 페이지 진입 시 백그라운드로 폰트 임베드 CSS 미리 굽기 — 첫 다운로드 지연 최소화.
+      useEffect(() => { ensureFontCSS(); }, []);
+
+      // 저장 후 어디로 갔는지 알려주는 토스트 (안드로이드 사용자가 다운로드 위치를 모르겠다고 해서 추가)
+      const showToast = (msg) => {
+        const t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);' +
+          'background:rgba(15,23,42,0.95);color:#fff;padding:12px 18px;border-radius:8px;' +
+          'font-size:13px;font-weight:500;max-width:88vw;text-align:center;z-index:9999;' +
+          'box-shadow:0 6px 20px rgba(0,0,0,0.25);opacity:0;transition:opacity .25s';
+        document.body.appendChild(t);
+        requestAnimationFrame(() => { t.style.opacity = '1'; });
+        setTimeout(() => {
+          t.style.opacity = '0';
+          setTimeout(() => t.remove(), 300);
+        }, 4500);
+>>>>>>> Stashed changes
       };
 
       const downloadCard = async (styleKey, label) => {
         const node = cardRefs.current.get(styleKey);
+<<<<<<< Updated upstream
         const lib = window.htmlToImage;
         if (!node || !lib) {
+=======
+        if (!node || !window.htmlToImage) {
+>>>>>>> Stashed changes
           alert('아직 준비 중입니다. 잠시 후 다시 시도해 주세요.');
           return;
         }
         setBusyKey(styleKey);
+<<<<<<< Updated upstream
         // ── 캡쳐 안정화: 미리보기와 저장본을 똑같이
         // 1) 선택 해제 — dashed outline/리사이즈 핸들이 함께 찍히지 않게
         setSelected(null);
@@ -1570,12 +1689,132 @@
           if (saveDir) {
             const ok = await writeBlobToSaveDir(blob, filename);
             if (ok) return;
+=======
+        let host = null;
+        try {
+          // cursive 폰트가 canvas에서 fallback으로 떨어지지 않도록 명시 load.
+          // 페이지 CSS @font-face만 있으면 iOS Safari canvas가 못 보는 경우가 있어 강제 호출.
+          const FONT_PRELOAD = [
+            '400 16px "Allura"',
+            'italic 400 16px "Cormorant Garamond"',
+            'italic 500 16px "Cormorant Garamond"',
+            '400 16px "Cormorant Garamond"',
+            '500 16px "Cormorant Garamond"',
+            '400 16px "Permanent Marker"',
+            '500 16px "Caveat"',
+            '700 16px "Caveat"',
+            '700 16px "Kalam"',
+            '400 16px "Pretendard"',
+            '400 16px "Noto Serif KR"',
+          ];
+          try {
+            await Promise.all(FONT_PRELOAD.map(spec => document.fonts.load(spec).catch(() => {})));
+          } catch {}
+          if (document.fonts && document.fonts.ready) await document.fonts.ready;
+          // 폰트 임베드 CSS — cursive overlay SVG에 @font-face를 내장하기 위함.
+          const fontCSS = await ensureFontCSS();
+
+          const cs = getComputedStyle(node);
+          const baseW = parseFloat(cs.width);
+          const baseH = parseFloat(cs.height);
+
+          host = document.createElement('div');
+          host.style.cssText = `position:fixed;left:-99999px;top:0;width:${baseW}px;height:${baseH}px;pointer-events:none;z-index:-1;`;
+          const clone = node.cloneNode(true);
+          clone.style.transform = 'none';
+          clone.style.transformOrigin = 'top left';
+          host.appendChild(clone);
+          document.body.appendChild(host);
+          await new Promise(rf => requestAnimationFrame(() => requestAnimationFrame(rf)));
+
+          // ── object-fit: cover 베이크 ──
+          // 사진 비율이 프레임과 다르면 SVG foreignObject 경로가 stretch 시킨다.
+          // 미리 가시 영역만 비트맵 캔버스로 잘라서 inner img src에 박는다.
+          // 원본(loaded) img에서 metrics와 픽셀 읽음 — 모바일 사파리에서 cloned img.naturalWidth가 0인 경우 회피.
+          const origImgs = Array.from(node.querySelectorAll('img'));
+          const cloneImgs = Array.from(clone.querySelectorAll('img'));
+          for (let i = 0; i < origImgs.length && i < cloneImgs.length; i++) {
+            const origImg = origImgs[i];
+            const cloneImg = cloneImgs[i];
+            const ics = getComputedStyle(origImg);
+            if (ics.objectFit !== 'cover') continue;
+            if (!origImg.naturalWidth || !origImg.naturalHeight) continue;
+            const W = parseFloat(ics.width);
+            const H = parseFloat(ics.height);
+            if (!W || !H) continue;
+            const nW = origImg.naturalWidth, nH = origImg.naturalHeight;
+            const coverScale = Math.max(W / nW, H / nH);
+            const cW = nW * coverScale;
+            const cH = nH * coverScale;
+
+            let userS = 1, userTx = 0, userTy = 0;
+            const m = (ics.transform || '').match(/matrix\(([^)]+)\)/);
+            if (m) {
+              const p = m[1].split(',').map(s => parseFloat(s.trim()));
+              userS = p[0] || 1;
+              userTx = p[4] || 0;
+              userTy = p[5] || 0;
+            }
+            const finalW = cW * userS;
+            const finalH = cH * userS;
+            const finalLeft = (W - finalW) / 2 + userTx;
+            const finalTop  = (H - finalH) / 2 + userTy;
+            const srcX = Math.max(0, (0 - finalLeft) * nW / finalW);
+            const srcY = Math.max(0, (0 - finalTop)  * nH / finalH);
+            const srcW = Math.min(nW - srcX, W * nW / finalW);
+            const srcH = Math.min(nH - srcY, H * nH / finalH);
+
+            const PR = 1080 / baseW;
+            const bk = document.createElement('canvas');
+            bk.width = Math.max(1, Math.round(W * PR));
+            bk.height = Math.max(1, Math.round(H * PR));
+            try {
+              bk.getContext('2d').drawImage(origImg, srcX, srcY, srcW, srcH, 0, 0, bk.width, bk.height);
+            } catch (e) { continue; }
+            const bakedUrl = bk.toDataURL('image/jpeg', 0.95);
+            // SVG foreignObject 안에서도 stretch가 안 되도록 cover/transform 제거.
+            // 새 사진은 이미 W×H에 cover-fit으로 굽혀 있어서 그대로 100%로 박으면 끝.
+            cloneImg.src = bakedUrl;
+            cloneImg.style.objectFit = 'fill';
+            cloneImg.style.transform = 'none';
+          }
+
+          // 단일 경로: html-to-image.toJpeg.
+          // 브라우저 SVG foreignObject가 DOM을 자기 엔진으로 그려서 cursive 위치가 가장 정확.
+          // 사진은 위에서 cover-fit 비트맵으로 베이크 → SVG 안에서도 stretch 없음.
+          // fontEmbedCSS로 모든 폰트를 base64 임베드 (모바일 Safari data URL 한도 ~3MB 안에 맞춰 필터링됨).
+          await new Promise(rf => requestAnimationFrame(() => requestAnimationFrame(rf)));
+          const OUT_W = 1080;
+          const OUT_H = Math.round(baseH * (OUT_W / baseW));
+          if (!window.htmlToImage) throw new Error('html-to-image 라이브러리가 로드되지 않았습니다');
+          const dataUrl = await window.htmlToImage.toJpeg(clone, {
+            quality: 0.95,
+            pixelRatio: OUT_W / baseW,
+            cacheBust: true,
+            backgroundColor: '#ffffff',
+            fontEmbedCSS: fontCSS,
+            width: baseW,
+            height: baseH,
+          });
+          const blob = await (await fetch(dataUrl)).blob();
+          const filename = `marian-thankyou-${styleKey}-${Date.now()}.jpg`;
+          const file = new File([blob], filename, { type: 'image/jpeg' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({ files: [file], title: '마리안 웨딩 땡큐카드', text: label });
+              showToast('공유 시트에서 "이미지 저장" 또는 갤러리를 선택하세요');
+              return;
+            } catch (err) {
+              if (err && err.name === 'AbortError') return;
+            }
+>>>>>>> Stashed changes
           }
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url; a.download = filename;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(url), 1000);
+<<<<<<< Updated upstream
         } catch (e) {
           alert('카드 저장 실패: ' + (e?.message || e));
         } finally {
@@ -1584,6 +1823,14 @@
             img.src = src;
             if (co != null) img.setAttribute('crossorigin', co);
           }
+=======
+          // 다운로드 경로 안내. iOS/Android 모두 기본 다운로드 폴더(또는 사진 앱).
+          showToast('다운로드 폴더(또는 사진 앱)에 저장되었습니다 · ' + filename);
+        } catch (e) {
+          alert('카드 저장 실패: ' + (e?.message || e));
+        } finally {
+          if (host && host.parentNode) host.parentNode.removeChild(host);
+>>>>>>> Stashed changes
           setBusyKey(null);
         }
       };
@@ -1652,7 +1899,7 @@
           <section className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 sm:pt-12 pb-6 sm:pb-8">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
               <div className="min-w-0">
-                <div className="eyebrow text-primary mb-3">Marian Wedding · Thank You Card</div>
+                <div className="eyebrow text-primary mb-3">Marian Wedding · Thank You Card <span style={{display:'inline-block',marginLeft:8,padding:'2px 8px',background:'#facc15',color:'#000',fontWeight:700,borderRadius:4,fontSize:11}}>build 0505</span></div>
                 <h1 className="display-bold text-3xl sm:text-4xl md:text-5xl text-foreground leading-tight">결혼식 후 보내는 땡큐카드</h1>
                 <p className="text-sm text-muted-foreground mt-3 sm:mt-4 max-w-xl leading-relaxed">
                   마리안 웨딩이 우리 고객분들께 또 어떤 걸 해드릴 수 있을까 고민하다 만든
@@ -1712,9 +1959,13 @@
                       <div className="eyebrow text-muted-foreground">Workflow</div>
                       <ol className="mt-3 space-y-2 text-sm text-foreground list-decimal list-inside">
                         <li>본식 스냅 한 장 업로드</li>
-                        <li>3 카드(미니멀 · 격식 · 감성)가 자동 생성</li>
+                        <li>4 카드(미니멀 · 격식 · 감성 · 키치)가 자동 생성</li>
                         <li>카드별 밑 컨트롤로 사진 크롭·텍스트 이동·문구 수정</li>
+<<<<<<< Updated upstream
                         <li>"사진 저장 (JPG)" 버튼으로 PC에 저장 (저장 폴더는 우측 상단에서 지정) → 하객분들께 바로 전송 <span className="text-muted-foreground">(PC 전용 · Chrome·Edge·Arc 권장)</span></li>
+=======
+                        <li><strong>꼭 PC(데스크탑)로 진행해 주세요.</strong> 폰으로는 다운로드 시 글씨·사진 위치가 화면과 다르게 저장됩니다. "사진 저장 (JPG)" 버튼으로 저장 → 하객분들께 전송</li>
+>>>>>>> Stashed changes
                         <li>한 아이디로 사진 5장까지 가능. 추가로 필요하시면 마리안 운영자에 요청해 주세요.</li>
                       </ol>
                     </div>
@@ -1807,27 +2058,30 @@
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-5">
-                      <div
-                        ref={(el) => {
-                          if (el) cardRefs.current.set(s.key, el);
-                          else cardRefs.current.delete(s.key);
-                        }}
-                        className={cn('overflow-hidden border border-border', ratioCls)}
-                        onPointerDown={() => setSelected(null)}
-                      >
-                        <s.Render
-                          category={cat}
-                          photo={photoData}
-                          photoAlt={photoAltData}
-                          textEdits={ce.texts}
-                          selectedTextId={selectedTextId}
-                          selectedPhotoId={selectedPhotoId}
-                          onSelectText={(id) => setSelected({ cat, style: s.key, kind: 'text', id })}
-                          onSelectPhoto={(id) => setSelected({ cat, style: s.key, kind: 'photo', id })}
-                          onChangeText={(id, patch) => updateCardText(cat, s.key, id, patch)}
-                          cardCopy={ce.copy}
-                          isSquare={size === '1080x1080'}
-                        />
+                      <div onPointerDown={() => setSelected(null)}>
+                        <ScaledPoster
+                          baseWidth={540}
+                          ratio={size === '1080x1080' ? 1 : 4/5}
+                          className="border border-border"
+                          innerRef={(el) => {
+                            if (el) cardRefs.current.set(s.key, el);
+                            else cardRefs.current.delete(s.key);
+                          }}
+                        >
+                          <s.Render
+                            category={cat}
+                            photo={photoData}
+                            photoAlt={photoAltData}
+                            textEdits={ce.texts}
+                            selectedTextId={selectedTextId}
+                            selectedPhotoId={selectedPhotoId}
+                            onSelectText={(id) => setSelected({ cat, style: s.key, kind: 'text', id })}
+                            onSelectPhoto={(id) => setSelected({ cat, style: s.key, kind: 'photo', id })}
+                            onChangeText={(id, patch) => updateCardText(cat, s.key, id, patch)}
+                            cardCopy={ce.copy}
+                            isSquare={size === '1080x1080'}
+                          />
+                        </ScaledPoster>
                       </div>
                       <Button
                         className="w-full mt-4"
@@ -1972,7 +2226,7 @@
           <footer className="border-t border-border bg-secondary/40 safe-bottom">
             <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
               <div className="display-bold tracking-[0.22em] uppercase text-foreground">Marian Wedding</div>
-              <div className="eyebrow text-muted-foreground">Thank You Card · For Our Couples</div>
+              <div className="eyebrow text-muted-foreground">Thank You Card · For Our Couples · build 20260518-0505</div>
             </div>
           </footer>
         </div>

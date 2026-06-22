@@ -225,99 +225,6 @@
       );
     };
 
-    const Reviews = () => {
-      const items = [
-        {
-          camera: 'Canon AE-1',
-          name: '김OO',
-          city: '서울',
-          date: '2026.04',
-          title: '필름 입문자에게 이만한 카메라가 없어요',
-          body: '디지털만 쓰다가 처음 필름으로 넘어왔는데, 배송 받자마자 컨디션 체크지가 같이 와서 마음이 놓였어요. 셔터음도 깔끔하고 노출계 정확히 살아있어서 사진 잘 나옵니다. 첫 롤 현상하고 진짜 감동했네요.',
-        },
-        {
-          camera: 'Contax T2',
-          name: '이OO',
-          city: '부산',
-          date: '2026.04',
-          title: '색감 진짜 미쳤어요',
-          body: '여행 들고가려고 큰맘 먹고 샀는데 후회 1도 없습니다. Carl Zeiss 렌즈 색감이 화면으로 봤던 것 그대로예요. 동봉된 가죽 케이스도 깔끔하고 동작 영상까지 확인하고 보내주신 거 좋았어요.',
-        },
-        {
-          camera: 'Pentax K1000',
-          name: '박OO',
-          city: '대구',
-          date: '2026.03',
-          title: '학생이 쓰기 딱 좋습니다',
-          body: '사진 동아리에서 추천 받아서 구매했어요. 가격대도 부담 없고 메뉴얼 카메라라 노출 잡는 연습하기 좋습니다. 외관에 잔기스는 있다고 미리 고지해주셨는데 사진보다 양호한 컨디션이라 만족합니다.',
-        },
-        {
-          camera: 'Olympus PEN EE-3',
-          name: '최OO',
-          city: '인천',
-          date: '2026.03',
-          title: '한 롤로 72컷, 일상 기록 최고',
-          body: '하프프레임이라 한 롤에 두 배로 찍는 재미가 있어요. 자동노출이라 셔터만 누르면 돼서 매일 들고 다닙니다. 셀렉팅하면서 살짝 청소도 해주셨다고 메모 남겨주셔서 좋았어요.',
-        },
-        {
-          camera: 'Nikon FM2',
-          name: '정OO',
-          city: '서울',
-          date: '2026.02',
-          title: '평생 쓸 카메라 만났습니다',
-          body: '튼튼하기로 유명한 FM2 — 받고 보니 명불허전이네요. 셔터 1/4000까지 다 정확하게 떨어지고, 배터리 없어도 기계식이라 작동하는 게 너무 든든해요. 1년 보증 있어서 더 안심하고 구매했습니다.',
-        },
-        {
-          camera: 'Yashica T4',
-          name: '한OO',
-          city: '광주',
-          date: '2026.02',
-          title: '주머니에 쏙 들어가는 명기',
-          body: '컴팩트한데 Zeiss 렌즈가 박혀있어서 결과물은 절대 컴팩트하지 않아요. 매뉴얼 거의 필요 없고 그냥 셔터만 누르면 됩니다. 점검 리포트에 플래시까지 전부 OK 표시돼서 확인하고 받았어요.',
-        },
-      ];
-      const Star = () => (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="inline-block">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-      );
-      return (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center mb-12">
-            <span className="text-xs tracking-[0.3em] text-stone-500">CUSTOMER REVIEWS · 4.9 / 5.0</span>
-            <h2 className="font-serif-en text-4xl md:text-5xl mt-3">직접 써본 사람들의 이야기</h2>
-            <p className="font-serif-kr mt-4 text-stone-600 text-sm">검증된 구매자가 남긴 별 다섯개 후기만 모았어요.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {items.map((r, i) => (
-              <article
-                key={i}
-                className="bg-[var(--cream-2)] border border-stone-200 p-7 flex flex-col gap-4 hover:border-stone-400 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-0.5" style={{ color: 'var(--gold)' }} aria-label="별 다섯개">
-                    <Star/><Star/><Star/><Star/><Star/>
-                  </div>
-                  <span className="text-[10px] tracking-widest text-stone-400 uppercase">{r.date}</span>
-                </div>
-                <h3 className="font-serif-kr text-lg leading-snug text-stone-900">{r.title}</h3>
-                <p className="text-sm text-stone-600 leading-relaxed flex-1">{r.body}</p>
-                <div className="pt-4 border-t border-stone-300/70 flex items-center justify-between text-xs">
-                  <span className="text-stone-500">{r.name} · {r.city}</span>
-                  <span className="font-serif-en tracking-wider text-stone-700">{r.camera}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-          <div className="text-center mt-12">
-            <a href="#" className="inline-block text-sm tracking-widest text-stone-600 hover:text-stone-900 underline underline-offset-4">
-              전체 후기 보기 →
-            </a>
-          </div>
-        </section>
-      );
-    };
-
     const FilterBar = ({ brands, activeBrand, onBrand, sort, onSort, count }) => (
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-1 flex-wrap">
@@ -1836,8 +1743,6 @@
                 <ProductGrid products={filtered} onOpen={setSelected} onAdd={addToCart}/>
               )}
             </section>
-
-            <Reviews/>
 
             {/* CTA 섹션 */}
             <section className="bg-[var(--cream-2)] border-y border-stone-200">
