@@ -43,6 +43,12 @@ model: sonnet
 
 ---
 
+### 0-4. 출력 위치 (메모리 `dailytennis-output-location`)
+- **원본 영상이 있는 작업**(레슨 릴스 등): 최종 산출물(썸네일 png·아웃트로 png·합성 mp4·캡션 `.txt`)을 **원본 영상과 같은 폴더**에 저장(빌더는 `dailytennis_reels_v2/output`에 1차 생성 후 복사).
+- **영상 없이 이미지 수급해 만든 콘텐츠**(제품 캐러셀/카드 릴스, 풀패키지 §12 등): **`~/Downloads/` 폴더**에 토픽 폴더로 저장(예: `~/Downloads/<TOPIC>/`). 슬기 지시.
+
+---
+
 ## 0. 입력 점검 (PARALLEL)
 
 - `ls -la "$VIDEO"` — 영상 검증
@@ -171,12 +177,16 @@ done
 ## 5. 빌더 작성/선택
 
 ### 5-A. 데일리테니스 프리셋
-`/Users/artcollective/Downloads/dailytennis_reels_v2/build_thumbnails_v3.py` 의 `EPISODES` 리스트에 항목 추가 (메모리 `dailytennis-reel-magazine-system` v4 표 참고). 코드 함수·상수·레이아웃 y좌표 **변경 금지**.
+`/Users/artcollective/Downloads/dailytennis_reels_v2/build_thumbnails_v3.py` 의 `EPISODES` 리스트에 항목 추가 (메모리 `dailytennis-reel-magazine-system` v4 표 참고). 코드 함수·상수·레이아웃 y좌표 **변경 금지**. 컬러 사이클(검증): …09 크림 · 10 본(BONE) · 11 라벤더… (4-cycle 본/라벤더/퍼플/크림).
+
+> **⚠️ 폰트 두부(□/⊠) 버그 — 항상 점검 (CRITICAL · 슬기 반복 지적 "박스에 엑스처진 게 지난번부터").** `Be()`(Bebas Neue)는 `▸ ◂ ● ◆ ■` 등 **기호 글리프가 없어 ⊠(notdef 박스X)로 깨진다.** 빌더 `build()`의 `ep_label` 줄이 `f"▸  {ep['ep_label']}"`를 Bebas로 그려 모든 회차에 박스X가 박혀 있었음 → **`—`(엠대시)로 교체**해 해결(상단 키커 `cap`도 `—`·`·` 사용해 정상). 규칙: **Bebas엔 ASCII/숫자/`—`/`·`만**, 화살표·도형 기호 금지. 빌드 후 썸네일 라벨/키커 영역을 확대해 `Read`로 박스X 잔존 여부 반드시 자가검수.
 
 ### 5-B. 일반 콘텐츠
 작업 디렉토리 `<영상폴더>/_thumbnail_build/` 에 `build.py` 신규 생성. `build_thumbnails_v3.py` 의 헬퍼(`prep_photo_color`, `draw_text_centered`, `Fr/FrIt/Ns/Be`)와 `build()` 본문을 골격으로 복사 + 사용자 응답 변수 적용. 폰트는 `/Users/artcollective/Downloads/dailytennis_reels_v2/fonts/` 공용 재사용. **레이아웃 y좌표는 표준 유지**.
 
 레퍼런스 이미지 모티브를 컬러/사진 처리(흑백/세피아/콘트라스트)에 반영.
+
+> **검증된 반응 1위 스타일 = "라켓 구글링→누끼→가로 나열" (메모리 `dailytennis-top-performers`).** 제품/라켓 콘텐츠는 슬기가 직접 "잘했다"고 한 **"윌슨 라켓별 어울리는 스트링"(조회 5388)** 포맷을 표준으로: 다크 네이비/차콜 배경 + 라켓 여러 개를 **구글/TW 이미지로 수급해 누끼·정렬해 가로로 나열** + 골드 small-caps 키커 + Fraunces 이탤릭 + 대형 한글 헤드라인(흰색, 강조어만 골드) + 모델 라벨 한 줄 + `@hi.dailytennis` / "데일리테니스 · 수원 인계점". 사진 구글링→썸네일화가 핵심이다(텍스트-only 금지). 레슨 콘텐츠는 반대로 EP09 "Slice" 카드(§5-A·EP 카드)를 표준으로.
 
 ### 5-C. 제품·장비 콘텐츠 = **실제 제품 이미지 필수** (CRITICAL)
 
