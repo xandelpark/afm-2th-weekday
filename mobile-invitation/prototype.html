@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>모바일 청첩장 — 4가지 컨셉</title>
+  <!--
+    AFM 모바일 청첩장 이미지 생성기 — 디자인 프로토타입
+    자매 앱 photo-poster(땡큐카드 생성기)의 아키텍처를 그대로 이어받음:
+    ScaledPoster 래퍼 / 크레파스 SVG 필터 / 보태니컬 SVG / html-to-image 캡쳐 패턴.
+    이 파일은 정적 프로토타입 — 업로드·로그인·인터랙션 없음. 4개 컨셉을 렌더하고 카드별 저장 버튼만.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Allura&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&family=Kalam:wght@400;700&family=Noto+Serif+KR:wght@200;300;400;500;600;700&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,500;1,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 카드 캡쳐: html-to-image (SVG foreignObject 기반 — 브라우저 native 렌더링 보존) -->
+  <!-- html2canvas는 unitless line-height / object-fit:cover / transform 조합 렌더링 버그가 있어 사용 안 함 -->
+  <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+  <style>
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== 폰트 클래스 ===== */
+    .font-cormorant { font-family: 'Cormorant Garamond', serif; }
+    .font-playfair  { font-family: 'Playfair Display', serif; }
+    .font-serif-kr  { font-family: 'Noto Serif KR', serif; }
+    .font-script    { font-family: 'Allura', 'Great Vibes', cursive; }
+    .font-vibes     { font-family: 'Great Vibes', 'Allura', cursive; }
+    .font-marker    { font-family: 'Permanent Marker', 'Kalam', cursive; }
+    .font-kalam     { font-family: 'Kalam', cursive; }
+    .font-mono-cap  { font-family: 'JetBrains Mono', monospace; }
+
+    /* ===== 시네마틱 컨셉 — 작은 대문자 트래킹 레이블 ===== */
+    .tracked-xs { letter-spacing: 0.42em; text-transform: uppercase; }
+
+    /* ===== 크레파스/마커 거친 질감 (키치 컨셉) — photo-poster에서 가져옴 ===== */
+    .crayon-text {
+      filter: url('#crayonFilter');
+      -webkit-text-stroke: 0.45px currentColor;
+      text-shadow:
+        0.4px 0.4px 0 currentColor,
+        -0.4px -0.3px 0 currentColor,
+        0.7px -0.2px 0 currentColor,
+        -0.2px 0.6px 0 currentColor;
+    }
+    .crayon-soft {
+      filter: url('#crayonSoftFilter');
+      -webkit-text-stroke: 0.3px currentColor;
+      text-shadow:
+        0.3px 0.3px 0 currentColor,
+        -0.3px -0.2px 0 currentColor;
+    }
+
+    /* 키치 컨셉 — 스크랩북 크림 페이퍼 (핫핑크 배경 대신 청첩장에 어울리는 따뜻한 톤) */
+    .kitsch-bg {
+      background: #FBF3E0;
+      background-image:
+        radial-gradient(circle at 20% 15%, #FFFAEC 0%, transparent 46%),
+        radial-gradient(circle at 86% 90%, #F4E7CC 0%, transparent 52%);
+    }
+
+    /* 스크롤바 살짝 정리 */
+    ::-webkit-scrollbar { width: 9px; }
+    ::-webkit-scrollbar-thumb { background: #d8d2c6; border-radius: 9px; }
+  </style>
+</head>
+<body class="bg-[#E8E3D8] text-[#2A2A2A]">
+  <!-- 크레파스 질감 SVG turbulence 필터 (키치 컨셉용) — photo-poster #crayonFilter / #crayonSoftFilter 그대로 -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="crayonFilter" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.78" numOctaves="2" seed="7" />
+        <feDisplacementMap in="SourceGraphic" scale="1.6" />
+      </filter>
+      <filter id="crayonSoftFilter" x="-6%" y="-6%" width="112%" height="112%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="3" />
+        <feDisplacementMap in="SourceGraphic" scale="0.9" />
+      </filter>
+      <!-- 키치 사진 스티커 — 거친 흰 테두리를 만들기 위한 변위 필터 (테두리 path 전용) -->
+      <filter id="stickerRough" x="-12%" y="-12%" width="124%" height="124%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="3" seed="11" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" />
+      </filter>
+    </defs>
+  </svg>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useRef, useEffect } = React;
+    const cn = (...c) => c.filter(Boolean).join(' ');
+
+    // 샘플 사진 — prototype.html 기준 same-origin 상대경로 (assets/samples/)
+    const SAMPLES = {
+      minimal:    'assets/samples/sample-minimal.jpg',
+      romantic:   'assets/samples/sample-invitation.jpg',
+      cinematic:  'assets/samples/sample-emotive.jpg',
+      kitsch:     'assets/samples/sample-kitsch.jpg',
+    };
+    // 시네마틱 3분할 — 패널 1/2/3 에 들어갈 서로 다른 3장.
+    // 실제 앱: 신랑신부가 "다가감 → 마주섬 → 하나됨" 3장을 직접 업로드한다.
+    const CINEMATIC_SET = [
+      'assets/samples/sample-invitation.jpg',
+      'assets/samples/sample-minimal.jpg',
+      'assets/samples/sample-emotive.jpg',
+    ];
+
+    // 모든 카드 공통 예식 정보 (가상)
+    const WEDDING = {
+      groom: '김민수',
+      bride: '이지혜',
+      dateLine1: '2026년 6월 14일 토요일',
+      dateLine2: '오후 1시',
+      dateShort: '2026 . 06 . 14 . SAT',
+      venue: '그랜드컨벤션 5층 그레이스홀',
+      venueShort: '그랜드컨벤션 그레이스홀',
+    };
+
+    // ========================================
+    // 🖼️ ScaledPoster — photo-poster에서 그대로 복사
+    // 카드를 baseWidth × (baseWidth/ratio) 고정 크기로 렌더하고,
+    // 외부 wrapper 실제 폭에 맞춰 transform: scale 로 축소·확대. ResizeObserver로 폭 추적.
+    // 청첩장 카드 규격: baseWidth=360, ratio=9/16 → 360×640 렌더 (실제 비율 1080×1920).
+    // ========================================
+    function ScaledPoster({ className = '', baseWidth = 360, ratio = 9/16, children, innerRef }) {
+      const wrapRef = useRef(null);
+      const [scale, setScale] = useState(1);
+      useEffect(() => {
+        const el = wrapRef.current;
+        if (!el) return;
+        const update = () => {
+          const w = el.offsetWidth || 0;
+          setScale(w / baseWidth);
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+      }, [baseWidth]);
+      const baseHeight = baseWidth / ratio;
+      return (
+        <div ref={wrapRef} className={cn('relative overflow-hidden', className)} style={{ aspectRatio: `${ratio}` }}>
+          {/* innerRef는 캡쳐 대상 — 스케일되지 않은 원본 크기 노드를 가리킨다 */}
+          <div
+            ref={innerRef}
+            style={{ width: `${baseWidth}px`, height: `${baseHeight}px`, transformOrigin: 'top left', transform: `scale(${scale})` }}
+          >
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🌿 보태니컬 SVG — photo-poster의 LeafSprig / FlowerSprig / HeartTiny 재사용 (클래식 로맨틱)
+    // ========================================
+    function LeafSprig({ className = '', mirror = false }) {
+      return (
+        <svg viewBox="0 0 60 24" className={className} fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" style={mirror ? { transform: 'scaleX(-1)' } : undefined}>
+          <path d="M3 12 C 18 12, 30 12, 56 12" />
+          <path d="M14 12 C 14 8, 16 6, 19 5"  />
+          <path d="M14 12 C 14 16, 16 18, 19 19" />
+          <path d="M24 12 C 24 9, 26 7, 29 6.5" />
+          <path d="M24 12 C 24 15, 26 17, 29 17.5" />
+          <path d="M34 12 C 34 9.5, 36 8, 39 7.6" />
+          <path d="M34 12 C 34 14.5, 36 16, 39 16.4" />
+          <path d="M44 12 C 44 10.5, 46 9.5, 48 9.2" />
+          <path d="M44 12 C 44 13.5, 46 14.5, 48 14.8" />
+        </svg>
+      );
+    }
+    function FlowerSprig({ className = '', mirror = false }) {
+      return (
+        <svg viewBox="0 0 64 28" className={className} fill="none" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" style={mirror ? { transform: 'scaleX(-1)' } : undefined}>
+          <path d="M2 14 C 18 14, 34 14, 60 14" />
+          <path d="M14 14 C 14 9, 17 7, 21 6.5" />
+          <path d="M14 14 C 14 19, 17 21, 21 21.5" />
+          <path d="M26 14 C 26 11, 28 9.5, 31 9" />
+          <path d="M26 14 C 26 17, 28 18.5, 31 19" />
+          <circle cx="40" cy="9.5" r="1.6" fill="currentColor" stroke="none" opacity="0.85" />
+          <path d="M38.4 9.5 C 38.4 7.5, 41.6 7.5, 41.6 9.5" />
+          <path d="M38.4 9.5 C 38.4 11.5, 41.6 11.5, 41.6 9.5" />
+          <path d="M40 14 L 40 11" />
+          <circle cx="50" cy="18" r="1.4" fill="currentColor" stroke="none" opacity="0.85" />
+          <path d="M50 14 L 50 16.6" />
+          <path d="M44 14 C 46 12.5, 48 12.5, 49.5 13.6" />
+          <path d="M44 14 C 46 15.5, 48 15.5, 49.5 14.4" />
+        </svg>
+      );
+    }
+    function HeartTiny({ className = '' }) {
+      return (
+        <svg viewBox="0 0 20 20" className={className} fill="currentColor">
+          <path d="M10 17s-6-3.6-6-8a4 4 0 0 1 6-3.5A4 4 0 0 1 16 9c0 4.4-6 8-6 8z" opacity="0.85" />
+        </svg>
+      );
+    }
+
+    // 키치 컨셉 낙서풍 도형 — 손그림 별 / 동글뱅이 / 하트
+    function DoodleStar({ className = '', color = '#fff' }) {
+      return (
+        <svg viewBox="0 0 40 40" className={className} fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 5 L24 16 L36 16 L26 23 L30 35 L20 28 L10 35 L14 23 L4 16 L16 16 Z" />
+        </svg>
+      );
+    }
+    function DoodleSpark({ className = '', color = '#fff' }) {
+      return (
+        <svg viewBox="0 0 30 30" className={className} fill="none" stroke={color} strokeWidth="3.2" strokeLinecap="round">
+          <path d="M15 3 L15 12 M15 18 L15 27 M3 15 L12 15 M18 15 L27 15" />
+        </svg>
+      );
+    }
+    function DoodleHeart({ className = '', color = '#fff' }) {
+      return (
+        <svg viewBox="0 0 36 32" className={className} fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 28 C 6 19, 3 12, 9 7 C 13 3.5, 18 7, 18 11 C 18 7, 23 3.5, 27 7 C 33 12, 30 19, 18 28 Z" />
+        </svg>
+      );
+    }
+
+    // ========================================
+    // 📄 컨셉 1 — 에디토리얼 미니멀 (Editorial Minimal)
+    // 2026 트렌드: 타이포 중심 · 여백. 매거진 표지 무드.
+    // 따뜻한 아이보리/샌드 배경, 사진은 풀블리드 아님(중앙~상단 직사각 배치),
+    // 큰 세리프 디스플레이, 작은 대문자 트래킹 eyebrow.
+    // ========================================
+    function CardEditorialMinimal() {
+      return (
+        <div className="w-full h-full bg-[#F3EEE4] relative flex flex-col items-center">
+          {/* 가는 내부 프레임 라인 — 절제된 매거진 테두리 */}
+          <div className="absolute inset-[20px] border border-[#C9BFA8] pointer-events-none" />
+
+          {/* eyebrow */}
+          <div className="mt-[64px] text-center px-10">
+            <p className="font-cormorant tracked-xs text-[12px] text-[#9A8E73] font-medium">The Wedding of</p>
+            <div className="mx-auto mt-3 w-[26px] h-[1px] bg-[#B6AB90]" />
+          </div>
+
+          {/* 사진 — 풀블리드 아님: 좌우·아래 여백 둔 직사각형 */}
+          <div className="mt-[26px] w-[244px] h-[300px] overflow-hidden">
+            <img
+              src={SAMPLES.minimal}
+              alt="신랑 신부"
+              className="w-full h-full object-cover"
+              style={{ filter: 'grayscale(0.12) contrast(1.02)' }}
+            />
+          </div>
+
+          {/* 신랑 신부 이름 — 큰 세리프 디스플레이 */}
+          <div className="mt-[30px] text-center leading-none">
+            <p className="font-playfair italic text-[34px] text-[#2E2A22]">{WEDDING.groom}</p>
+            <p className="font-cormorant text-[15px] tracking-[0.5em] text-[#A89B7E] my-[10px] pl-[0.5em]">AND</p>
+            <p className="font-playfair italic text-[34px] text-[#2E2A22]">{WEDDING.bride}</p>
+          </div>
+
+          {/* 한 줄 카피 */}
+          <p className="mt-[24px] font-serif-kr text-[12px] text-[#6F6650] tracking-[0.06em]">
+            저희 두 사람, 하나가 되려 합니다.
+          </p>
+
+          {/* 날짜 · 장소 */}
+          <div className="mt-auto mb-[58px] text-center">
+            <div className="mx-auto w-[22px] h-[1px] bg-[#B6AB90] mb-[14px]" />
+            <p className="font-cormorant text-[15px] tracking-[0.34em] text-[#3A3528] pl-[0.34em]">
+              06 . 14 . 2026
+            </p>
+            <p className="font-serif-kr text-[11px] text-[#857A60] mt-[8px] tracking-[0.08em]">
+              {WEDDING.dateLine1} {WEDDING.dateLine2}
+            </p>
+            <p className="font-serif-kr text-[11px] text-[#857A60] mt-[3px] tracking-[0.08em]">
+              {WEDDING.venue}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 컨셉 2 — 클래식 로맨틱 (Classic Romantic)
+    // 정통 감성 청첩장. 풀블리드 사진 + 부드러운 그라데이션 오버레이,
+    // 보태니컬 라인아트 sprig, 캘리그래피 스크립트, 블러시/세이지 톤.
+    // ========================================
+    function CardClassicRomantic() {
+      return (
+        <div className="w-full h-full relative overflow-hidden bg-[#E9D9D0]">
+          {/* 풀블리드 사진 */}
+          <img
+            src={SAMPLES.romantic}
+            alt="신랑 신부"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {/* 가독성용 그라데이션 오버레이 — 위·아래 더스티 블러시 톤 */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(60,40,44,0.46) 0%, rgba(60,40,44,0.05) 26%, rgba(60,40,44,0.04) 54%, rgba(54,38,42,0.62) 84%, rgba(48,34,38,0.78) 100%)',
+            }}
+          />
+          {/* 살짝 따뜻한 블러시 컬러 틴트 */}
+          <div className="absolute inset-0 mix-blend-soft-light" style={{ background: 'linear-gradient(180deg,#f6d9cf 0%, #cbd6c2 100%)', opacity: 0.34 }} />
+
+          {/* 가는 내부 프레임 */}
+          <div className="absolute inset-[18px] border border-white/45 pointer-events-none" />
+
+          {/* 상단 — eyebrow + 보태니컬 sprig */}
+          <div className="absolute top-[44px] left-0 right-0 flex flex-col items-center text-white/90">
+            <FlowerSprig className="w-[78px] h-[34px] text-white/80" />
+            <p className="font-cormorant text-[11px] tracking-[0.4em] mt-[10px] pl-[0.4em]">WE ARE GETTING MARRIED</p>
+          </div>
+
+          {/* 중앙 하단 — 스크립트 헤드라인 + 이름 */}
+          <div className="absolute left-0 right-0 bottom-[120px] flex flex-col items-center text-white text-center px-8">
+            <p className="font-script text-[68px] leading-[0.8] text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+              Wedding
+            </p>
+            <div className="flex items-center gap-3 mt-[18px]">
+              <LeafSprig className="w-[40px] h-[16px] text-white/75" />
+              <HeartTiny className="w-[12px] h-[12px] text-[#F4C9C0]" />
+              <LeafSprig className="w-[40px] h-[16px] text-white/75" mirror />
+            </div>
+            <p className="font-serif-kr text-[13px] mt-[16px] tracking-[0.05em] text-white/95">
+              {WEDDING.groom} <span className="font-cormorant text-[12px] mx-[2px] text-[#F4C9C0]">&amp;</span> {WEDDING.bride}
+            </p>
+            <p className="font-serif-kr text-[10.5px] mt-[10px] leading-[1.7] text-white/80">
+              서로의 곁에서 평생을 약속합니다.<br/>귀한 걸음으로 축복해 주세요.
+            </p>
+          </div>
+
+          {/* 하단 — 날짜 · 장소 */}
+          <div className="absolute left-0 right-0 bottom-[44px] flex flex-col items-center text-white/90">
+            <div className="w-[1px] h-[20px] bg-white/45" />
+            <p className="font-cormorant text-[13px] tracking-[0.28em] mt-[10px] pl-[0.28em]">2026 . 06 . 14 . SAT . PM 1:00</p>
+            <p className="font-serif-kr text-[10px] mt-[6px] tracking-[0.07em] text-white/75">{WEDDING.venue}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 컨셉 3 — 시네마틱 3분할 (Cinematic Triptych)
+    // "다가가다 → 마주서다 → 하나가되다" — 서로 다른 3장의 사진을 가로 띠 3개로
+    // 위→아래로 쌓는다. 띠 사이 얇은 간격 → 필름 스트립 시퀀스.
+    // 다크 무드 + 위아래 레터박스 바 + 모노스페이스 캡션.
+    //
+    // 각 패널 = 사진 1장 (CINEMATIC_SET[0..2]). 실제 앱에선 신랑신부가
+    // 다가감→마주섬→하나됨 3장을 직접 업로드한다. 프로토타입은 샘플 3장으로 구조 시연.
+    // ========================================
+    function CinematicPanel({ src, caption, label }) {
+      return (
+        <div className="relative w-full flex-1 overflow-hidden bg-black">
+          {/* 패널마다 자기 사진 1장을 꽉 채움 */}
+          <img
+            src={src}
+            alt={caption}
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ filter: 'contrast(1.08) saturate(0.9) brightness(0.95)' }}
+          />
+          {/* 패널 하단 살짝 어둡게 — 캡션 가독성 */}
+          <div className="absolute inset-x-0 bottom-0 h-[58%]" style={{ background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.74))' }} />
+          {/* 패널 캡션 — 좌하단, 모노스페이스 넘버 + 한국어 라벨 */}
+          <div className="absolute left-[13px] bottom-[9px] flex flex-col">
+            <span className="font-mono-cap text-[8px] text-white/55 tracking-[0.24em]">{label}</span>
+            <span className="font-serif-kr text-[12px] text-white/95 mt-[2px] tracking-[0.04em]">{caption}</span>
+          </div>
+        </div>
+      );
+    }
+    function CardCinematicTriptych() {
+      return (
+        <div className="w-full h-full bg-[#0C0C0E] relative flex flex-col">
+          {/* 상단 레터박스 바 */}
+          <div className="h-[118px] shrink-0 flex flex-col items-center justify-end pb-[18px] bg-[#0C0C0E]">
+            <p className="font-mono-cap text-[8.5px] tracking-[0.34em] text-white/45">A SHORT FILM</p>
+            <p className="font-serif-kr text-[26px] font-light tracking-[0.16em] text-white mt-[8px] pl-[0.16em]">그날, 우리</p>
+          </div>
+
+          {/* 가로 3분할 필름 스트립 — 위→아래로 쌓인 3개 띠, 각 띠에 다른 사진 1장 */}
+          <div className="flex-1 flex flex-col gap-[3px] px-[3px]">
+            <CinematicPanel src={CINEMATIC_SET[0]} label="SCENE 01" caption="다가가다" />
+            <CinematicPanel src={CINEMATIC_SET[1]} label="SCENE 02" caption="마주서다" />
+            <CinematicPanel src={CINEMATIC_SET[2]} label="SCENE 03" caption="하나가되다" />
+          </div>
+
+          {/* 하단 레터박스 바 — 이름 · 날짜 크레딧 */}
+          <div className="h-[150px] shrink-0 flex flex-col items-center justify-center bg-[#0C0C0E] gap-[10px]">
+            <div className="w-[30px] h-[1px] bg-white/30" />
+            <p className="font-cormorant text-[24px] tracking-[0.14em] text-white pl-[0.14em]">
+              MINSU <span className="text-white/45">&amp;</span> JIHYE
+            </p>
+            <p className="font-serif-kr text-[11px] text-white/65 tracking-[0.05em]">
+              {WEDDING.groom} · {WEDDING.bride}
+            </p>
+            <p className="font-mono-cap text-[9px] text-white/55 tracking-[0.22em] mt-[2px]">
+              {WEDDING.dateShort} &nbsp;|&nbsp; PM 01:00
+            </p>
+            <p className="font-serif-kr text-[9.5px] text-white/45 tracking-[0.06em]">
+              {WEDDING.venue}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 컨셉 4 — 키치 크레파스 (Kitsch Crayon)
+    // 스크랩북/다꾸 무드 — 크림 페이퍼 배경에 폴라로이드 사진 + 손글씨 마커 + 낙서 도형.
+    // 사진은 블롭으로 자르지 않고 흰 폴라로이드 프레임 안에 "전체가 보이게"(object-contain).
+    // 프레임 가장자리는 크레파스 거친 질감(#stickerRough), 살짝 기울임 + 하드 섀도우.
+    // 핫핑크 배경 대신 청첩장에 어울리는 크림 톤 + 키치 액센트 컬러(코랄·라임·머스터드).
+    // ========================================
+    function KitschPhotoCard() {
+      // 흰 폴라로이드 프레임 — 사진은 object-contain 으로 잘림 없이 전체가 보인다.
+      return (
+        <div className="relative" style={{ width: '268px', height: '258px' }}>
+          {/* 하드 섀도우 — 폴라로이드가 종이 위에 얹힌 느낌 */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'rgba(60,48,32,0.26)',
+              transform: 'translate(7px, 9px)',
+              filter: 'url(#stickerRough)',
+            }}
+          />
+          {/* 흰 폴라로이드 프레임 — 크레파스 거친 가장자리 */}
+          <div className="absolute inset-0 bg-white" style={{ filter: 'url(#stickerRough)' }} />
+          {/* 사진 — 프레임 안쪽, object-contain 으로 전체가 다 보이게 */}
+          <div className="absolute bg-[#F2EADA] overflow-hidden" style={{ inset: '13px 13px 44px 13px' }}>
+            <img
+              src={SAMPLES.kitsch}
+              alt="신랑 신부"
+              className="w-full h-full object-contain"
+              style={{ filter: 'saturate(1.1) contrast(1.04)' }}
+            />
+          </div>
+          {/* 폴라로이드 하단 여백 — 손글씨 한 줄 */}
+          <p className="absolute left-0 right-[2px] bottom-[12px] text-center font-kalam text-[#3A352E] text-[14px] font-bold">
+            our wedding day ♡
+          </p>
+        </div>
+      );
+    }
+    function CardKitschCrayon() {
+      return (
+        <div className="w-full h-full kitsch-bg relative overflow-hidden flex flex-col items-center">
+          {/* 낙서풍 도형 흩뿌리기 — 크림 배경에 맞춰 코랄·라임·머스터드 */}
+          <DoodleStar  className="absolute top-[40px] left-[26px] w-[40px] h-[40px] rotate-[-12deg]" color="#F2B705" />
+          <DoodleSpark className="absolute top-[150px] right-[28px] w-[30px] h-[30px]" color="#FF5C8A" />
+          <DoodleHeart className="absolute bottom-[206px] left-[24px] w-[34px] h-[30px] rotate-[10deg]" color="#FF5C8A" />
+          <DoodleStar  className="absolute bottom-[78px] right-[30px] w-[30px] h-[30px] rotate-[18deg]" color="#9CC72E" />
+          <DoodleSpark className="absolute top-[300px] left-[40px] w-[22px] h-[22px]" color="#F2B705" />
+
+          {/* 상단 마커 헤드라인 — crayon-text 필터 */}
+          <div className="mt-[54px] text-center leading-[0.98] z-10">
+            <p className="font-marker crayon-text text-[#FF5C8A] text-[44px]">우리</p>
+            <p className="font-marker crayon-text text-[#2C2722] text-[52px] mt-[2px]">결혼해요!</p>
+          </div>
+
+          {/* 폴라로이드 사진 카드 */}
+          <div className="mt-[28px] z-10 rotate-[-3deg]">
+            <KitschPhotoCard />
+          </div>
+
+          {/* 이름 — 라임 형광 태그 위 마커 */}
+          <div className="mt-[32px] z-10 rotate-[2deg]">
+            <div className="bg-[#C6E84B] px-[18px] py-[7px]" style={{ boxShadow: '4px 5px 0 rgba(60,48,32,0.28)' }}>
+              <p className="font-marker text-[#2C2722] text-[22px] crayon-soft">
+                민수 <span className="text-[#FF5C8A]">♥</span> 지혜
+              </p>
+            </div>
+          </div>
+
+          {/* 날짜 — 손글씨 마커 */}
+          <div className="mt-[20px] z-10 text-center">
+            <p className="font-marker text-[#2C2722] crayon-soft text-[20px] rotate-[-2deg]">
+              2026. 6. 14. SAT
+            </p>
+            <p className="font-kalam text-[#6A6258] text-[13px] mt-[7px] font-bold">
+              오후 1시 · {WEDDING.venueShort}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 카드 메타 — 4개 컨셉 정의
+    // ========================================
+    const CONCEPTS = [
+      {
+        key: 'editorial',
+        title: '에디토리얼 미니멀',
+        en: 'Editorial Minimal',
+        desc: '타이포 중심 · 여백의 매거진 표지',
+        Card: CardEditorialMinimal,
+      },
+      {
+        key: 'romantic',
+        title: '클래식 로맨틱',
+        en: 'Classic Romantic',
+        desc: '풀블리드 사진 · 보태니컬 · 캘리그래피',
+        Card: CardClassicRomantic,
+      },
+      {
+        key: 'cinematic',
+        title: '시네마틱 3분할',
+        en: 'Cinematic Triptych',
+        desc: '3분할 컷 · 다크 · 필름 스트립',
+        Card: CardCinematicTriptych,
+      },
+      {
+        key: 'kitsch',
+        title: '키치 크레파스',
+        en: 'Kitsch Crayon',
+        desc: '스크랩북 · 폴라로이드 · 손글씨',
+        Card: CardKitschCrayon,
+      },
+    ];
+
+    // ========================================
+    // 🧩 ConceptCard — 카드 1장 + 저장 버튼 래퍼
+    // ========================================
+    function ConceptCard({ concept, index }) {
+      const captureRef = useRef(null);   // 스케일되지 않은 원본 캡쳐 노드
+      const [busy, setBusy] = useState(false);
+      const { Card } = concept;
+
+      // ── 카드 저장: photo-poster의 downloadCard 패턴.
+      //   html-to-image로 캡쳐 → toJpeg → fetch → blob → <a download>.
+      //   document.fonts.ready + 이미지 로드 완료 대기 포함.
+      //   사진이 정적 same-origin 자산이라 blob→dataURL 변환 단계는 불필요.
+      const downloadCard = async () => {
+        const node = captureRef.current;
+        const lib = window.htmlToImage;
+        if (!node || !lib) {
+          alert('아직 준비 중입니다. 잠시 후 다시 시도해 주세요.');
+          return;
+        }
+        setBusy(true);
+        try {
+          // 1) 폰트 완전 로드 보장
+          if (document.fonts && document.fonts.ready) {
+            try { await document.fonts.ready; } catch {}
+          }
+          // 2) 카드 안 이미지 완전 로드 보장
+          const imgs = Array.from(node.querySelectorAll('img'));
+          await Promise.all(imgs.map(img =>
+            img.complete && img.naturalWidth > 0
+              ? Promise.resolve()
+              : new Promise((r) => {
+                  img.addEventListener('load',  r, { once: true });
+                  img.addEventListener('error', r, { once: true });
+                })
+          ));
+          // 3) 레이아웃 안정화 — 2 프레임 대기
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+          // html-to-image: SVG foreignObject 기반 — line-height / object-fit / transform / SVG필터 보존.
+          // toJpeg → dataURL → Blob (toBlob은 PNG만 지원).
+          const dataUrl = await lib.toJpeg(node, {
+            quality: 0.95,
+            pixelRatio: 3,            // 360×640 → 1080×1920 출력
+            backgroundColor: '#ffffff',
+          });
+          const blob = await (await fetch(dataUrl)).blob();
+          if (!blob) throw new Error('빈 이미지');
+
+          const filename = `mobile-invitation-${concept.key}-${Date.now()}.jpg`;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+          alert('카드 저장 실패: ' + (e?.message || e));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      return (
+        <div className="flex flex-col">
+          {/* 컨셉 라벨 */}
+          <div className="flex items-baseline gap-2 mb-3 px-1">
+            <span className="font-cormorant text-[15px] text-[#9A8E73] tabular-nums">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-tight text-[#2A2A2A]">{concept.title}</h2>
+              <p className="text-[11px] text-[#8A8270]">
+                <span className="font-cormorant italic">{concept.en}</span> · {concept.desc}
+              </p>
+            </div>
+          </div>
+
+          {/* 카드 — ScaledPoster (1080×1920 비율, baseWidth 360 / ratio 9:16) */}
+          <div className="rounded-[14px] overflow-hidden shadow-[0_12px_34px_-8px_rgba(40,30,20,0.35)] ring-1 ring-black/5">
+            <ScaledPoster baseWidth={360} ratio={9/16} innerRef={captureRef}>
+              <Card />
+            </ScaledPoster>
+          </div>
+
+          {/* 저장 버튼 */}
+          <button
+            onClick={downloadCard}
+            disabled={busy}
+            className={cn(
+              'mt-3 inline-flex items-center justify-center gap-2 w-full',
+              'h-11 rounded-full text-[13px] font-semibold tracking-wide',
+              'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+              'bg-[#2A2A2A] text-[#F3EEE4] hover:bg-[#403c33] active:scale-[0.99]'
+            )}
+            aria-label={`${concept.title} 이미지 저장`}
+          >
+            {busy ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                  <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+                저장 중…
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                이미지 저장 (JPG)
+              </>
+            )}
+          </button>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App — 헤더 + 4컨셉 그리드
+    // ========================================
+    function App() {
+      return (
+        <div className="min-h-screen w-full">
+          {/* 헤더 */}
+          <header className="border-b border-[#D3CCBC] bg-[#EFEAE0]">
+            <div className="max-w-[920px] mx-auto px-5 py-9 text-center">
+              <p className="font-cormorant tracked-xs text-[11px] text-[#9A8E73] mb-3">
+                Mobile Wedding Invitation
+              </p>
+              <h1 className="font-playfair text-[30px] sm:text-[36px] text-[#2A2A2A] leading-tight">
+                모바일 청첩장 <span className="font-cormorant italic text-[#9A8E73]">— 4가지 컨셉</span>
+              </h1>
+              <p className="mt-3 text-[12.5px] text-[#7C7460] font-serif-kr">
+                사진 한 장으로 완성하는 네 가지 무드의 청첩장 카드 · 1080 × 1920
+              </p>
+            </div>
+          </header>
+
+          {/* 카드 그리드 — 모바일 1열 / 태블릿 이상 2열 */}
+          <main className="max-w-[920px] mx-auto px-5 py-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-7 gap-y-12">
+              {CONCEPTS.map((c, i) => (
+                <ConceptCard key={c.key} concept={c} index={i} />
+              ))}
+            </div>
+
+            {/* 푸터 안내 */}
+            <p className="mt-14 text-center text-[11px] text-[#9A9484] font-serif-kr leading-relaxed">
+              디자인 프로토타입 · 가상 예식 정보({WEDDING.groom} ♥ {WEDDING.bride})로 렌더링되었습니다.<br/>
+              실제 서비스에서는 사용자 사진 업로드와 정보 입력으로 각 컨셉이 생성됩니다.
+            </p>
+          </main>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

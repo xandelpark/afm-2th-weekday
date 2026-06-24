@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>face-mosaic · 얼굴 자동 가림</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+  <script>
+    // face-api 번들에 포함된 tfjs 인스턴스를 coco-ssd가 쓰도록 다리 놓기 (인스턴스 충돌 방지)
+    window.tf = faceapi.tf;
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist/coco-ssd.min.js"></script>
+  <style>
+    html, body { background: #0b0f17; }
+    .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
+  </style>
+</head>
+<body class="text-slate-100">
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
+    const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
+
+    const STRENGTH = {
+      light:  { label: "약", blur: 0.14, blocks: 16 },
+      medium: { label: "중", blur: 0.22, blocks: 11 },
+      strong: { label: "강", blur: 0.32, blocks: 7  },
+    };
+
+    const isImage = (name) => {
+      const ext = name.split(".").pop().toLowerCase();
+      return IMAGE_EXT.includes(ext);
+    };
+
+    // 얼굴 박스를 머리카락/턱까지 덮도록 확장 + 캔버스 경계 클램프
+    const expandBox = (b, W, H) => {
+      const ex = b.width * 0.32;
+      const eyTop = b.height * 0.55;   // 이마/머리 위
+      const eyBot = b.height * 0.30;   // 턱 아래
+      let x = b.x - ex;
+      let y = b.y - eyTop;
+      let w = b.width + ex * 2;
+      let h = b.height + eyTop + eyBot;
+      if (x < 0) { w += x; x = 0; }
+      if (y < 0) { h += y; y = 0; }
+      if (x + w > W) w = W - x;
+      if (y + h > H) h = H - y;
+      return { x, y, w, h };
+    };
+
+    // 한 얼굴 영역을 타원 클립으로 자연스럽게 가림
+    const maskFace = (ctx, source, box, style, s) => {
+      const cx = box.x + box.w / 2;
+      const cy = box.y + box.h / 2;
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, box.w / 2, box.h / 2, 0, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      if (style === "blur") {
+        const r = Math.max(5, box.w * s.blur);
+        ctx.filter = `blur(${r}px)`;
+        ctx.drawImage(source, 0, 0);
+        ctx.filter = "none";
+      } else {
+        const sw = Math.max(2, s.blocks);
+        const sh = Math.max(2, Math.round(s.blocks * box.h / box.w));
+        const tmp = document.createElement("canvas");
+        tmp.width = sw; tmp.height = sh;
+        const tctx = tmp.getContext("2d");
+        tctx.drawImage(source, box.x, box.y, box.w, box.h, 0, 0, sw, sh);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tmp, 0, 0, sw, sh, box.x, box.y, box.w, box.h);
+        ctx.imageSmoothingEnabled = true;
+      }
+      ctx.restore();
+    };
+
+    // 두 박스의 IoU
+    const iou = (a, b) => {
+      const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+      const x2 = Math.min(a.x + a.width, b.x + b.width), y2 = Math.min(a.y + a.height, b.y + b.height);
+      const w = Math.max(0, x2 - x1), h = Math.max(0, y2 - y1);
+      const inter = w * h;
+      const u = a.width * a.height + b.width * b.height - inter;
+      return u > 0 ? inter / u : 0;
+    };
+
+    // 겹치는 박스를 합집합으로 병합(중복 제거 + 커버리지 보존)
+    const mergeBoxes = (boxes, thr = 0.3) => {
+      const out = [];
+      boxes.sort((p, q) => q.width * q.height - p.width * p.height);
+      for (const b of boxes) {
+        let merged = false;
+        for (const o of out) {
+          if (iou(b, o) > thr) {
+            const x1 = Math.min(o.x, b.x), y1 = Math.min(o.y, b.y);
+            const x2 = Math.max(o.x + o.width, b.x + b.width), y2 = Math.max(o.y + o.height, b.y + b.height);
+            o.x = x1; o.y = y1; o.width = x2 - x1; o.height = y2 - y1;
+            merged = true; break;
+          }
+        }
+        if (!merged) out.push({ ...b });
+      }
+      return out;
+    };
+
+    // 강화된 얼굴 탐지: 전체 1패스 + (정밀 모드) 타일 분할 + (최대 모드) Tiny 검출기 병행
+    const detectFaces = async (bitmap, W, H, opt) => {
+      const all = [];
+      const detectOn = async (cv, ox, oy, scale) => {
+        const ssd = await faceapi.detectAllFaces(cv, new faceapi.SsdMobilenetv1Options({ minConfidence: opt.sensitivity }));
+        for (const d of ssd) {
+          const b = d.box;
+          all.push({ x: ox + b.x / scale, y: oy + b.y / scale, width: b.width / scale, height: b.height / scale });
+        }
+        if (opt.multiDetector) {
+          const tiny = await faceapi.detectAllFaces(cv, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: Math.max(0.15, opt.sensitivity - 0.1) }));
+          for (const d of tiny) {
+            const b = d.box;
+            all.push({ x: ox + b.x / scale, y: oy + b.y / scale, width: b.width / scale, height: b.height / scale });
+          }
+        }
+      };
+
+      // 전체 패스 (큰 얼굴용)
+      const GMAX = 2000;
+      const gScale = Math.min(1, GMAX / Math.max(W, H));
+      const gc = document.createElement("canvas");
+      gc.width = Math.round(W * gScale); gc.height = Math.round(H * gScale);
+      gc.getContext("2d").drawImage(bitmap, 0, 0, gc.width, gc.height);
+      await detectOn(gc, 0, 0, gScale);
+
+      // 사람 검출 보조 패스: 얼굴이 부분만 보일 때 머리 영역 근사 (몸·어깨가 잡힐 때만 유효)
+      if (opt.personModel) {
+        try {
+          const persons = await opt.personModel.detect(gc, 20, 0.35);
+          for (const p of persons) {
+            if (p.class !== "person") continue;
+            const [px, py, pw, ph] = p.bbox;
+            const headW = pw * 0.55;
+            const headH = Math.min(ph * 0.22, pw * 0.65);
+            const headX = px + (pw - headW) / 2;
+            all.push({
+              x: headX / gScale,
+              y: py / gScale,
+              width: headW / gScale,
+              height: headH / gScale,
+              _src: "person",
+            });
+          }
+        } catch (e) {
+          // 사람 검출 실패는 조용히 무시 — 얼굴 검출 결과만 사용
+        }
+      }
+
+      // 타일 패스 (작은/원거리 얼굴용)
+      if (opt.precise && Math.max(W, H) > 1500) {
+        const TILE = 1100, OV = 0.2;
+        const cols = Math.min(5, Math.ceil(W / TILE));
+        const rows = Math.min(5, Math.ceil(H / TILE));
+        const stepX = W / cols, stepY = H / rows;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            let sx = Math.max(0, c * stepX - stepX * OV);
+            let sy = Math.max(0, r * stepY - stepY * OV);
+            let sw = stepX * (1 + 2 * OV), sh = stepY * (1 + 2 * OV);
+            if (sx + sw > W) sw = W - sx;
+            if (sy + sh > H) sh = H - sy;
+            const tScale = Math.min(1, 1100 / Math.max(sw, sh));
+            const tc = document.createElement("canvas");
+            tc.width = Math.round(sw * tScale); tc.height = Math.round(sh * tScale);
+            tc.getContext("2d").drawImage(bitmap, sx, sy, sw, sh, 0, 0, tc.width, tc.height);
+            await detectOn(tc, sx, sy, tScale);
+          }
+        }
+      }
+      return mergeBoxes(all, 0.3);
+    };
+
+    const DET_MODE = {
+      standard: { label: "표준 (빠름)", precise: false, multiDetector: false },
+      precise:  { label: "정밀 (권장)", precise: true,  multiDetector: false },
+      max:      { label: "최대 (느림)", precise: true,  multiDetector: true  },
+    };
+
+    function App() {
+      const [supported, setSupported] = useState(true);
+      const [modelState, setModelState] = useState("loading"); // loading | ready | error
+      const [personState, setPersonState] = useState("loading"); // loading | ready | error
+      const personModelRef = useRef(null);
+      const [folders, setFolders] = useState([]); // {id, handle, name, count}
+      const [settings, setSettings] = useState({ strength: "medium", sensitivity: 0.3, suffix: "_masked", quality: 0.92, detMode: "max" });
+      const [processing, setProcessing] = useState(false);
+      const [logs, setLogs] = useState([]);
+      const [progress, setProgress] = useState({ done: 0, total: 0 });
+      const logRef = useRef(null);
+      const idRef = useRef(0);
+
+      const log = useCallback((msg, kind = "info") => {
+        setLogs((prev) => [...prev, { t: new Date().toLocaleTimeString("ko-KR"), msg, kind }]);
+      }, []);
+
+      useEffect(() => {
+        if (!window.showDirectoryPicker || !window.DataTransferItem || !DataTransferItem.prototype.getAsFileSystemHandle) {
+          setSupported(false);
+        }
+      }, []);
+
+      useEffect(() => {
+        (async () => {
+          try {
+            await Promise.all([
+              faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+              faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            ]);
+            setModelState("ready");
+            log("얼굴 탐지 모델 로드 완료 (ssdMobilenetv1 + tinyFaceDetector)", "ok");
+          } catch (e) {
+            setModelState("error");
+            log("얼굴 모델 로드 실패: " + e.message, "err");
+          }
+        })();
+        (async () => {
+          try {
+            if (typeof cocoSsd === "undefined") throw new Error("cocoSsd 스크립트 로드 실패");
+            const model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+            personModelRef.current = model;
+            setPersonState("ready");
+            log("사람 검출 모델 로드 완료 (COCO-SSD) — 부분 얼굴 보조용", "ok");
+          } catch (e) {
+            setPersonState("error");
+            log("사람 검출 모델 로드 실패: " + e.message + " — 얼굴 검출만으로 진행됩니다", "warn");
+          }
+        })();
+      }, [log]);
+
+      useEffect(() => {
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+      }, [logs]);
+
+      const countImages = async (handle) => {
+        let n = 0;
+        for await (const entry of handle.values()) {
+          if (entry.kind === "file" && isImage(entry.name)) n++;
+        }
+        return n;
+      };
+
+      const addFolders = useCallback(async (handles) => {
+        for (const handle of handles) {
+          if (!handle || handle.kind !== "directory") continue;
+          try {
+            const count = await countImages(handle);
+            const id = ++idRef.current;
+            setFolders((prev) => [...prev, { id, handle, name: handle.name, count }]);
+            log(`폴더 추가: ${handle.name} (이미지 ${count}장)`, "info");
+          } catch (e) {
+            log(`폴더 읽기 실패: ${handle.name} — ${e.message}`, "err");
+          }
+        }
+      }, [log]);
+
+      const onDrop = useCallback(async (e) => {
+        e.preventDefault();
+        const handles = [];
+        for (const item of e.dataTransfer.items) {
+          if (item.kind === "file" && item.getAsFileSystemHandle) {
+            const h = await item.getAsFileSystemHandle();
+            handles.push(h);
+          }
+        }
+        const dirs = handles.filter((h) => h && h.kind === "directory");
+        if (dirs.length === 0) {
+          log("폴더가 아닌 항목은 무시했습니다. 사진이 든 폴더를 드롭하세요.", "warn");
+        }
+        addFolders(dirs);
+      }, [addFolders, log]);
+
+      const onPick = useCallback(async () => {
+        try {
+          const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+          addFolders([handle]);
+        } catch (e) {
+          if (e.name !== "AbortError") log("폴더 선택 취소/실패: " + e.message, "warn");
+        }
+      }, [addFolders, log]);
+
+      const removeFolder = (id) => setFolders((prev) => prev.filter((f) => f.id !== id));
+
+      const processImage = async (fileHandle, style, s, detOpt) => {
+        const file = await fileHandle.getFile();
+        const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+        const W = bitmap.width, H = bitmap.height;
+
+        const faceBoxes = await detectFaces(bitmap, W, H, {
+          sensitivity: s.sensitivity,
+          precise: detOpt.precise,
+          multiDetector: detOpt.multiDetector,
+        });
+
+        // 원본 해상도 캔버스에 그리고 얼굴 가림
+        const out = document.createElement("canvas");
+        out.width = W; out.height = H;
+        const ctx = out.getContext("2d");
+        ctx.drawImage(bitmap, 0, 0);
+
+        for (const fb of faceBoxes) {
+          const box = expandBox(fb, W, H);
+          maskFace(ctx, bitmap, box, style, s);
+        }
+        bitmap.close && bitmap.close();
+
+        const blob = await new Promise((res) => out.toBlob(res, "image/jpeg", s.quality));
+        return { blob, faces: faceBoxes.length };
+      };
+
+      const start = useCallback(async () => {
+        if (processing || folders.length === 0 || modelState !== "ready") return;
+        setProcessing(true);
+        setLogs([]);
+        const s = STRENGTH[settings.strength];
+        const detOpt = { ...DET_MODE[settings.detMode], personModel: personModelRef.current };
+        log(`탐지 모드: ${detOpt.label}, 민감도: ${settings.sensitivity.toFixed(2)}${detOpt.personModel ? ", 사람 검출 보조 ON" : ""}`, "info");
+
+        let total = 0;
+        folders.forEach((f) => (total += f.count));
+        setProgress({ done: 0, total });
+
+        let done = 0, totalFaces = 0, zeroFaceImgs = 0;
+        try {
+          for (const folder of folders) {
+            const perm = await folder.handle.requestPermission({ mode: "readwrite" });
+            if (perm !== "granted") {
+              log(`쓰기 권한 거부됨 — 건너뜀: ${folder.name}`, "err");
+              continue;
+            }
+            const style = Math.random() < 0.5 ? "mosaic" : "blur";
+            const outName = folder.name + settings.suffix;
+            const outDir = await folder.handle.getDirectoryHandle(outName, { create: true });
+            log(`▶ ${folder.name} 처리 시작 — 스타일: ${style === "mosaic" ? "모자이크" : "블러"} → ${outName}/`, "info");
+
+            for await (const entry of folder.handle.values()) {
+              if (entry.kind !== "file" || !isImage(entry.name)) continue;
+              try {
+                const { blob, faces } = await processImage(entry, style, s, detOpt);
+                const fh = await outDir.getFileHandle(entry.name, { create: true });
+                const w = await fh.createWritable();
+                await w.write(blob);
+                await w.close();
+                totalFaces += faces;
+                if (faces === 0) {
+                  zeroFaceImgs++;
+                  log(`  ⚠ 얼굴 미검출: ${entry.name} — 수동 확인 권장`, "warn");
+                } else {
+                  log(`  ✓ ${entry.name} — 얼굴 ${faces}개 가림`, "ok");
+                }
+              } catch (e) {
+                log(`  ✗ ${entry.name} 처리 실패: ${e.message}`, "err");
+              }
+              done++;
+              setProgress({ done, total });
+            }
+          }
+          log(`완료 — 총 ${done}장 처리, 얼굴 ${totalFaces}개 가림, 미검출 ${zeroFaceImgs}장`, "ok");
+        } catch (e) {
+          log("처리 중 오류: " + e.message, "err");
+        } finally {
+          setProcessing(false);
+        }
+      }, [processing, folders, modelState, settings, log]);
+
+      const totalImages = folders.reduce((a, f) => a + f.count, 0);
+      const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+
+      if (!supported) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <div className="max-w-lg text-center space-y-3">
+              <div className="text-5xl">🖥️</div>
+              <h1 className="text-2xl font-bold">지원되지 않는 브라우저</h1>
+              <p className="text-slate-400">
+                이 도구는 로컬 폴더 읽기·쓰기를 위해 File System Access API가 필요합니다.
+                <br />PC에서 <b className="text-slate-200">Chrome · Edge · Arc</b> 로 열어주세요.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen max-w-5xl mx-auto px-5 py-8">
+          <header className="mb-6">
+            <h1 className="text-3xl font-bold tracking-tight">face-mosaic</h1>
+            <p className="text-slate-400 mt-1">
+              사진 폴더를 던지면 모든 얼굴을 자동으로 가려서 폴더별 하위폴더에 저장합니다 · PC 전용 (Chrome · Edge · Arc)
+            </p>
+          </header>
+
+          {/* 모델 상태 */}
+          <div className={
+            "mb-5 rounded-lg px-4 py-2.5 text-sm border " +
+            (modelState === "ready" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+              : modelState === "error" ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+              : "bg-amber-500/10 border-amber-500/30 text-amber-300")
+          }>
+            {modelState === "loading" && "얼굴 탐지 모델 로딩 중… (최초 1회, CDN에서 내려받습니다)"}
+            {modelState === "ready" && (
+              <>
+                ✓ 얼굴 탐지 모델 준비 완료 ·{" "}
+                {personState === "ready" && <span>사람 검출 보조 ✓</span>}
+                {personState === "loading" && <span className="text-amber-300">사람 검출 모델 로딩 중…</span>}
+                {personState === "error" && <span className="text-amber-300">사람 검출 보조 미사용</span>}
+              </>
+            )}
+            {modelState === "error" && "✗ 모델 로드 실패 — 네트워크 확인 후 새로고침하세요"}
+          </div>
+
+          {/* 드롭존 */}
+          <div
+            onDrop={onDrop}
+            onDragOver={(e) => e.preventDefault()}
+            className="rounded-2xl border-2 border-dashed border-slate-700 hover:border-sky-500/60 transition-colors bg-slate-900/40 p-10 text-center"
+          >
+            <div className="text-4xl mb-3">📂</div>
+            <p className="text-lg font-medium">사진이 든 폴더를 여기로 드래그&드롭</p>
+            <p className="text-slate-500 text-sm mt-1">여러 폴더를 한 번에 드롭할 수 있어요</p>
+            <button
+              onClick={onPick}
+              className="mt-4 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-medium border border-slate-600"
+            >
+              또는 폴더 선택
+            </button>
+          </div>
+
+          {/* 설정 */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800">
+              <label className="text-xs text-slate-400 uppercase tracking-wide">가림 세기</label>
+              <div className="mt-2 flex gap-2">
+                {Object.entries(STRENGTH).map(([k, v]) => (
+                  <button key={k} onClick={() => setSettings((p) => ({ ...p, strength: k }))}
+                    className={"flex-1 py-1.5 rounded-md text-sm font-medium border " +
+                      (settings.strength === k ? "bg-sky-500/20 border-sky-500 text-sky-300" : "bg-slate-800 border-slate-700 text-slate-300")}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800">
+              <label className="text-xs text-slate-400 uppercase tracking-wide">탐지 정밀도</label>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {Object.entries(DET_MODE).map(([k, v]) => (
+                  <button key={k} onClick={() => setSettings((p) => ({ ...p, detMode: k }))}
+                    className={"py-1.5 rounded-md text-sm font-medium border " +
+                      (settings.detMode === k ? "bg-sky-500/20 border-sky-500 text-sky-300" : "bg-slate-800 border-slate-700 text-slate-300")}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">놓친 얼굴이 많으면 "최대"로</p>
+            </div>
+            <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800">
+              <label className="text-xs text-slate-400 uppercase tracking-wide">탐지 민감도 ({settings.sensitivity.toFixed(2)})</label>
+              <input type="range" min="0.1" max="0.7" step="0.05" value={settings.sensitivity}
+                onChange={(e) => setSettings((p) => ({ ...p, sensitivity: parseFloat(e.target.value) }))}
+                className="w-full mt-3 accent-sky-500" />
+              <p className="text-[11px] text-slate-500 mt-1">낮을수록 더 많은 얼굴을 잡습니다(오탐↑)</p>
+            </div>
+            <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800">
+              <label className="text-xs text-slate-400 uppercase tracking-wide">출력 폴더 접미사</label>
+              <input type="text" value={settings.suffix}
+                onChange={(e) => setSettings((p) => ({ ...p, suffix: e.target.value }))}
+                className="w-full mt-2 px-3 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm" />
+              <p className="text-[11px] text-slate-500 mt-1">예: 폴더명 + <code>{settings.suffix}</code></p>
+            </div>
+          </div>
+
+          {/* 폴더 목록 */}
+          {folders.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-semibold">대상 폴더 ({folders.length}) · 총 {totalImages}장</h2>
+                <button onClick={() => setFolders([])} disabled={processing}
+                  className="text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40">전체 비우기</button>
+              </div>
+              <div className="space-y-2">
+                {folders.map((f) => (
+                  <div key={f.id} className="flex items-center justify-between bg-slate-900/40 rounded-lg px-4 py-2.5 border border-slate-800">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-lg">📁</span>
+                      <span className="font-medium truncate">{f.name}</span>
+                      <span className="text-slate-500 text-sm shrink-0">{f.count}장 → {f.name}{settings.suffix}/</span>
+                    </div>
+                    <button onClick={() => removeFolder(f.id)} disabled={processing}
+                      className="text-slate-500 hover:text-rose-400 disabled:opacity-40 text-sm">제거</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 실행 */}
+          <div className="mt-6 flex items-center gap-4">
+            <button onClick={start}
+              disabled={processing || folders.length === 0 || modelState !== "ready"}
+              className="px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed">
+              {processing ? `처리 중… ${pct}%` : "처리 시작"}
+            </button>
+            {processing && (
+              <div className="flex-1">
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-sky-500 transition-all" style={{ width: pct + "%" }} />
+                </div>
+                <p className="text-xs text-slate-400 mt-1">{progress.done} / {progress.total}장</p>
+              </div>
+            )}
+          </div>
+
+          {/* 로그 */}
+          {logs.length > 0 && (
+            <div className="mt-6">
+              <h2 className="font-semibold mb-2">처리 로그</h2>
+              <div ref={logRef} className="scrollbar-thin h-64 overflow-y-auto bg-black/40 rounded-xl p-4 font-mono text-xs space-y-1 border border-slate-800">
+                {logs.map((l, i) => (
+                  <div key={i} className={
+                    l.kind === "ok" ? "text-emerald-400" :
+                    l.kind === "err" ? "text-rose-400" :
+                    l.kind === "warn" ? "text-amber-400" : "text-slate-400"
+                  }>
+                    <span className="text-slate-600">{l.t}</span> {l.msg}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

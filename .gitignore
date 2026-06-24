@@ -7,3 +7,14 @@ node_modules/
 .playwright-mcp/
 yt-dlp
 photo-poster/screenshots/
+
+# 제외: 대용량/비프로젝트 산출물
+악플증거_20260610/
+capcut-automation/.venv/
+.venv/
+*-build/
+.health-build/
+.power-build/
+.rf-build/
+.wilson-build/
+capcut-automation/pyCapCut/
