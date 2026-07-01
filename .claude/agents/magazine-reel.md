@@ -179,7 +179,12 @@ done
 ### 5-A. 데일리테니스 프리셋
 `/Users/artcollective/Downloads/dailytennis_reels_v2/build_thumbnails_v3.py` 의 `EPISODES` 리스트에 항목 추가 (메모리 `dailytennis-reel-magazine-system` v4 표 참고). 코드 함수·상수·레이아웃 y좌표 **변경 금지**. 컬러 사이클(검증): …09 크림 · 10 본(BONE) · 11 라벤더… (4-cycle 본/라벤더/퍼플/크림).
 
-> **⚠️ 폰트 두부(□/⊠) 버그 — 항상 점검 (CRITICAL · 슬기 반복 지적 "박스에 엑스처진 게 지난번부터").** `Be()`(Bebas Neue)는 `▸ ◂ ● ◆ ■` 등 **기호 글리프가 없어 ⊠(notdef 박스X)로 깨진다.** 빌더 `build()`의 `ep_label` 줄이 `f"▸  {ep['ep_label']}"`를 Bebas로 그려 모든 회차에 박스X가 박혀 있었음 → **`—`(엠대시)로 교체**해 해결(상단 키커 `cap`도 `—`·`·` 사용해 정상). 규칙: **Bebas엔 ASCII/숫자/`—`/`·`만**, 화살표·도형 기호 금지. 빌드 후 썸네일 라벨/키커 영역을 확대해 `Read`로 박스X 잔존 여부 반드시 자가검수.
+> **⚠️ 폰트 두부(□/⊠) 버그 — 항상 점검 (CRITICAL · 슬기 반복 지적 "박스에 엑스처진 게 계속 나온다").** `Be()`(Bebas Neue)·`Fr()`/`FrIt()`(Fraunces)는 **한글 글리프와 `▸◂●◆■` 기호 글리프가 없어 ⊠/□(notdef)로 깨진다.** 가장 잦은 실패: 한글 라벨("메인/크로스", "시판 베이스", "데일리테니스·수원 인계점")을 Bebas/Fraunces로 그림. 규칙: **Bebas/Fraunces엔 ASCII·숫자·`—`·`·`만**, 화살표·도형 금지. **한글은 무조건 NotoSerifKR(Ns).**
+>
+> **🔒 두부 영구 방지 세팅 (슬기 지시 "앞으로 안 나오게 세팅"). 모든 빌드 필수:**
+> 1. 한글이 섞일 수 있는 라벨은 **`/Users/artcollective/Downloads/dailytennis_reels_v2/dt_text.py`의 `draw_mixed()`** 로 그린다(한글=NotoSerifKR, 라틴/숫자=디스플레이 폰트 자동 분리). `from dt_text import draw_mixed, has_kr` (필요시 dt_text.py를 빌드 폴더로 복사하거나 sys.path 추가). 순수 영문 라벨은 Bebas 그대로 OK.
+> 2. **빌드 후 반드시** `python3 /Users/artcollective/Downloads/dailytennis_reels_v2/lint_tofu.py <build.py>` 실행 — 한글이 Be/Fr/FrIt로 가는 줄을 정적 검출한다. **exit 0(통과) 아니면 끝내지 말고 고쳐서 재빌드.**
+> 3. 그 다음 산출물 라벨/키커/푸터 영역을 확대 `Read`로 육안 재확인(□/⊠ 0건).
 
 ### 5-B. 일반 콘텐츠
 작업 디렉토리 `<영상폴더>/_thumbnail_build/` 에 `build.py` 신규 생성. `build_thumbnails_v3.py` 의 헬퍼(`prep_photo_color`, `draw_text_centered`, `Fr/FrIt/Ns/Be`)와 `build()` 본문을 골격으로 복사 + 사용자 응답 변수 적용. 폰트는 `/Users/artcollective/Downloads/dailytennis_reels_v2/fonts/` 공용 재사용. **레이아웃 y좌표는 표준 유지**.
@@ -487,6 +492,8 @@ ffmpeg -y -loop 1 -framerate 24 -t "$THUMB_DUR" -i "$THUMB_PNG" \
 - 영상 자막박스 잔존 NG → 크롭 제거
 - 인물/제품 식별 가능
 - 폰트: 표준 Fraunces/NotoSerifKR/BebasNeue, **막히면 §0-3 시스템 폰트 대체**(Didot/AppleMyungjo/AppleSDGothicNeo).
+- **커버/썸네일 배색 다양화 (슬기 지적: "너무 베이지톤만 계속된다").** 커버 배경을 매번 크림/베이지로 깔지 말고 브랜드 팔레트(CREAM/BONE/LAVENDER/COURT_PURPLE) 안에서 **콘텐츠마다 다른 색**으로 돌려라. 사진 듀오톤·잉크도 그 배색에 맞춤. 시리즈는 회차별로 색을 로테이션해 단조로움 회피.
+- **킷 브레이크다운/콜아웃 스타일 (선수 셋업·제품 지목 슬라이드, 레퍼런스 IMG_9031).** ① 라벨 박스는 **인물 얼굴·머리를 절대 안 가리게** 빈 배경(좌·우·하단 여백)에 두고 **얇은 리더선**으로 아이템 지목. ② 박스 안 **텍스트는 박스 경계 안에 다 들어오게**(넘침·잘림 금지, 박스 높이/줄바꿈/폰트로 맞춤). ③ 박스 썸네일은 **사람 없는 깔끔한 제품 누끼**(garment/shoe only) — 얼굴·머리 잘린 인물 크롭 이미지 금지. ④ 인물 사진은 머리~발 프레임 안에, 얼굴 잘림 없게 crop.
 - 롱폼이면 **3종 모두** 생성하고 각각 `Read` 자가검수.
 - **아웃트로(§9.5)는 인트로와 같은 매거진 룩**으로 통일 — 핸들 정확(`@hi.dailytennis`), 안전영역 준수, 영상 끝에 합성. 인트로와 독립적으로 켤 수 있음.
 - 시리즈물이면 회차 충돌 점검 (output + captions + 메모리 3중)

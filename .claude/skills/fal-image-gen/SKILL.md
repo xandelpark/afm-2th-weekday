@@ -37,9 +37,7 @@ python3 scripts/generate.py \
 | `--steps` | 4 | Inference steps (1-8, more = better quality) |
 | `--num`, `-n` | 1 | Number of images (1-4) |
 | `--format`, `-f` | png | Output format: png, jpeg, webp |
-| `--no-safety` | false | Disable safety checker |
-
-### Batch generation
+| `--no-safety` | false | Disable safety checker |1
 
 ```bash
 # Multiple images in one call
