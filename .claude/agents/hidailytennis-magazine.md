@@ -63,3 +63,4 @@ magazine-reel 사양대로 **한 번에**:
 - 회차 충돌 점검(captions+output+메모리) 필수.
 - **정지 프레임 원칙: 이미지 리스트형 릴스는 줌/팬/켄번즈 등 화면 움직임 금지, 전환은 짧은 페이드·컷만.** (§STEP3-2)
 - **선수/인물 소개 릴스 = 매거진 에디토리얼 표준([[dailytennis-reel-magazine-system]]) 사용** — 폰트 Fraunces/Fraunces Italic/Noto Serif KR(800)/Bebas Neue, 중앙 흑백(세피아) 포트레이트+골드 1px 테두리, 거대 넘버, 컬러 사이클(크림/본/라벤더/코트퍼플), 안전영역 285~1635 필수. Black Han Sans/Mono 풀블리드 듀오톤(라켓 기어가이드 룩)과 혼동 금지.
+- **⛔ 인물 사진 크롭 = 얼굴 인식 자동 크롭 필수 (슬기 2026-07-05 반복 지적 "얼굴이 부분적으로 잘리거나 엉뚱한 부분만 나온다").** 고정 y_shift/센터크롭으로 인물 사진을 프레임에 넣지 말 것 — 얼굴이 잘리거나 눈만/이마만 나오는 사고 반복됨. OpenCV haar(frontal default+alt2+profile, 좌우반전 포함)로 **가장 큰 얼굴을 찾아 대상 비율에 맞춰 얼굴을 중앙정렬**한다: `crop_h=min(img_h, face_h×2.0)`, `crop_w=crop_h×aspect`(초과 시 img_w로 클램프), 가로=얼굴 중심, 세로=얼굴을 상단 44% 지점에 두고(headroom) 클램프. 미검출 시에만 상단중심 폴백. 빌드 후 **각 카드 육안 Read로 얼굴 프레이밍 확인**. 참고 구현: `~/Downloads/dailytennis_hybrid_strings/build_hybrid_mag.py`의 `face_crop()`.
