@@ -50,4 +50,28 @@ async function record(phone, name, channel, reviewType) {
   );
 }
 
-module.exports = { ensure, hasUsed, record, getPool, SCHEMA };
+// 전체 등록 내역 (관리자용)
+async function listUsage() {
+  const r = await getPool().query(
+    `select id, phone, name, channel, review_type, created_at
+     from ${SCHEMA}.usage order by created_at desc`
+  );
+  return r.rows;
+}
+
+// 개별 삭제 (해당 연락처의 그 채널 슬롯이 다시 열림)
+async function deleteById(id) {
+  const r = await getPool().query(`delete from ${SCHEMA}.usage where id = $1`, [id]);
+  return r.rowCount;
+}
+
+// 전체 초기화
+async function resetAll() {
+  const r = await getPool().query(`delete from ${SCHEMA}.usage`);
+  return r.rowCount;
+}
+
+module.exports = {
+  ensure, hasUsed, record, getPool, SCHEMA,
+  listUsage, deleteById, resetAll,
+};

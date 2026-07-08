@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const { createReview } = require("./lib/service");
+const { handleAdmin } = require("./lib/admin");
 const db = require("./lib/db");
 
 const app = express();
@@ -16,6 +17,17 @@ app.post("/api/generate", async (req, res) => {
     const status = e.status || 500;
     if (status >= 500) console.error("[generate] 오류:", e);
     res.status(status).json({ error: e.message, code: e.code });
+  }
+});
+
+app.post("/api/admin", async (req, res) => {
+  try {
+    const out = await handleAdmin(req.body || {});
+    res.json(out);
+  } catch (e) {
+    const status = e.status || 500;
+    if (status >= 500) console.error("[admin] 오류:", e);
+    res.status(status).json({ error: e.message });
   }
 });
 
