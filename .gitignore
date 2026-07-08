@@ -18,3 +18,7 @@ capcut-automation/.venv/
 .rf-build/
 .wilson-build/
 capcut-automation/pyCapCut/
+
+# python 캐시
+tennis-reels/__pycache__/
+__pycache__/
