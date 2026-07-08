@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>MARIAN WEDDING · 후기 작성</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            paper: "#FFFFFF",
+            cream: "#FBFAF8",
+            ink: "#1A1815",
+            navy: "#091940",
+            muted: "#8B8680",
+            line: "#E6E2DA",
+          },
+          fontFamily: {
+            serif: ["'Cormorant Garamond'", "Georgia", "serif"],
+            sans: ["'Pretendard Variable'", "Pretendard", "-apple-system", "sans-serif"],
+          },
+        },
+      },
+    };
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    html, body { background: #FFFFFF; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: "Pretendard Variable", Pretendard, -apple-system, sans-serif; color: #1A1815; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 0.28em; font-size: 11px; }
+    .luxe { letter-spacing: 0.3em; }
+    .fade-in { animation: fade .45s ease both; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    textarea { line-height: 1.9; }
+    .spin { animation: sp 1s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+    const BUSINESS = "마리안웨딩";
+
+    // ── 설문 정의 (더화려한날엔과 동일 구조, 업체 중립) ──
+    const SURVEYS = {
+      계약후기: {
+        title: "계약후기", en: "CONTRACT REVIEW",
+        sub: "왜 " + BUSINESS + "과 함께하기로 하셨나요",
+        questions: [
+          { id: "product", type: "single", q: "마리안웨딩에서 무엇을 하셨나요?",
+            options: ["본식스냅만", "본식스냅 + 본식DVD", "본식DVD만"] },
+          { id: "route", type: "single", q: "어떻게 알게 되셨나요?",
+            options: ["지인·친구 소개", "인스타·SNS 광고", "네이버·구글 검색", "웨딩카페 후기 보고", "웨딩플래너 추천"] },
+          { id: "compare", type: "single", q: "몇 군데나 비교해보셨어요?",
+            options: ["여기만 봤어요", "2~3군데 비교", "4군데 이상 비교"] },
+          { id: "competitors", type: "text", required: true, q: "비교했던 다른 업체 (없으면 '없음')",
+            placeholder: "예) OO웨딩, OO스튜디오 / 비교 안 했으면 '없음'" },
+          { id: "partner", type: "single", q: "예식장이 다이렉트 웨딩카페 제휴 웨딩홀인가요?",
+            options: ["제휴 웨딩홀", "비제휴 / 잘 모름"],
+            hint: "확실하지 않거나 후기 글 삭제가 걱정되면 '비제휴'를 선택하세요. (비제휴는 홀 이름 대신 분위기만 들어가요)" },
+          { id: "venue", type: "text", q: "예식장(웨딩홀) 이름·지역", placeholder: "예) 그랜드 워커힐 / 서울",
+            showIf: (a) => a.partner === "제휴 웨딩홀" },
+          { id: "brightness", type: "single", q: "예식홀 분위기 (조명)",
+            options: ["어두운 홀", "밝은 홀"], showIf: (a) => a.partner === "비제휴 / 잘 모름" },
+          { id: "reasons", type: "multi", max: 3, q: "계약을 결정한 이유는? (최대 3개)",
+            options: ["자연스러운 사진 스타일", "포트폴리오가 취향저격", "상담이 편하고 친절해서", "가격·구성이 합리적", "원본+보정 조건이 좋아서", "작가님 실력·경력", "원하는 날짜 예약 가능", "후기·평이 좋아서"] },
+          { id: "impression", type: "single", q: "상담 때 가장 인상 깊었던 점은?",
+            options: ["부담 안 주고 편했어요", "궁금한 걸 꼼꼼히 답해줬어요", "설명이 자세하고 친절했어요", "상담만으로 신뢰가 갔어요"] },
+          { id: "free", type: "text", optional: true, q: "특별히 기억에 남는 순간이나 하고 싶은 말 (선택)",
+            placeholder: "예) 실장님이 우리 취향을 먼저 물어봐 줘서 편했어요" },
+        ],
+      },
+      사진후기: {
+        title: "사진후기", en: "PHOTO REVIEW",
+        sub: "예식 당일과 후기용 선보정본에 대하여",
+        questions: [
+          { id: "product", type: "single", q: "마리안웨딩에서 무엇을 하셨나요?",
+            options: ["본식스냅만", "본식스냅 + 본식DVD", "본식DVD만"] },
+          { id: "partner", type: "single", q: "예식장이 다이렉트 웨딩카페 제휴 웨딩홀인가요?",
+            options: ["제휴 웨딩홀", "비제휴 / 잘 모름"],
+            hint: "확실하지 않거나 후기 글 삭제가 걱정되면 '비제휴'를 선택하세요. (비제휴는 홀 이름 대신 분위기만 들어가요)" },
+          { id: "venue", type: "text", q: "예식장 이름·지역", placeholder: "예) 더 채플 앳 청담 / 서울",
+            showIf: (a) => a.partner === "제휴 웨딩홀" },
+          { id: "brightness", type: "single", q: "예식홀 분위기 (조명)",
+            options: ["어두운 홀", "밝은 홀"], showIf: (a) => a.partner === "비제휴 / 잘 모름" },
+          { id: "photographer", type: "multi", max: 3, q: "당일 작가님은 어떠셨나요? (최대 3개)",
+            options: ["자연스럽게 잘 유도해줬어요", "눈에 안 띄게 촬영했어요", "분위기를 편하게 만들어줬어요", "시간 약속을 잘 지켰어요", "원하는 컷을 잘 담아줬어요", "하객들도 편해했어요"] },
+          { id: "mood", type: "multi", max: 3, q: "예식 당일 소감은? (여러 개 선택 가능)",
+            options: ["화기애애하고 즐거웠어요", "감동적이고 뭉클했어요", "정신없이 지나갔지만 잘 담겼어요", "긴장했지만 편하게 이끌어줬어요", "하객분들 반응이 좋았어요", "다시 그날로 돌아가고 싶어요"] },
+          { id: "first", type: "multi", max: 3, q: "후기용 선보정본 받고 첫 느낌은? (여러 개 선택 가능)",
+            options: ["기대 이상이었어요", "자연스러워서 만족해요", "보정 톤이 딱 취향이에요", "표정·순간 포착이 좋아요", "고화질이라 놀랐어요", "당장 인화하고 싶었어요"] },
+          { id: "loved", type: "multi", max: 3, q: "특히 마음에 든 점은? (최대 3개)",
+            options: ["피부·톤 보정이 자연스러워요", "색감이 예뻐요", "표정이 살아있어요", "배경·구도가 좋아요", "우리 둘 케미가 잘 나왔어요", "원판·가족사진도 만족"] },
+          { id: "free", type: "text", optional: true, q: "특별히 마음에 든 사진이나 하고 싶은 말 (선택)",
+            placeholder: "예) 성혼선언문 읽을 때 표정이 정말 잘 담겼어요" },
+        ],
+      },
+    };
+
+    // 워드마크
+    function Wordmark({ size = "text-2xl" }) {
+      return <span className={"font-serif font-light luxe text-ink " + size}>MARIAN</span>;
+    }
+
+    // 각진 칩 (선택지)
+    function Chip({ active, children, onClick }) {
+      return (
+        <button onClick={onClick}
+          className={"px-4 py-2.5 text-[14px] border transition-all " +
+            (active ? "bg-navy text-white border-navy" : "bg-paper text-ink border-line hover:border-ink/40")}>
+          {children}
+        </button>
+      );
+    }
+
+    // 상단 바
+    function TopBar({ onBack, eyebrow }) {
+      return (
+        <header className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-line">
+          <div className="max-w-md mx-auto px-6 py-4 flex items-center gap-3">
+            {onBack && <button onClick={onBack} className="text-ink/50 text-xl leading-none">‹</button>}
+            <Wordmark size="text-lg" />
+            {eyebrow && <span className="eyebrow text-muted ml-auto">{eyebrow}</span>}
+          </div>
+        </header>
+      );
+    }
+
+    // ── 홈 ──
+    function Home({ onPick }) {
+      return (
+        <div className="min-h-screen flex flex-col fade-in">
+          <div className="flex-1 flex flex-col justify-center items-center px-8 pt-16 pb-8 text-center">
+            <p className="eyebrow text-muted mb-6">Wedding Photography</p>
+            <h1 className="font-serif font-light luxe text-6xl text-ink">MARIAN</h1>
+            <div className="w-10 h-px bg-ink/30 my-7"></div>
+            <p className="eyebrow text-ink/70">Review Guide</p>
+            <p className="text-muted text-[14px] mt-4 leading-relaxed max-w-xs">
+              몇 가지 질문에 답하시면<br/>후기 초안을 정성껏 완성해 드립니다.
+            </p>
+          </div>
+
+          <div className="max-w-md mx-auto w-full px-6 pb-12 space-y-px border-t border-line">
+            {[
+              { k: "계약후기", en: "CONTRACT REVIEW", d: "왜 계약하게 되었는지" },
+              { k: "사진후기", en: "PHOTO REVIEW", d: "예식 당일 · 후기용 선보정본" },
+            ].map((c) => (
+              <button key={c.k} onClick={() => onPick(c.k)}
+                className="group w-full flex items-center justify-between py-6 border-b border-line text-left">
+                <div>
+                  <div className="eyebrow text-muted mb-1.5">{c.en}</div>
+                  <div className="font-serif text-3xl text-ink group-hover:text-navy transition-colors">{c.k}</div>
+                  <div className="text-muted text-[13px] mt-1">{c.d}</div>
+                </div>
+                <span className="text-ink/30 group-hover:text-navy text-2xl transition-colors">→</span>
+              </button>
+            ))}
+            <div className="pt-8 text-center">
+              <p className="eyebrow text-muted/70">(주)아트콜렉티브 · Marian Wedding</p>
+              <div className="flex items-center justify-center gap-4 mt-3">
+                <button onClick={() => { try { localStorage.removeItem("marian_access"); } catch (e) {} location.reload(); }}
+                  className="text-muted/40 text-[11px] hover:text-muted">로그아웃</button>
+                <button onClick={() => { window.location.hash = "admin"; }}
+                  className="text-muted/40 text-[11px] hover:text-muted">관리자</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 설문 ──
+    function Survey({ type, onBack, onDone }) {
+      const cfg = SURVEYS[type];
+      const [ans, setAns] = useState({});
+      const [custom, setCustom] = useState({});
+      // 조건부 노출 (showIf) — 현재 답변에 따라 보이는 질문만
+      const visible = cfg.questions.filter((q) => !q.showIf || q.showIf(ans));
+
+      const setSingle = (q, opt) => setAns({ ...ans, [q.id]: ans[q.id] === opt ? "" : opt });
+      const toggleMulti = (q, opt) => {
+        const cur = Array.isArray(ans[q.id]) ? ans[q.id] : [];
+        let next;
+        if (cur.includes(opt)) next = cur.filter((o) => o !== opt);
+        else { if (cur.length >= q.max) return; next = [...cur, opt]; }
+        setAns({ ...ans, [q.id]: next });
+      };
+      const cText = (id) => (custom[id] || "").trim();
+      const hasAnswer = (q) => {
+        if (q.type === "text") return !!(ans[q.id] || "").trim();
+        if (q.type === "multi") return (Array.isArray(ans[q.id]) && ans[q.id].length > 0) || !!cText(q.id);
+        return !!(ans[q.id] || "") || !!cText(q.id); // single
+      };
+      const answeredCount = visible.filter(hasAnswer).length;
+      const requiredOk = visible.filter((q) => q.required).every(hasAnswer);
+      const ready = answeredCount >= 2 && requiredOk;
+
+      const buildItems = () =>
+        visible.map((q) => {
+          let a = "";
+          if (q.type === "text") a = (ans[q.id] || "").trim();
+          else if (q.type === "multi")
+            a = [...(Array.isArray(ans[q.id]) ? ans[q.id] : []), cText(q.id)].filter(Boolean).join(", ");
+          else a = [ans[q.id] || "", cText(q.id)].filter(Boolean).join(", "); // single: 선택 + 직접입력
+          return { q: q.q.replace(/\s*\(.*?\)\s*$/, ""), a };
+        }).filter((it) => it.a);
+
+      return (
+        <div className="min-h-screen pb-40 fade-in">
+          <TopBar onBack={onBack} eyebrow={cfg.en} />
+          <div className="max-w-md mx-auto px-6 pt-8">
+            <div className="font-serif text-4xl text-ink">{cfg.title}</div>
+            <p className="text-muted text-[13px] mt-1">{cfg.sub}</p>
+          </div>
+
+          <div className="max-w-md mx-auto px-6 pt-8 space-y-9">
+            {visible.map((q, i) => {
+              const showCustom = q.type === "multi" || (q.options && q.options.length > 2);
+              return (
+              <div key={q.id}>
+                <div className="flex items-baseline gap-2.5 mb-3">
+                  <span className="font-serif text-navy text-xl">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="text-ink text-[15px] font-medium leading-snug">{q.q}</span>
+                </div>
+                {q.hint && <p className="text-muted/80 text-xs mb-2.5 -mt-1.5 leading-relaxed">{q.hint}</p>}
+                {q.type === "text" ? (
+                  <textarea rows={q.optional ? 3 : 2} value={ans[q.id] || ""}
+                    onChange={(e) => setAns({ ...ans, [q.id]: e.target.value })}
+                    placeholder={q.placeholder}
+                    className="w-full bg-cream border border-line px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 focus:border-navy focus:outline-none resize-none" />
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {q.options.map((opt) => {
+                        const active = q.type === "multi"
+                          ? Array.isArray(ans[q.id]) && ans[q.id].includes(opt)
+                          : ans[q.id] === opt;
+                        return <Chip key={opt} active={active}
+                          onClick={() => (q.type === "multi" ? toggleMulti(q, opt) : setSingle(q, opt))}>{opt}</Chip>;
+                      })}
+                    </div>
+                    {showCustom && (
+                      <input value={custom[q.id] || ""}
+                        onChange={(e) => setCustom({ ...custom, [q.id]: e.target.value })}
+                        placeholder="직접 입력 (선택)"
+                        className="mt-2 w-full bg-cream border border-line px-4 py-2.5 text-[14px] text-ink placeholder:text-muted/60 focus:border-navy focus:outline-none" />
+                    )}
+                  </>
+                )}
+              </div>
+              );
+            })}
+          </div>
+
+          <div className="fixed bottom-0 inset-x-0 bg-paper/95 backdrop-blur border-t border-line">
+            <div className="max-w-md mx-auto px-6 py-4">
+              <button disabled={!ready} onClick={() => onDone(buildItems())}
+                className={"w-full py-4 eyebrow transition-all " +
+                  (ready ? "bg-navy text-white" : "bg-line text-muted")}>
+                {ready ? "다음 단계" : (!requiredOk ? "비교 업체를 입력해 주세요 (없으면 '없음')" : "2개 이상 답해 주세요")}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 결과(입력 → 생성 → 결과) ──
+    function Result({ type, items, onHome }) {
+      const [phase, setPhase] = useState("form");
+      const [tone, setTone] = useState("친근");
+      const [channel, setChannel] = useState("카페");
+      const [title, setTitle] = useState("");
+      const [text, setText] = useState("");
+      const [errMsg, setErrMsg] = useState("");
+      const [limit, setLimit] = useState(false);
+      const [copied, setCopied] = useState("");
+
+      // 로그인 계정 정보 (회원가입/로그인 시 저장됨) — 재입력 불필요
+      const me = (() => { try { return JSON.parse(localStorage.getItem("marian_access") || "{}"); } catch (e) { return {}; } })();
+
+      const submit = async () => {
+        setPhase("loading"); setErrMsg(""); setLimit(false); setCopied(false);
+        try {
+          const res = await fetch("/api/generate", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type, items, tone, channel, userId: me.userId, name: me.name }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setLimit(data.code === "LIMIT"); throw new Error(data.error || "생성 중 오류가 났어요."); }
+          setTitle(data.title || ""); setText(data.review || ""); setPhase("done");
+        } catch (e) { setErrMsg(e.message); setPhase("error"); }
+      };
+      const copy = async (str, what) => {
+        try { await navigator.clipboard.writeText(str); }
+        catch (e) { const ta = document.createElement("textarea"); ta.value = str; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); }
+        setCopied(what); setTimeout(() => setCopied(""), 1800);
+      };
+
+      if (phase === "loading") {
+        return (
+          <div className="min-h-screen fade-in">
+            <TopBar eyebrow={SURVEYS[type].en} />
+            <div className="max-w-md mx-auto px-6 pt-24 flex flex-col items-center gap-5">
+              <div className="w-7 h-7 border border-line border-t-navy rounded-full spin"></div>
+              <p className="text-muted text-sm">신부님 마음으로 후기를 쓰는 중입니다…</p>
+            </div>
+          </div>
+        );
+      }
+      if (phase === "error") {
+        return (
+          <div className="min-h-screen fade-in">
+            <TopBar eyebrow={SURVEYS[type].en} />
+            <div className="max-w-md mx-auto px-6 pt-24 text-center">
+              <div className="text-3xl mb-4">{limit ? "—" : "×"}</div>
+              <p className="text-ink text-[15px] leading-relaxed mb-8">{errMsg}</p>
+              <div className="flex gap-2 justify-center">
+                <button onClick={() => setPhase("form")} className="px-6 py-3 eyebrow border border-line text-muted">뒤로</button>
+                <button onClick={onHome} className="px-6 py-3 eyebrow bg-navy text-white">처음으로</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      if (phase === "done") {
+        return (
+          <div className="min-h-screen pb-32 fade-in">
+            <TopBar eyebrow={SURVEYS[type].en} />
+            <div className="max-w-md mx-auto px-6 pt-8">
+              <div className="font-serif text-3xl text-ink mb-1">{type} 초안</div>
+              <p className="text-muted text-xs mb-4">직접 고쳐도 됩니다. 마음에 들면 복사해 올려주세요.</p>
+
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="eyebrow text-muted">제목</span>
+                <button onClick={() => copy(title, "title")}
+                  className="eyebrow text-navy border border-navy/40 px-2.5 py-1">
+                  {copied === "title" ? "복사됨 ✓" : "제목 복사"}
+                </button>
+              </div>
+              <textarea value={title} onChange={(e) => setTitle(e.target.value)} rows={2}
+                className="w-full bg-cream border border-line px-4 py-3 text-[15px] font-medium text-ink focus:border-navy focus:outline-none resize-none mb-5" />
+
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="eyebrow text-muted">본문</span>
+              </div>
+              <textarea value={text} onChange={(e) => setText(e.target.value)}
+                className="w-full bg-cream border border-line px-5 py-5 text-[15px] text-ink focus:border-navy focus:outline-none"
+                style={{ minHeight: "340px" }} />
+
+              <div className="mt-6 border border-line bg-cream px-5 py-5 text-center">
+                <p className="eyebrow text-navy mb-3">Thank you</p>
+                <p className="text-ink/80 text-[13px] leading-relaxed">
+                  마리안웨딩과 함께해 주셔서 진심으로 감사드립니다.<br/>
+                  이 글은 후기 작성을 조금 더 편하게 도와드리기 위한 초안이에요.
+                  당연히 자유롭게 고치시거나, 직접 작성해 주셔도 전혀 괜찮습니다.
+                  마음 가시는 대로 편하게 남겨 주세요.
+                </p>
+              </div>
+            </div>
+            <div className="fixed bottom-0 inset-x-0 bg-paper/95 backdrop-blur border-t border-line">
+              <div className="max-w-md mx-auto px-6 py-4 flex gap-2">
+                <button onClick={onHome} className="px-5 py-4 eyebrow border border-line text-muted">처음으로</button>
+                <button onClick={() => copy(text, "body")} className="flex-1 py-4 eyebrow bg-navy text-white">
+                  {copied === "body" ? "COPIED ✓" : "본문 복사하기"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // 입력 폼
+      return (
+        <div className="min-h-screen pb-40 fade-in">
+          <TopBar eyebrow={SURVEYS[type].en} />
+          <div className="max-w-md mx-auto px-6 pt-8 space-y-8">
+            <div className="font-serif text-3xl text-ink">마지막 단계</div>
+
+            <div>
+              <div className="eyebrow text-muted mb-2.5">말투</div>
+              <div className="flex gap-2">
+                {["친근", "정중"].map((t) => (
+                  <Chip key={t} active={tone === t} onClick={() => setTone(t)}>
+                    {t === "친근" ? "친근한 말투" : "정중한 말투"}
+                  </Chip>
+                ))}
+              </div>
+              <p className="text-muted/70 text-xs mt-1.5">두 말투 모두 존댓말입니다.</p>
+            </div>
+
+            <div>
+              <div className="eyebrow text-muted mb-2.5">어디에 올릴 후기인가요</div>
+              <div className="grid grid-cols-2 gap-2">
+                {[{ key: "카페", t: "카페 후기", d: "500자 내외" }, { key: "블로그", t: "블로그 후기", d: "1000자 내외" }].map((c) => (
+                  <button key={c.key} onClick={() => setChannel(c.key)}
+                    className={"border px-4 py-4 text-left transition-all " +
+                      (channel === c.key ? "bg-navy border-navy text-white" : "bg-paper border-line text-ink")}>
+                    <div className="font-serif text-xl">{c.t}</div>
+                    <div className={"text-xs mt-0.5 " + (channel === c.key ? "text-white/70" : "text-muted")}>{c.d}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border border-line px-4 py-3">
+              <p className="text-ink/70 text-xs leading-relaxed">
+                <b className="text-navy">카페·블로그 각 3회까지</b> 작성할 수 있어요.
+                생성 후 직접 수정 가능하니 신중히 만들어 주세요.
+              </p>
+            </div>
+          </div>
+
+          <div className="fixed bottom-0 inset-x-0 bg-paper/95 backdrop-blur border-t border-line">
+            <div className="max-w-md mx-auto px-6 py-4">
+              <button onClick={submit} className="w-full py-4 eyebrow bg-navy text-white">
+                {channel} 후기 생성하기
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 회원가입 / 로그인 / 관리자 (첫 화면) ──
+    function AuthGate({ onLogin }) {
+      const [mode, setMode] = useState("signup"); // signup | login | admin
+      const [f, setF] = useState({ name: "", date: "", phone4: "" });
+      const [msg, setMsg] = useState(null); // {type:'ok'|'warn'|'error', text}
+      const [loading, setLoading] = useState(false);
+
+      const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+      const enter = (name, date, userId) => {
+        try { localStorage.setItem("marian_access", JSON.stringify({ name, date, userId, t: Date.now() })); } catch (e) {}
+        onLogin();
+      };
+
+      const submit = async () => {
+        setMsg(null); setLoading(true);
+        try {
+          const res = await fetch("/api/access", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: mode, name: f.name.trim(), weddingDate: f.date, phone4: f.phone4 }),
+          });
+          const d = await res.json();
+          if (!res.ok) { setMsg({ type: "error", text: d.error || "오류가 발생했어요." }); return; }
+          if (mode === "login" && d.ok) { enter(d.name, d.weddingDate, d.userId); return; }
+          setMsg({ type: d.type || "ok", text: d.message || "완료되었습니다." });
+          if (d.ok) setF({ name: "", date: "", phone4: "" });
+        } catch (e) { setMsg({ type: "error", text: e.message }); }
+        finally { setLoading(false); }
+      };
+
+      const TABS = [{ k: "signup", l: "회원가입" }, { k: "login", l: "로그인" }, { k: "admin", l: "관리자" }];
+      const isForm = mode === "signup" || mode === "login";
+      const canSubmit = f.name.trim() && f.date && /^\d{4}$/.test(f.phone4);
+
+      return (
+        <div className="min-h-screen flex flex-col justify-center px-6 py-14 fade-in">
+          <div className="max-w-sm mx-auto w-full">
+            <div className="text-center mb-8">
+              <p className="eyebrow text-muted mb-4">Wedding Photography</p>
+              <h1 className="font-serif font-light luxe text-5xl text-ink">MARIAN</h1>
+              <div className="w-8 h-px bg-ink/30 mx-auto my-5"></div>
+              <p className="eyebrow text-ink/70">Review Guide</p>
+              <p className="text-muted text-[13px] mt-3 leading-relaxed">
+                마리안웨딩에서 예식을 올리신 신랑·신부님께 발급됩니다.<br/>운영자 승인 후 이용하실 수 있어요.
+              </p>
+            </div>
+
+            {/* 탭 */}
+            <div className="flex border border-line">
+              {TABS.map((t) => (
+                <button key={t.k} onClick={() => { setMode(t.k); setMsg(null); }}
+                  className={"flex-1 h-11 eyebrow " + (mode === t.k ? "bg-navy text-white" : "text-muted hover:bg-cream")}>
+                  {t.l}
+                </button>
+              ))}
+            </div>
+
+            <div className="border border-t-0 border-line p-5 space-y-3">
+              {isForm && (
+                <>
+                  <div>
+                    <div className="eyebrow text-muted mb-2">이름 (신랑 또는 신부)</div>
+                    <input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="홍길동"
+                      className="w-full bg-cream border border-line px-4 py-3 text-[15px] focus:border-navy focus:outline-none" />
+                  </div>
+                  <div>
+                    <div className="eyebrow text-muted mb-2">예식일자</div>
+                    <input value={f.date} onChange={(e) => set("date", e.target.value)} type="date"
+                      className="w-full bg-cream border border-line px-4 py-3 text-[15px] text-ink focus:border-navy focus:outline-none" />
+                  </div>
+                  <div>
+                    <div className="eyebrow text-muted mb-2">전화번호 뒷자리 4개</div>
+                    <input value={f.phone4} onChange={(e) => set("phone4", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      type="tel" inputMode="numeric" maxLength={4} placeholder="예) 1234"
+                      className="w-full bg-cream border border-line px-4 py-3 text-[15px] focus:border-navy focus:outline-none" />
+                  </div>
+                  <button onClick={submit} disabled={!canSubmit || loading}
+                    className={"w-full py-3.5 eyebrow " + (canSubmit && !loading ? "bg-navy text-white" : "bg-line text-muted")}>
+                    {loading ? "처리 중" : (mode === "signup" ? "가입 신청" : "로그인")}
+                  </button>
+                  <p className="text-muted/70 text-[11px] leading-relaxed">
+                    {mode === "signup"
+                      ? "신청 후 운영자 승인을 거쳐 사용 가능합니다. 승인되면 같은 정보로 로그인하세요."
+                      : "가입 시 입력한 이름·예식일자·전화번호 뒷자리로 로그인합니다."}
+                  </p>
+                </>
+              )}
+
+              {mode === "admin" && (
+                <div className="space-y-3">
+                  <p className="text-muted text-[13px] leading-relaxed">마리안 운영자 전용 입구입니다.</p>
+                  <button onClick={() => { window.location.hash = "admin"; }}
+                    className="w-full py-3.5 eyebrow bg-navy text-white">관리자 페이지로</button>
+                </div>
+              )}
+
+              {msg && (
+                <div className={"text-xs p-3 border " +
+                  (msg.type === "error" ? "border-red-300 text-red-600 bg-red-50" :
+                   msg.type === "warn" ? "border-amber-300 text-amber-700 bg-amber-50" :
+                                         "border-navy/40 text-navy bg-navy/5")}>{msg.text}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 관리자 ──
+    function AdminApp() {
+      const [authed, setAuthed] = useState(false);
+      const [user, setUser] = useState("");
+      const [pass, setPass] = useState("");
+      const [rows, setRows] = useState([]);
+      const [areqs, setAreqs] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState("");
+      const [confirmReset, setConfirmReset] = useState(false);
+      const cred = useRef({ user: "", pass: "" });
+
+      const call = async (action, id) => {
+        const res = await fetch("/api/admin", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...cred.current, action, id }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "요청에 실패했어요.");
+        return data;
+      };
+      const loadAll = async () => {
+        const [u, a] = await Promise.all([call("list"), call("access_list")]);
+        setRows(u.rows || []); setAreqs(a.rows || []);
+      };
+      const login = async () => {
+        setError(""); setLoading(true); cred.current = { user: user.trim(), pass };
+        try { await loadAll(); setAuthed(true); }
+        catch (e) { setError(e.message); } finally { setLoading(false); }
+      };
+      const refresh = async () => { setError(""); setLoading(true); try { await loadAll(); } catch (e) { setError(e.message); } finally { setLoading(false); } };
+      const del = async (id) => { setLoading(true); try { await call("delete", id); await loadAll(); } catch (e) { setError(e.message); } finally { setLoading(false); } };
+      const doReset = async () => { setConfirmReset(false); setLoading(true); try { await call("reset"); setRows([]); } catch (e) { setError(e.message); } finally { setLoading(false); } };
+      const approveReq = async (id) => { setLoading(true); try { await call("access_approve", id); await loadAll(); } catch (e) { setError(e.message); } finally { setLoading(false); } };
+      const rejectReq = async (id) => { setLoading(true); try { await call("access_reject", id); await loadAll(); } catch (e) { setError(e.message); } finally { setLoading(false); } };
+      const delReq = async (id) => { setLoading(true); try { await call("access_delete", id); await loadAll(); } catch (e) { setError(e.message); } finally { setLoading(false); } };
+      const fmt = (s) => { try { return new Date(s).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return s; } };
+      const goHome = () => { window.location.hash = ""; };
+
+      if (!authed) {
+        return (
+          <div className="min-h-screen flex flex-col justify-center px-8 fade-in">
+            <div className="max-w-sm mx-auto w-full text-center">
+              <p className="eyebrow text-muted mb-2">Admin</p>
+              <Wordmark size="text-3xl" />
+              <div className="w-8 h-px bg-ink/30 mx-auto my-6"></div>
+              <div className="space-y-2.5 text-left">
+                <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="아이디"
+                  className="w-full bg-cream border border-line px-4 py-3 text-[15px] focus:border-navy focus:outline-none" />
+                <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" placeholder="비밀번호"
+                  onKeyDown={(e) => e.key === "Enter" && login()}
+                  className="w-full bg-cream border border-line px-4 py-3 text-[15px] focus:border-navy focus:outline-none" />
+                {error && <p className="text-red-500 text-sm">{error}</p>}
+                <button onClick={login} disabled={loading || !user || !pass}
+                  className={"w-full py-3.5 eyebrow " + (loading || !user || !pass ? "bg-line text-muted" : "bg-navy text-white")}>
+                  {loading ? "확인 중" : "로그인"}
+                </button>
+                <button onClick={goHome} className="w-full text-muted text-sm py-2">← 앱으로 돌아가기</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen pb-10 fade-in">
+          <header className="sticky top-0 z-10 bg-paper/95 backdrop-blur border-b border-line">
+            <div className="max-w-md mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="font-serif text-2xl text-ink">등록 내역 <span className="text-navy">{rows.length}</span></div>
+              <div className="flex gap-2">
+                <button onClick={refresh} className="eyebrow text-muted border border-line px-3 py-2">새로고침</button>
+                <button onClick={goHome} className="eyebrow text-muted border border-line px-3 py-2">나가기</button>
+              </div>
+            </div>
+          </header>
+          <div className="max-w-md mx-auto px-6 pt-5">
+            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+
+            {/* 승인 요청 */}
+            <div className="mb-8">
+              <div className="eyebrow text-muted mb-2">승인 요청 {areqs.filter((a) => a.status !== "approved").length > 0 && <span className="text-navy">· 대기 {areqs.filter((a) => a.status !== "approved").length}</span>}</div>
+              {areqs.length === 0 ? (
+                <div className="text-muted text-sm py-4 border-t border-line">아직 신청이 없어요.</div>
+              ) : (
+                <div className="border-t border-line">
+                  {areqs.map((a) => (
+                    <div key={a.id} className="border-b border-line py-3 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-ink text-[15px]">{a.name}</span>
+                          {a.phone4 && <span className="text-[11px] text-muted">···· {a.phone4}</span>}
+                          {a.status === "approved"
+                            ? <span className="eyebrow text-navy">승인됨</span>
+                            : a.status === "rejected"
+                              ? <span className="eyebrow text-muted">거절됨</span>
+                              : <span className="eyebrow text-red-400">대기</span>}
+                        </div>
+                        <div className="text-[11px] text-muted mt-0.5">예식일 {a.wedding_date}</div>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0 ml-3">
+                        {a.status !== "approved" && (
+                          <button onClick={() => approveReq(a.id)} className="eyebrow text-white bg-navy px-3 py-2">승인</button>
+                        )}
+                        {a.status === "pending" && (
+                          <button onClick={() => rejectReq(a.id)} className="eyebrow text-amber-600 border border-amber-300 px-3 py-2">거절</button>
+                        )}
+                        <button onClick={() => delReq(a.id)} className="eyebrow text-muted border border-line px-3 py-2">삭제</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="eyebrow text-muted mb-2">후기 등록 내역</div>
+            <div className="mb-4">
+              {confirmReset ? (
+                <div className="border border-red-300 px-3 py-3 flex items-center justify-between">
+                  <span className="text-red-600 text-sm">전체 {rows.length}건 삭제할까요?</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmReset(false)} className="text-sm text-muted px-3 py-1.5">취소</button>
+                    <button onClick={doReset} className="eyebrow text-white bg-red-500 px-3 py-2">전체 삭제</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmReset(true)} disabled={!rows.length}
+                  className="w-full border border-red-200 text-red-500 py-3 eyebrow disabled:opacity-40">전체 리셋 (모든 기록 삭제)</button>
+              )}
+            </div>
+            {rows.length === 0 ? (
+              <div className="text-center text-muted text-sm py-16">아직 등록된 내역이 없습니다.</div>
+            ) : (
+              <div className="border-t border-line">
+                {rows.map((r) => (
+                  <div key={r.id} className="border-b border-line px-1 py-3.5 flex items-center justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-ink text-[15px] truncate">{r.name || "(이름없음)"}</span>
+                        <span className={"eyebrow px-1.5 py-0.5 " + (r.channel === "블로그" ? "bg-navy text-white" : "bg-cream text-muted border border-line")}>{r.channel}</span>
+                        <span className="text-[11px] text-muted">{r.review_type}</span>
+                      </div>
+                      <div className="text-muted text-xs mt-0.5">{r.phone} · {fmt(r.created_at)}</div>
+                    </div>
+                    <button onClick={() => del(r.id)} className="ml-3 shrink-0 eyebrow text-red-400 border border-red-200 px-3 py-2 hover:bg-red-50">삭제</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ── 앱 ──
+    function App() {
+      const [route, setRoute] = useState((window.location.hash || "").replace("#", ""));
+      const [approved, setApproved] = useState(() => { try { return !!localStorage.getItem("marian_access"); } catch (e) { return false; } });
+      const [view, setView] = useState("home");
+      const [type, setType] = useState(null);
+      const [items, setItems] = useState([]);
+
+      useEffect(() => {
+        const onHash = () => setRoute((window.location.hash || "").replace("#", ""));
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, []);
+
+      if (route === "admin") return <AdminApp />;
+      if (!approved) return <AuthGate onLogin={() => setApproved(true)} />;
+      if (view === "home") return <Home onPick={(t) => { setType(t); setView("survey"); }} />;
+      if (view === "survey") return <Survey type={type} onBack={() => setView("home")} onDone={(it) => { setItems(it); setView("result"); }} />;
+      return <Result type={type} items={items} onHome={() => setView("home")} />;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
