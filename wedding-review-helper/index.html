@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>더화려한날엔 · 후기 작성 도우미</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#FBF8F4",
+            paper: "#FFFFFF",
+            ink: "#2C2622",
+            muted: "#8A7F76",
+            line: "#E9E1D8",
+            mauve: "#8E5B63",
+            mauveDark: "#6E434A",
+            blush: "#F3E7E5",
+          },
+          fontFamily: {
+            serif: ["'Nanum Myeongjo'", "Georgia", "serif"],
+            sans: ["-apple-system", "'Apple SD Gothic Neo'", "Pretendard", "'Malgun Gothic'", "sans-serif"],
+          },
+        },
+      },
+    };
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    html, body { background: #FBF8F4; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, "Apple SD Gothic Neo", Pretendard, "Malgun Gothic", sans-serif; }
+    .fade-in { animation: fade .4s ease both; }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    textarea { line-height: 1.85; }
+    .spin { animation: sp 1s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef } = React;
+    const BUSINESS = "더화려한날엔";
+
+    // ── 설문 정의 ──────────────────────────────────────────────
+    const SURVEYS = {
+      계약후기: {
+        title: "계약후기",
+        sub: "왜 " + BUSINESS + "과 계약하게 되셨나요?",
+        questions: [
+          { id: "route", type: "single", allowCustom: true, q: "어떻게 알게 되셨나요?",
+            options: ["지인·친구 소개", "인스타·SNS 광고", "네이버·구글 검색", "웨딩카페 후기 보고", "웨딩플래너 추천", "직접 입력"] },
+          { id: "compare", type: "single", q: "몇 군데나 비교해보셨어요?",
+            options: ["여기만 봤어요", "2~3군데 비교", "4군데 이상 비교"] },
+          { id: "reasons", type: "multi", max: 3, q: "계약을 결정한 이유는? (최대 3개)",
+            options: ["자연스러운 사진 스타일", "포트폴리오가 취향저격", "상담이 편하고 친절해서", "가격·구성이 합리적", "원본+보정 조건이 좋아서", "작가님 실력·경력", "원하는 날짜 예약 가능", "후기·평이 좋아서"] },
+          { id: "impression", type: "single", allowCustom: true, q: "상담 때 가장 인상 깊었던 점은?",
+            options: ["부담 안 주고 편했어요", "궁금한 걸 꼼꼼히 답해줬어요", "설명이 자세하고 친절했어요", "상담만으로 신뢰가 갔어요", "직접 입력"] },
+          { id: "free", type: "text", optional: true, q: "특별히 기억에 남는 순간이나 하고 싶은 말 (선택)",
+            placeholder: "예) 실장님이 우리 취향을 먼저 물어봐 줘서 편했어요" },
+        ],
+      },
+      사진후기: {
+        title: "사진후기",
+        sub: "예식 당일 경험과 맛보기 보정본에 대한 후기예요",
+        questions: [
+          { id: "venue", type: "text", q: "예식장 이름·지역",
+            placeholder: "예) 그랜드 워커힐 / 서울" },
+          { id: "photographer", type: "multi", max: 3, q: "당일 작가님은 어떠셨나요? (최대 3개)",
+            options: ["자연스럽게 잘 유도해줬어요", "눈에 안 띄게 촬영했어요", "분위기를 편하게 만들어줬어요", "시간 약속을 잘 지켰어요", "원하는 컷을 잘 담아줬어요", "하객들도 편해했어요"] },
+          { id: "mood", type: "single", q: "예식 당일 분위기는 어땠어요?",
+            options: ["화기애애하고 즐거웠어요", "감동적이고 뭉클했어요", "정신없이 지나갔지만 잘 담겼어요", "긴장했지만 편하게 이끌어줬어요"] },
+          { id: "first", type: "single", q: "맛보기 보정본 받고 첫 느낌은?",
+            options: ["기대 이상이었어요", "자연스러워서 만족해요", "보정 톤이 딱 취향이에요", "표정·순간 포착이 좋아요"] },
+          { id: "loved", type: "multi", max: 3, q: "특히 마음에 든 점은? (최대 3개)",
+            options: ["피부·톤 보정이 자연스러워요", "색감이 예뻐요", "표정이 살아있어요", "배경·구도가 좋아요", "우리 둘 케미가 잘 나왔어요", "원판·가족사진도 만족"] },
+          { id: "free", type: "text", optional: true, q: "특별히 마음에 든 사진이나 하고 싶은 말 (선택)",
+            placeholder: "예) 성혼선언문 읽을 때 표정이 정말 잘 담겼어요" },
+        ],
+      },
+    };
+
+    // ── 공용 UI ────────────────────────────────────────────────
+    function Chip({ active, children, onClick }) {
+      return (
+        <button onClick={onClick}
+          className={"px-4 py-2.5 rounded-full text-[15px] border transition-all " +
+            (active
+              ? "bg-mauve text-white border-mauve shadow-sm"
+              : "bg-paper text-ink border-line hover:border-mauve/50")}>
+          {children}
+        </button>
+      );
+    }
+
+    // ── 홈 ────────────────────────────────────────────────────
+    function Home({ onPick }) {
+      return (
+        <div className="min-h-screen flex flex-col justify-center px-6 py-16 fade-in">
+          <div className="max-w-md mx-auto w-full text-center">
+            <p className="text-mauve tracking-[0.35em] text-xs font-semibold mb-3">THE WONDERFUL DAY</p>
+            <h1 className="font-serif text-[34px] leading-tight text-ink font-extrabold">{BUSINESS}<br/>후기 작성 도우미</h1>
+            <p className="text-muted mt-4 text-[15px] leading-relaxed">
+              몇 가지 질문에 <b className="text-ink">체크만</b> 하면<br/>
+              웨딩카페·블로그에 바로 올릴 후기를 대신 써드려요.
+            </p>
+            <div className="mt-10 space-y-3">
+              <button onClick={() => onPick("계약후기")}
+                className="w-full text-left bg-paper border border-line rounded-2xl px-6 py-5 hover:border-mauve hover:shadow-md transition-all">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-serif text-xl text-ink font-bold">계약후기 쓰기</div>
+                    <div className="text-muted text-sm mt-1">왜 계약하게 됐는지</div>
+                  </div>
+                  <span className="text-mauve text-2xl">›</span>
+                </div>
+              </button>
+              <button onClick={() => onPick("사진후기")}
+                className="w-full text-left bg-paper border border-line rounded-2xl px-6 py-5 hover:border-mauve hover:shadow-md transition-all">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-serif text-xl text-ink font-bold">사진후기 쓰기</div>
+                    <div className="text-muted text-sm mt-1">예식 당일 + 맛보기 보정본</div>
+                  </div>
+                  <span className="text-mauve text-2xl">›</span>
+                </div>
+              </button>
+            </div>
+            <p className="text-muted/70 text-xs mt-8">작성한 후기는 저장되지 않아요 · 복사해서 직접 올려주세요</p>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 설문 ──────────────────────────────────────────────────
+    function Survey({ type, onBack, onDone }) {
+      const cfg = SURVEYS[type];
+      const [ans, setAns] = useState({});   // id -> value(문자열) 또는 배열
+      const [custom, setCustom] = useState({}); // id -> 직접입력 텍스트
+
+      const setSingle = (q, opt) => {
+        if (q.allowCustom && opt === "직접 입력") {
+          setAns({ ...ans, [q.id]: "__custom__" });
+        } else {
+          setAns({ ...ans, [q.id]: opt });
+        }
+      };
+      const toggleMulti = (q, opt) => {
+        const cur = Array.isArray(ans[q.id]) ? ans[q.id] : [];
+        let next;
+        if (cur.includes(opt)) next = cur.filter((o) => o !== opt);
+        else {
+          if (cur.length >= q.max) return;
+          next = [...cur, opt];
+        }
+        setAns({ ...ans, [q.id]: next });
+      };
+
+      const answeredCount = cfg.questions.filter((q) => {
+        const v = ans[q.id];
+        if (q.type === "multi") return Array.isArray(v) && v.length > 0;
+        if (q.type === "text") return (v || "").trim();
+        if (v === "__custom__") return (custom[q.id] || "").trim();
+        return !!v;
+      }).length;
+      const ready = answeredCount >= 2;
+
+      const buildItems = () =>
+        cfg.questions
+          .map((q) => {
+            let a = "";
+            const v = ans[q.id];
+            if (q.type === "multi") a = Array.isArray(v) ? v.join(", ") : "";
+            else if (q.type === "text") a = (v || "").trim();
+            else if (v === "__custom__") a = (custom[q.id] || "").trim();
+            else a = v || "";
+            return { q: q.q.replace(/\s*\(.*?\)\s*$/, ""), a };
+          })
+          .filter((it) => it.a);
+
+      return (
+        <div className="min-h-screen pb-40 fade-in">
+          <header className="sticky top-0 z-10 bg-cream/90 backdrop-blur border-b border-line">
+            <div className="max-w-md mx-auto px-5 py-4 flex items-center gap-3">
+              <button onClick={onBack} className="text-muted text-xl leading-none">‹</button>
+              <div>
+                <div className="font-serif text-lg font-bold text-ink">{cfg.title}</div>
+                <div className="text-muted text-xs">{cfg.sub}</div>
+              </div>
+            </div>
+          </header>
+
+          <div className="max-w-md mx-auto px-5 pt-6 space-y-9">
+            {cfg.questions.map((q, i) => (
+              <div key={q.id}>
+                <div className="flex items-baseline gap-2 mb-3">
+                  <span className="font-serif text-mauve text-lg font-bold">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="text-ink text-[16px] font-semibold leading-snug">{q.q}</span>
+                </div>
+
+                {q.type === "text" ? (
+                  <textarea rows={q.optional ? 3 : 2}
+                    value={ans[q.id] || ""}
+                    onChange={(e) => setAns({ ...ans, [q.id]: e.target.value })}
+                    placeholder={q.placeholder}
+                    className="w-full bg-paper border border-line rounded-xl px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 focus:border-mauve focus:outline-none resize-none" />
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {q.options.map((opt) => {
+                      const active = q.type === "multi"
+                        ? Array.isArray(ans[q.id]) && ans[q.id].includes(opt)
+                        : (opt === "직접 입력" ? ans[q.id] === "__custom__" : ans[q.id] === opt);
+                      return (
+                        <Chip key={opt} active={active}
+                          onClick={() => (q.type === "multi" ? toggleMulti(q, opt) : setSingle(q, opt))}>
+                          {opt}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {q.allowCustom && ans[q.id] === "__custom__" && (
+                  <input autoFocus value={custom[q.id] || ""}
+                    onChange={(e) => setCustom({ ...custom, [q.id]: e.target.value })}
+                    placeholder="직접 입력해 주세요"
+                    className="mt-2 w-full bg-paper border border-mauve/50 rounded-xl px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 focus:border-mauve focus:outline-none" />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* 하단 고정 바 */}
+          <div className="fixed bottom-0 inset-x-0 bg-cream/95 backdrop-blur border-t border-line">
+            <div className="max-w-md mx-auto px-5 py-4">
+              <button
+                disabled={!ready}
+                onClick={() => onDone(buildItems())}
+                className={"w-full rounded-xl py-4 font-semibold text-[16px] transition-all " +
+                  (ready ? "bg-mauve text-white shadow-md hover:bg-mauveDark" : "bg-line text-muted")}>
+                {ready ? "후기 만들기 →" : "2개 이상 답해 주세요"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 결과(생성 전 입력 → 생성 → 결과) ──────────────────────
+    function Result({ type, items, onHome }) {
+      const [phase, setPhase] = useState("form"); // form | loading | done | error
+      const [tone, setTone] = useState("친근");
+      const [channel, setChannel] = useState("카페"); // 카페 | 블로그
+      const [name, setName] = useState("");
+      const [phone, setPhone] = useState("");
+      const [text, setText] = useState("");
+      const [errMsg, setErrMsg] = useState("");
+      const [limit, setLimit] = useState(false);
+      const [copied, setCopied] = useState(false);
+
+      const phoneDigits = phone.replace(/[^0-9]/g, "");
+      const canSubmit = name.trim().length > 0 && phoneDigits.length >= 10;
+
+      const submit = async () => {
+        setPhase("loading"); setErrMsg(""); setLimit(false); setCopied(false);
+        try {
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type, items, tone, channel, name: name.trim(), phone }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setLimit(data.code === "LIMIT");
+            throw new Error(data.error || "생성 중 오류가 났어요.");
+          }
+          setText(data.review || "");
+          setPhase("done");
+        } catch (e) {
+          setErrMsg(e.message || "생성 중 오류가 났어요.");
+          setPhase("error");
+        }
+      };
+
+      const copy = async () => {
+        try { await navigator.clipboard.writeText(text); }
+        catch (e) {
+          const ta = document.createElement("textarea");
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          document.execCommand("copy"); document.body.removeChild(ta);
+        }
+        setCopied(true); setTimeout(() => setCopied(false), 1800);
+      };
+
+      const Header = ({ title }) => (
+        <header className="sticky top-0 z-10 bg-cream/90 backdrop-blur border-b border-line">
+          <div className="max-w-md mx-auto px-5 py-4 flex items-center gap-3">
+            <button onClick={onHome} className="text-muted text-xl leading-none">‹</button>
+            <div className="font-serif text-lg font-bold text-ink">{title}</div>
+          </div>
+        </header>
+      );
+
+      // ── 로딩 ──
+      if (phase === "loading") {
+        return (
+          <div className="min-h-screen fade-in">
+            <Header title={type + " 작성"} />
+            <div className="max-w-md mx-auto px-5 pt-16">
+              <div className="bg-paper border border-line rounded-2xl py-16 flex flex-col items-center gap-4">
+                <div className="w-8 h-8 border-2 border-line border-t-mauve rounded-full spin"></div>
+                <p className="text-muted text-sm">신부님 마음으로 후기를 쓰는 중이에요…</p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 오류 / 한도초과 ──
+      if (phase === "error") {
+        return (
+          <div className="min-h-screen fade-in">
+            <Header title={type + " 작성"} />
+            <div className="max-w-md mx-auto px-5 pt-16 text-center">
+              <div className="bg-paper border border-line rounded-2xl p-8">
+                <div className="text-3xl mb-3">{limit ? "🙏" : "😢"}</div>
+                <p className="text-ink text-[15px] leading-relaxed mb-6">{errMsg}</p>
+                <div className="flex gap-2 justify-center">
+                  <button onClick={() => setPhase("form")}
+                    className="px-5 py-3 rounded-xl border border-line text-muted text-sm font-semibold">
+                    뒤로
+                  </button>
+                  <button onClick={onHome}
+                    className="px-5 py-3 rounded-xl bg-mauve text-white text-sm font-semibold">
+                    처음으로
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 결과 ──
+      if (phase === "done") {
+        return (
+          <div className="min-h-screen pb-32 fade-in">
+            <Header title={type + " 초안"} />
+            <div className="max-w-md mx-auto px-5 pt-6">
+              <p className="text-muted text-xs mb-2">✎ 직접 고쳐도 돼요. 마음에 들면 복사해서 올려주세요.</p>
+              <textarea value={text} onChange={(e) => setText(e.target.value)}
+                className="w-full bg-paper border border-line rounded-2xl px-5 py-5 text-[15px] text-ink focus:border-mauve focus:outline-none"
+                style={{ minHeight: "380px" }} />
+              <div className="text-right text-muted/70 text-xs mt-1">{text.length}자</div>
+            </div>
+            <div className="fixed bottom-0 inset-x-0 bg-cream/95 backdrop-blur border-t border-line">
+              <div className="max-w-md mx-auto px-5 py-4 flex gap-3">
+                <button onClick={onHome}
+                  className="px-5 rounded-xl py-4 font-semibold text-[15px] border border-line text-muted">처음으로</button>
+                <button onClick={copy}
+                  className="flex-1 rounded-xl py-4 font-semibold text-[16px] bg-mauve text-white shadow-md hover:bg-mauveDark transition-colors">
+                  {copied ? "✓ 복사됐어요!" : "후기 복사하기"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 입력 폼 (기본) ──
+      return (
+        <div className="min-h-screen pb-40 fade-in">
+          <Header title={type + " 작성"} />
+          <div className="max-w-md mx-auto px-5 pt-6 space-y-6">
+            <div>
+              <div className="text-ink text-[15px] font-semibold mb-2">말투</div>
+              <div className="flex gap-2">
+                {["친근", "정중"].map((t) => (
+                  <Chip key={t} active={tone === t} onClick={() => setTone(t)}>
+                    {t === "친근" ? "친근한 말투" : "정중한 말투"}
+                  </Chip>
+                ))}
+              </div>
+              <p className="text-muted/70 text-xs mt-1.5">두 말투 모두 존댓말이에요.</p>
+            </div>
+
+            <div>
+              <div className="text-ink text-[15px] font-semibold mb-2">어디에 올릴 후기인가요?</div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: "카페", t: "카페 후기", d: "500자 내외" },
+                  { key: "블로그", t: "블로그 후기", d: "1000자 내외" },
+                ].map((c) => (
+                  <button key={c.key} onClick={() => setChannel(c.key)}
+                    className={"rounded-xl border px-4 py-3 text-left transition-all " +
+                      (channel === c.key ? "bg-blush border-mauve" : "bg-paper border-line")}>
+                    <div className={"font-semibold " + (channel === c.key ? "text-mauveDark" : "text-ink")}>{c.t}</div>
+                    <div className="text-muted text-xs mt-0.5">{c.d}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <div className="text-ink text-[15px] font-semibold mb-2">성함</div>
+                <input value={name} onChange={(e) => setName(e.target.value)}
+                  placeholder="예) 김보경"
+                  className="w-full bg-paper border border-line rounded-xl px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 focus:border-mauve focus:outline-none" />
+              </div>
+              <div>
+                <div className="text-ink text-[15px] font-semibold mb-2">연락처</div>
+                <input value={phone} onChange={(e) => setPhone(e.target.value)}
+                  inputMode="numeric" placeholder="예) 010-1234-5678"
+                  className="w-full bg-paper border border-line rounded-xl px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 focus:border-mauve focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="bg-blush/50 border border-line rounded-xl px-4 py-3">
+              <p className="text-mauveDark text-xs leading-relaxed">
+                📌 <b>연락처당 카페 후기 1회, 블로그 후기 1회</b>만 작성할 수 있어요.<br/>
+                생성 후에는 글을 직접 수정할 수 있으니 신중히 만들어 주세요.
+              </p>
+            </div>
+          </div>
+
+          <div className="fixed bottom-0 inset-x-0 bg-cream/95 backdrop-blur border-t border-line">
+            <div className="max-w-md mx-auto px-5 py-4">
+              <button disabled={!canSubmit} onClick={submit}
+                className={"w-full rounded-xl py-4 font-semibold text-[16px] transition-all " +
+                  (canSubmit ? "bg-mauve text-white shadow-md hover:bg-mauveDark" : "bg-line text-muted")}>
+                {canSubmit ? channel + " 후기 생성하기" : "성함·연락처를 입력해 주세요"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 앱 ────────────────────────────────────────────────────
+    function App() {
+      const [view, setView] = useState("home"); // home | survey | result
+      const [type, setType] = useState(null);
+      const [items, setItems] = useState([]);
+
+      if (view === "home")
+        return <Home onPick={(t) => { setType(t); setView("survey"); }} />;
+      if (view === "survey")
+        return <Survey type={type} onBack={() => setView("home")}
+          onDone={(it) => { setItems(it); setView("result"); }} />;
+      return <Result type={type} items={items} onHome={() => setView("home")} />;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

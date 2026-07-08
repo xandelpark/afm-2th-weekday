@@ -1,0 +1,17 @@
+{
+  "name": "wedding-review-helper",
+  "version": "1.0.0",
+  "description": "더화려한날엔 본식스냅 후기 작성 도우미",
+  "main": "single.js",
+  "scripts": {
+    "dev": "node single.js",
+    "start": "node single.js"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.22.0"
+  }
+}
