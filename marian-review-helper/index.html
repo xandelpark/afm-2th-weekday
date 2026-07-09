@@ -168,7 +168,7 @@
             <div className="pt-8 text-center">
               <p className="eyebrow text-muted/70">(주)아트콜렉티브 · Marian Wedding</p>
               <div className="flex items-center justify-center gap-4 mt-3">
-                <button onClick={() => { try { localStorage.removeItem("marian_access"); } catch (e) {} location.reload(); }}
+                <button onClick={() => { try { localStorage.removeItem("marian_access"); sessionStorage.removeItem("marian_admin"); } catch (e) {} location.reload(); }}
                   className="text-muted/40 text-[11px] hover:text-muted">로그아웃</button>
                 <button onClick={() => { window.location.hash = "admin"; }}
                   className="text-muted/40 text-[11px] hover:text-muted">관리자</button>
@@ -294,7 +294,8 @@
         try {
           const res = await fetch("/api/generate", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type, items, tone, channel, userId: me.userId, name: me.name }),
+            body: JSON.stringify({ type, items, tone, channel, userId: me.userId, name: me.name,
+              adminPass: (() => { try { return sessionStorage.getItem("marian_admin"); } catch (e) { return null; } })() }),
           });
           const data = await res.json();
           if (!res.ok) { setLimit(data.code === "LIMIT"); throw new Error(data.error || "생성 중 오류가 났어요."); }
@@ -335,11 +336,11 @@
       }
       if (phase === "done") {
         return (
-          <div className="min-h-screen pb-32 fade-in">
+          <div className="min-h-screen pb-10 fade-in">
             <TopBar eyebrow={SURVEYS[type].en} />
             <div className="max-w-md mx-auto px-6 pt-8">
               <div className="font-serif text-3xl text-ink mb-1">{type} 초안</div>
-              <p className="text-muted text-xs mb-4">직접 고쳐도 됩니다. 마음에 들면 복사해 올려주세요.</p>
+              <p className="text-muted text-xs mb-4">직접 고쳐도 됩니다. 제목·본문 각각 복사해서 올려주세요.</p>
 
               <div className="flex items-center justify-between mb-1.5">
                 <span className="eyebrow text-muted">제목</span>
@@ -353,6 +354,10 @@
 
               <div className="flex items-center justify-between mb-1.5">
                 <span className="eyebrow text-muted">본문</span>
+                <button onClick={() => copy(text, "body")}
+                  className="eyebrow text-white bg-navy px-3 py-1.5">
+                  {copied === "body" ? "복사됨 ✓" : "본문 복사"}
+                </button>
               </div>
               <textarea value={text} onChange={(e) => setText(e.target.value)}
                 className="w-full bg-cream border border-line px-5 py-5 text-[15px] text-ink focus:border-navy focus:outline-none"
@@ -367,14 +372,8 @@
                   마음 가시는 대로 편하게 남겨 주세요.
                 </p>
               </div>
-            </div>
-            <div className="fixed bottom-0 inset-x-0 bg-paper/95 backdrop-blur border-t border-line">
-              <div className="max-w-md mx-auto px-6 py-4 flex gap-2">
-                <button onClick={onHome} className="px-5 py-4 eyebrow border border-line text-muted">처음으로</button>
-                <button onClick={() => copy(text, "body")} className="flex-1 py-4 eyebrow bg-navy text-white">
-                  {copied === "body" ? "COPIED ✓" : "본문 복사하기"}
-                </button>
-              </div>
+
+              <button onClick={onHome} className="w-full mt-6 py-3.5 eyebrow border border-line text-muted">처음으로</button>
             </div>
           </div>
         );
@@ -402,7 +401,7 @@
             <div>
               <div className="eyebrow text-muted mb-2.5">어디에 올릴 후기인가요</div>
               <div className="grid grid-cols-2 gap-2">
-                {[{ key: "카페", t: "카페 후기", d: "500자 내외" }, { key: "블로그", t: "블로그 후기", d: "1000자 내외" }].map((c) => (
+                {[{ key: "카페", t: "카페 후기", d: "웨딩카페용" }, { key: "블로그", t: "블로그 후기", d: "네이버 블로그용" }].map((c) => (
                   <button key={c.key} onClick={() => setChannel(c.key)}
                     className={"border px-4 py-4 text-left transition-all " +
                       (channel === c.key ? "bg-navy border-navy text-white" : "bg-paper border-line text-ink")}>
@@ -466,7 +465,7 @@
       const canSubmit = f.name.trim() && f.date && /^\d{4}$/.test(f.phone4);
 
       return (
-        <div className="min-h-screen flex flex-col justify-center px-6 py-14 fade-in">
+        <div className="min-h-screen px-6 py-14 fade-in">
           <div className="max-w-sm mx-auto w-full">
             <div className="text-center mb-8">
               <p className="eyebrow text-muted mb-4">Wedding Photography</p>
@@ -474,8 +473,30 @@
               <div className="w-8 h-px bg-ink/30 mx-auto my-5"></div>
               <p className="eyebrow text-ink/70">Review Guide</p>
               <p className="text-muted text-[13px] mt-3 leading-relaxed">
-                마리안웨딩에서 예식을 올리신 신랑·신부님께 발급됩니다.<br/>운영자 승인 후 이용하실 수 있어요.
+                마리안웨딩 예약 신랑·신부님을 위한 <b className="text-ink">후기 작성 도우미</b>.<br/>
+                몇 가지만 답하면 카페·블로그 후기가 <b className="text-ink">제목까지</b> 완성돼요.
               </p>
+            </div>
+
+            {/* 미리보기 — 이런 후기를 만들어 드려요 */}
+            <div className="mb-9">
+              <p className="eyebrow text-muted text-center mb-3">이런 후기를 만들어 드려요</p>
+              <div className="border border-line">
+                {[
+                  { en: "CONTRACT REVIEW", k: "계약후기", d: "왜 마리안웨딩을 선택했는지" },
+                  { en: "PHOTO REVIEW", k: "사진후기", d: "예식 당일 · 후기용 선보정본" },
+                ].map((c, i) => (
+                  <div key={c.k} className={"flex items-center justify-between px-5 py-4 " + (i ? "border-t border-line" : "")}>
+                    <div>
+                      <div className="eyebrow text-muted mb-1">{c.en}</div>
+                      <div className="font-serif text-2xl text-ink">{c.k}</div>
+                      <div className="text-muted text-xs mt-0.5">{c.d}</div>
+                    </div>
+                    <span className="text-ink/20 text-xl">→</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-muted/70 text-[11px] text-center mt-2">로그인하시면 위 후기를 몇 번의 선택으로 완성하실 수 있어요.</p>
             </div>
 
             {/* 탭 */}
@@ -616,6 +637,18 @@
           </header>
           <div className="max-w-md mx-auto px-6 pt-5">
             {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+
+            {/* 후기 작성 테스트 (관리자 무제한) */}
+            <button onClick={() => {
+                try {
+                  sessionStorage.setItem("marian_admin", cred.current.pass);
+                  localStorage.setItem("marian_access", JSON.stringify({ name: "관리자", userId: "__admin__", t: Date.now() }));
+                } catch (e) {}
+                window.location.hash = ""; location.reload();
+              }}
+              className="w-full mb-8 py-3.5 eyebrow bg-navy text-white">
+              후기 작성 테스트 (무제한) →
+            </button>
 
             {/* 승인 요청 */}
             <div className="mb-8">

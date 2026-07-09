@@ -4,6 +4,7 @@ const db = require("./db");
 
 const skipDb = () => process.env.SKIP_DB === "1";
 const PER_CHANNEL = Number(process.env.MARIAN_QUOTA || 3); // 채널(카페/블로그)당 작성 가능 횟수
+const ADMIN_PASS = process.env.ADMIN_PASS || "";
 
 // 커스텀 오류 (핸들러가 status로 응답 코드 결정)
 class ReviewError extends Error {
@@ -15,15 +16,18 @@ class ReviewError extends Error {
 }
 
 async function createReview(payload) {
+  // 관리자면 무제한(테스트용) — 횟수제한·기록 건너뜀
+  const isAdmin = ADMIN_PASS && payload.adminPass === ADMIN_PASS;
+
   // 로그인 계정 기준 (회원가입 승인된 사용자 id). 재입력 없이 세션에서 넘어옴.
   const userId = String(payload.userId || "").trim();
   const name = (payload.name || "").trim();
   const channel = payload.channel === "블로그" ? "블로그" : "카페";
 
-  if (!userId) throw new ReviewError("로그인 정보가 없습니다. 다시 로그인해 주세요.", 401);
+  if (!isAdmin && !userId) throw new ReviewError("로그인 정보가 없습니다. 다시 로그인해 주세요.", 401);
 
-  // 1) 횟수 제한 확인 (계정당 채널별 PER_CHANNEL회)
-  if (!skipDb()) {
+  // 1) 횟수 제한 확인 (계정당 채널별 PER_CHANNEL회) — 관리자는 무제한
+  if (!skipDb() && !isAdmin) {
     const cnt = await db.countUsage(userId, channel);
     if (cnt >= PER_CHANNEL) {
       throw new ReviewError(
@@ -43,8 +47,8 @@ async function createReview(payload) {
     items: payload.items,
   });
 
-  // 3) 기록 (usage.phone 컬럼을 계정 id 저장용으로 사용)
-  if (!skipDb()) {
+  // 3) 기록 (usage.phone 컬럼을 계정 id 저장용으로 사용) — 관리자 테스트는 기록 안 함
+  if (!skipDb() && !isAdmin) {
     await db.record(userId, name, channel, payload.type);
   }
 
