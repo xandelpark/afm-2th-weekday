@@ -17,28 +17,20 @@ function validate(payload) {
   return { name, weddingDate, phone4 };
 }
 
-// 회원가입 신청
+// 회원가입 — 자동 승인(승인 절차 없음), 바로 입장
 async function signup(payload, baseUrl) {
   const { name, weddingDate, phone4 } = validate(payload);
 
-  // 이미 신청/승인된 건 안내
-  const exact = await db.findSignup(name, weddingDate, phone4);
-  if (exact) {
-    if (exact.status === "approved") return { ok: false, type: "warn", message: '이미 승인 완료되었습니다. "로그인" 탭에서 같은 정보로 로그인해 주세요.' };
-    if (exact.status === "rejected") return { ok: false, type: "warn", message: "이전 신청이 거절되었습니다. 마리안 웨딩에 문의해 주세요." };
-    return { ok: false, type: "warn", message: "이미 신청하셨습니다 (승인 대기 중). 운영자 승인 후 로그인 가능합니다." };
+  let row = await db.findSignup(name, weddingDate, phone4);
+  if (!row) {
+    const token = crypto.randomBytes(16).toString("hex");
+    row = await db.createSignup(name, weddingDate, phone4, token);
+    await db.setAccessStatus(row.id, "approved"); // 자동 승인
+    // 운영자에게 새 가입 알림 (승인 불필요, 정보만)
+    try { await sendApprovalRequest({ name, weddingDate, approveUrl: `${baseUrl}/api/approve?token=${row.token}` }); } catch (e) {}
   }
-  // 같은 이름·예식일자, 다른 번호
-  const samePerson = await db.findByNameDate(name, weddingDate);
-  if (samePerson) {
-    return { ok: false, type: "warn", message: "같은 이름·예식일자로 다른 전화번호가 등록되어 있어요. 본인 번호 뒷자리를 다시 확인하시거나 마리안 운영자에 문의해 주세요." };
-  }
-
-  const token = crypto.randomBytes(16).toString("hex");
-  const row = await db.createSignup(name, weddingDate, phone4, token);
-  const approveUrl = `${baseUrl}/api/approve?token=${row.token}`;
-  await sendApprovalRequest({ name, weddingDate, approveUrl });
-  return { ok: true, type: "ok", message: "신청 완료. 마리안 운영자 승인 후 로그인하실 수 있습니다." };
+  // 방금 가입했거나 이미 가입된 경우 → 바로 이용 (로그인 상태로 진입)
+  return { ok: true, approved: true, name: row.name, weddingDate: row.wedding_date, userId: row.id };
 }
 
 // 로그인

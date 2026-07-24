@@ -10,16 +10,13 @@ async function sendApprovalRequest({ name, weddingDate, approveUrl }) {
   }
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#1a1815">
-      <p style="letter-spacing:.2em;color:#8b8680;font-size:12px">MARIAN WEDDING · 후기 이용 승인 요청</p>
-      <h2 style="font-weight:600">새 이용 신청이 도착했어요</h2>
+      <p style="letter-spacing:.2em;color:#8b8680;font-size:12px">MARIAN WEDDING · 후기 도구 새 가입</p>
+      <h2 style="font-weight:600">새로운 분이 가입했어요</h2>
       <table style="font-size:15px;line-height:2">
         <tr><td style="color:#8b8680;padding-right:16px">이름</td><td><b>${escapeHtml(name)}</b></td></tr>
         <tr><td style="color:#8b8680;padding-right:16px">예식일자</td><td><b>${escapeHtml(weddingDate)}</b></td></tr>
       </table>
-      <p style="margin-top:24px">
-        <a href="${approveUrl}" style="display:inline-block;background:#091940;color:#fff;text-decoration:none;padding:12px 28px;letter-spacing:.1em">승인하기</a>
-      </p>
-      <p style="color:#8b8680;font-size:13px;margin-top:16px">경쟁업체 방지용 확인 절차입니다. 예약 고객이 맞으면 위 버튼으로 승인해 주세요.</p>
+      <p style="color:#8b8680;font-size:13px;margin-top:20px">자동 가입되어 바로 이용 중입니다. 가입 내역은 관리자 페이지에서 확인·관리할 수 있어요.</p>
     </div>`;
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -28,7 +25,7 @@ async function sendApprovalRequest({ name, weddingDate, approveUrl }) {
       body: JSON.stringify({
         from: MAIL_FROM,
         to: [OWNER_EMAIL],
-        subject: `[마리안웨딩] 후기 이용 승인 요청 — ${name} (${weddingDate})`,
+        subject: `[마리안웨딩] 새 가입 — ${name} (${weddingDate})`,
         html,
       }),
     });

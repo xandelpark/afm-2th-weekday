@@ -45,6 +45,7 @@ async function createReview(payload) {
     channel, // 카페 | 블로그 (SEO 최적화 분기)
     length: channel === "블로그" ? "장문" : "중간",
     items: payload.items,
+    credits: payload.credits, // 함께한 업체 (드레스·헤메·턱시도·웨딩홀) — 글 말미 크레딧 블록
   });
 
   // 3) 기록 (usage.phone 컬럼을 계정 id 저장용으로 사용) — 관리자 테스트는 기록 안 함

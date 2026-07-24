@@ -51,6 +51,16 @@
     const { useState, useRef, useEffect } = React;
     const BUSINESS = "마리안웨딩";
 
+    // ── 크레딧(함께한 업체) 항목 — 사진후기 말미에 ♥Dress.○○ 형식으로 붙는다 ──
+    // partnerOnly: 비제휴 웨딩홀이면 글 삭제 위험이 있어 크레딧에서 자동 제외
+    const CREDIT_FIELDS = [
+      { key: "dress",  label: "Dress",       ko: "드레스",      ph: "예) 제이미브라이드" },
+      { key: "makeup", label: "Hair&Makeup", ko: "헤어·메이크업", ph: "예) 에이바이봄" },
+      { key: "tuxedo", label: "Tuxedo",      ko: "턱시도",      ph: "예) 애프터모던" },
+      { key: "venue",  label: "Wedding venue", ko: "웨딩홀",    ph: "예) 엘리에나호텔", partnerOnly: true },
+    ];
+    const CREDIT_MIN = 2; // 최소 입력 개수
+
     // ── 설문 정의 (더화려한날엔과 동일 구조, 업체 중립) ──
     const SURVEYS = {
       계약후기: {
@@ -103,6 +113,8 @@
             options: ["피부·톤 보정이 자연스러워요", "색감이 예뻐요", "표정이 살아있어요", "배경·구도가 좋아요", "우리 둘 케미가 잘 나왔어요", "원판·가족사진도 만족"] },
           { id: "free", type: "text", optional: true, q: "특별히 마음에 든 사진이나 하고 싶은 말 (선택)",
             placeholder: "예) 성혼선언문 읽을 때 표정이 정말 잘 담겼어요" },
+          { id: "credits", type: "credits", q: "함께한 업체 (2곳 이상)",
+            hint: "입력하신 곳만 후기 맨 아래에 ♥Dress. 제이미브라이드 형식으로 들어가요. 모르는 곳은 비워두셔도 됩니다." },
         ],
       },
     };
@@ -196,17 +208,32 @@
         setAns({ ...ans, [q.id]: next });
       };
       const cText = (id) => (custom[id] || "").trim();
+
+      // ── 크레딧(함께한 업체) ──
+      // 비제휴 웨딩홀이면 웨딩홀 칸은 잠기고 크레딧에서도 빠진다 (글 삭제 방지)
+      const isPartner = ans.partner === "제휴 웨딩홀";
+      const creditUsable = (f) => !f.partnerOnly || isPartner;
+      const creditVal = (id, key) => ((ans[id] || {})[key] || "").trim();
+      const setCredit = (id, key, v) => setAns({ ...ans, [id]: { ...(ans[id] || {}), [key]: v } });
+      const creditList = (id) =>
+        CREDIT_FIELDS.filter(creditUsable)
+          .map((f) => ({ label: f.label, value: creditVal(id, f.key) }))
+          .filter((c) => c.value);
+      const creditQ = visible.find((q) => q.type === "credits");
+      const creditsOk = !creditQ || creditList(creditQ.id).length >= CREDIT_MIN;
+
       const hasAnswer = (q) => {
+        if (q.type === "credits") return creditList(q.id).length > 0;
         if (q.type === "text") return !!(ans[q.id] || "").trim();
         if (q.type === "multi") return (Array.isArray(ans[q.id]) && ans[q.id].length > 0) || !!cText(q.id);
         return !!(ans[q.id] || "") || !!cText(q.id); // single
       };
       const answeredCount = visible.filter(hasAnswer).length;
       const requiredOk = visible.filter((q) => q.required).every(hasAnswer);
-      const ready = answeredCount >= 2 && requiredOk;
+      const ready = answeredCount >= 2 && requiredOk && creditsOk;
 
       const buildItems = () =>
-        visible.map((q) => {
+        visible.filter((q) => q.type !== "credits").map((q) => {
           let a = "";
           if (q.type === "text") a = (ans[q.id] || "").trim();
           else if (q.type === "multi")
@@ -233,7 +260,28 @@
                   <span className="text-ink text-[15px] font-medium leading-snug">{q.q}</span>
                 </div>
                 {q.hint && <p className="text-muted/80 text-xs mb-2.5 -mt-1.5 leading-relaxed">{q.hint}</p>}
-                {q.type === "text" ? (
+                {q.type === "credits" ? (
+                  <div className="border border-line divide-y divide-line">
+                    {CREDIT_FIELDS.map((f) => {
+                      const locked = !creditUsable(f);
+                      return (
+                        <div key={f.key} className={"flex items-center gap-3 px-3.5 py-2.5 " + (locked ? "bg-line/25" : "bg-cream")}>
+                          <div className="w-[92px] shrink-0">
+                            <div className={"text-[12px] leading-tight " + (locked ? "text-muted/50" : "text-navy")}>{f.label}</div>
+                            <div className="text-muted/70 text-[11px] leading-tight">{f.ko}</div>
+                          </div>
+                          <input
+                            value={locked ? "" : creditVal(q.id, f.key)}
+                            disabled={locked}
+                            onChange={(e) => setCredit(q.id, f.key, e.target.value)}
+                            placeholder={locked ? "비제휴 웨딩홀은 넣지 않아요" : f.ph}
+                            className={"flex-1 min-w-0 bg-transparent text-[14px] focus:outline-none " +
+                              (locked ? "text-muted/50 placeholder:text-muted/50 cursor-not-allowed" : "text-ink placeholder:text-muted/60")} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : q.type === "text" ? (
                   <textarea rows={q.optional ? 3 : 2} value={ans[q.id] || ""}
                     onChange={(e) => setAns({ ...ans, [q.id]: e.target.value })}
                     placeholder={q.placeholder}
@@ -264,10 +312,13 @@
 
           <div className="fixed bottom-0 inset-x-0 bg-paper/95 backdrop-blur border-t border-line">
             <div className="max-w-md mx-auto px-6 py-4">
-              <button disabled={!ready} onClick={() => onDone(buildItems())}
+              <button disabled={!ready} onClick={() => onDone(buildItems(), creditQ ? creditList(creditQ.id) : [])}
                 className={"w-full py-4 eyebrow transition-all " +
                   (ready ? "bg-navy text-white" : "bg-line text-muted")}>
-                {ready ? "다음 단계" : (!requiredOk ? "비교 업체를 입력해 주세요 (없으면 '없음')" : "2개 이상 답해 주세요")}
+                {ready ? "다음 단계"
+                  : !requiredOk ? "비교 업체를 입력해 주세요 (없으면 '없음')"
+                  : answeredCount < 2 ? "2개 이상 답해 주세요"
+                  : "함께한 업체를 2곳 이상 입력해 주세요"}
               </button>
             </div>
           </div>
@@ -276,7 +327,7 @@
     }
 
     // ── 결과(입력 → 생성 → 결과) ──
-    function Result({ type, items, onHome }) {
+    function Result({ type, items, credits, onHome }) {
       const [phase, setPhase] = useState("form");
       const [tone, setTone] = useState("친근");
       const [channel, setChannel] = useState("카페");
@@ -294,7 +345,7 @@
         try {
           const res = await fetch("/api/generate", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type, items, tone, channel, userId: me.userId, name: me.name,
+            body: JSON.stringify({ type, items, credits, tone, channel, userId: me.userId, name: me.name,
               adminPass: (() => { try { return sessionStorage.getItem("marian_admin"); } catch (e) { return null; } })() }),
           });
           const data = await res.json();
@@ -453,9 +504,8 @@
           });
           const d = await res.json();
           if (!res.ok) { setMsg({ type: "error", text: d.error || "오류가 발생했어요." }); return; }
-          if (mode === "login" && d.ok) { enter(d.name, d.weddingDate, d.userId); return; }
+          if (d.ok && d.userId) { enter(d.name, d.weddingDate, d.userId); return; }
           setMsg({ type: d.type || "ok", text: d.message || "완료되었습니다." });
-          if (d.ok) setF({ name: "", date: "", phone4: "" });
         } catch (e) { setMsg({ type: "error", text: e.message }); }
         finally { setLoading(false); }
       };
@@ -476,6 +526,11 @@
                 마리안웨딩 예약 신랑·신부님을 위한 <b className="text-ink">후기 작성 도우미</b>.<br/>
                 몇 가지만 답하면 카페·블로그 후기가 <b className="text-ink">제목까지</b> 완성돼요.
               </p>
+            </div>
+
+            {/* 앨범 이미지 */}
+            <div className="mb-8 border border-line overflow-hidden">
+              <img src="/album.jpg" alt="마리안웨딩 앨범" className="w-full block" />
             </div>
 
             {/* 미리보기 — 이런 후기를 만들어 드려요 */}
@@ -534,7 +589,7 @@
                   </button>
                   <p className="text-muted/70 text-[11px] leading-relaxed">
                     {mode === "signup"
-                      ? "신청 후 운영자 승인을 거쳐 사용 가능합니다. 승인되면 같은 정보로 로그인하세요."
+                      ? "가입하시면 바로 이용하실 수 있어요. 다음에 오실 땐 같은 정보로 로그인하세요."
                       : "가입 시 입력한 이름·예식일자·전화번호 뒷자리로 로그인합니다."}
                   </p>
                 </>
@@ -652,9 +707,9 @@
 
             {/* 승인 요청 */}
             <div className="mb-8">
-              <div className="eyebrow text-muted mb-2">승인 요청 {areqs.filter((a) => a.status !== "approved").length > 0 && <span className="text-navy">· 대기 {areqs.filter((a) => a.status !== "approved").length}</span>}</div>
+              <div className="eyebrow text-muted mb-2">가입 회원 {areqs.length > 0 && <span className="text-navy">{areqs.length}</span>}</div>
               {areqs.length === 0 ? (
-                <div className="text-muted text-sm py-4 border-t border-line">아직 신청이 없어요.</div>
+                <div className="text-muted text-sm py-4 border-t border-line">아직 가입한 분이 없어요.</div>
               ) : (
                 <div className="border-t border-line">
                   {areqs.map((a) => (
@@ -732,6 +787,7 @@
       const [view, setView] = useState("home");
       const [type, setType] = useState(null);
       const [items, setItems] = useState([]);
+      const [credits, setCredits] = useState([]);
 
       useEffect(() => {
         const onHash = () => setRoute((window.location.hash || "").replace("#", ""));
@@ -742,8 +798,8 @@
       if (route === "admin") return <AdminApp />;
       if (!approved) return <AuthGate onLogin={() => setApproved(true)} />;
       if (view === "home") return <Home onPick={(t) => { setType(t); setView("survey"); }} />;
-      if (view === "survey") return <Survey type={type} onBack={() => setView("home")} onDone={(it) => { setItems(it); setView("result"); }} />;
-      return <Result type={type} items={items} onHome={() => setView("home")} />;
+      if (view === "survey") return <Survey type={type} onBack={() => setView("home")} onDone={(it, cr) => { setItems(it); setCredits(cr || []); setView("result"); }} />;
+      return <Result type={type} items={items} credits={credits} onHome={() => setView("home")} />;
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);

@@ -28,6 +28,21 @@ const LINKS = {
   instagram: "https://instagram.com/marian.wedding", // 인스타그램
 };
 
+// 크레딧(함께한 업체) 블록 — 프론트에서 입력한 것만, 입력 순서대로
+// 예) ♥Snap.마리안웨딩 / ♥Dress.제이미브라이드 / ♥Hair&Makeup.에이바이봄
+const CREDIT_ORDER = ["Dress", "Hair&Makeup", "Tuxedo", "Wedding venue"];
+
+function buildCreditBlock(credits, snapLabel) {
+  const clean = (s) => String(s || "").replace(/\s+/g, " ").trim().slice(0, 40);
+  const list = (Array.isArray(credits) ? credits : [])
+    .map((c) => ({ label: clean(c && c.label), value: clean(c && c.value) }))
+    .filter((c) => CREDIT_ORDER.includes(c.label) && c.value)
+    .sort((a, b) => CREDIT_ORDER.indexOf(a.label) - CREDIT_ORDER.indexOf(b.label));
+  if (!list.length) return ""; // 입력한 게 없으면 블록 자체를 안 붙임
+  const lines = [`♥${snapLabel}.${BUSINESS}`, ...list.map((c) => `♥${c.label}.${c.value}`)];
+  return "\n\n" + lines.join("\n");
+}
+
 // 후기 본문 뒤에 붙일 링크 푸터
 function buildFooter() {
   const lines = ["", "", "─────────────", `📸 ${BUSINESS}`, `홈페이지 · ${LINKS.homepage}`];
@@ -94,7 +109,8 @@ const SYSTEM = `너는 실제 신부가 직접 쓴 것처럼 자연스러운 웨
 
 - 제목 줄은 반드시 '제목:'으로 시작. 그 다음 한 줄 띄우고 본문.
 - 본문엔 머리말·소제목·마크다운 기호를 넣지 마라. 자연스러운 문단. (맨 끝 해시태그 줄은 허용)
-- 링크·URL·전화번호·카카오채널 같은 연락처는 네가 쓰지 마라. (본문 뒤에 시스템이 자동으로 붙인다)`;
+- 링크·URL·전화번호·카카오채널 같은 연락처는 네가 쓰지 마라. (본문 뒤에 시스템이 자동으로 붙인다)
+- 드레스·헤어메이크업·턱시도·웨딩홀 같은 '함께한 업체' 크레딧 목록(♥Dress.○○ 형식)도 네가 쓰지 마라. 신부가 입력한 것만 시스템이 본문 뒤에 자동으로 붙인다. 업체 이름을 추측해서 지어내지도 마라.`;
 
 // 톤/길이 지침 — 두 톤 모두 존댓말
 function toneLine(tone) {
@@ -105,23 +121,26 @@ function toneLine(tone) {
 
 function lengthLine(length) {
   if (length === "장문")
-    return "분량: 개인블로그용 장문. 반드시 1000자 이상으로 충분히 길게, 문단 3~4개. 예식 준비 과정과 그날의 감정을 구체적으로 풀어서 써라.";
-  return "분량: 웨딩카페용. 반드시 500자 이상으로, 문단 2~3개.";
+    return "분량: 개인블로그용 장문. 반드시 1200자 이상으로 충분히 길게, 문단 4개 이상. 예식 준비 과정·선택 기준·그날의 감정을 구체적으로 풀어서 체류시간이 늘어나게 정보성 있게 써라.";
+  return "분량: 웨딩카페용. 반드시 700자 이상으로, 문단 3개 정도. 너무 짧지 않게 경험을 구체적으로.";
 }
 
-// 채널별 SEO 최적화 지침
+// 채널별 SEO/GEO 최적화 지침 (네이버 최신 로직 기준)
 function seoLine(channel) {
   if (channel === "블로그") {
-    return `[네이버 블로그 SEO 최적화]
-- 이 글은 네이버 블로그에 올릴 후기다. 네이버 검색 상위노출을 고려해서 써라.
-- 핵심 키워드(예: "지역명 본식스냅", 예식장 이름, "${BUSINESS}", "본식스냅 후기", "웨딩스냅")를 첫 문단과 본문 전체에 자연스럽게 여러 번 녹여라. 단, 키워드를 부자연스럽게 나열/반복하지 말고 문맥 안에서 자연스럽게(키워드 스터핑 금지).
-- 정보성 있게 문단을 나눠 충분히 길게 써라.
-- 글 맨 끝에 관련 해시태그 8~12개를 한 줄로 붙여라. (예: #본식스냅 #○○예식장본식스냅 #${BUSINESS} #웨딩스냅후기 #본식스냅추천 ... — 실제 입력된 지역·예식장 반영)`;
+    return `[네이버 블로그 상위노출(SEO + GEO) — 최신 로직 기준]
+- 네이버 블로그는 '경험 기반 원문성(D.I.A) + 정보 충실도 + 키워드 적합도'를 본다. 아래를 반영해라.
+- 핵심 키워드를 제목·첫 문단·본문·해시태그에 자연스럽게 배치: (지역명 + 상품키워드[본식스냅/본식스냅DVD/본식DVD] + "후기/추천"). 롱테일 키워드도 섞어라 — 예) "○○(지역) 본식스냅 추천", "○○ 본식스냅 후기", "본식스냅 가격 고민", "○○ 웨딩홀 스냅".
+- GEO(지역 최적화): 지역명(과 제휴 시 예식장명)을 본문에 명확히 여러 번 언급해서 지역 검색에 잡히게. 첫 문단에 지역+상품키워드를 꼭 넣어라.
+- 경험 원문성: 실제 겪은 구체적 디테일(그날의 상황·시간·감정, 업체 고르던 과정과 선택 기준)을 풍부하게. 예비신부에게 도움 되는 팁·정보도 자연스럽게 녹여 체류시간을 높여라.
+- 단, 키워드를 부자연스럽게 나열/반복(스터핑)하지 마라. 어디까지나 실제 신부가 쓴 후기처럼.
+- ※ 해시태그 나열은 지금 네이버 로직에서 랭킹 기여가 거의 없다. 랭킹은 제목·본문 안에 키워드가 자연스럽게 녹아 있는지(C-Rank·D.I.A)가 좌우한다. 그러니 키워드를 태그로 몰지 말고 본문에 녹이는 데 집중해라.
+- 글 맨 끝에 핵심 해시태그는 3~5개만 한 줄로 붙여라(그 이상 나열 금지 — 저품질/올드하게 보인다). 가장 중요한 것만: (지역+상품키워드+후기), 예식장명(제휴 시), "${BUSINESS}" 정도.`;
   }
-  return `[웨딩카페 검색 최적화]
-- 이 글은 네이버 웨딩카페에 올릴 후기다. 카페 검색에 잘 노출되도록 써라.
-- 핵심 키워드(예식장·지역·"본식스냅"·"${BUSINESS}"·"본식스냅 후기")를 본문에 자연스럽게 2~3회 녹여라. 부자연스러운 반복은 금지.
-- 글 맨 끝에 관련 해시태그 5~8개를 한 줄로 붙여라. (실제 입력된 지역·예식장·업체명 반영)`;
+  return `[웨딩카페 검색 최적화 + GEO]
+- 이 글은 네이버 웨딩카페에 올릴 후기다. 카페 검색은 제목·본문 키워드 매칭 위주라 해시태그는 검색에 거의 기여하지 않는다.
+- 따라서 해시태그는 붙이지 마라. 대신 핵심 키워드(지역명 + "본식스냅"/상품키워드 + "후기", 예식장명[제휴 시], "${BUSINESS}")를 제목과 본문 안에 자연스럽게 3~4회 녹여라. 지역명을 꼭 포함(GEO). 부자연스러운 반복은 금지.
+- 실제 경험을 구체적으로 담아 700자 이상 충실하게.`;
 }
 
 // 프론트에서 온 설문 답변을 프롬프트용 텍스트로 정리
@@ -195,14 +214,24 @@ function productKeyword(payload) {
   return "본식스냅";
 }
 
+// 상품에 맞춘 크레딧 첫 줄 라벨
+function snapLabel(payload) {
+  const kw = productKeyword(payload);
+  if (kw === "본식스냅DVD") return "Snap&Video";
+  if (kw === "본식DVD") return "Video";
+  return "Snap";
+}
+
 async function generateReview(payload) {
+  // 크레딧 + 링크 푸터는 모델이 아니라 시스템이 확정해서 붙인다
+  const tail = buildCreditBlock(payload.credits, snapLabel(payload)) + buildFooter();
   if (process.env.MOCK_REVIEW) {
     const kw = productKeyword(payload);
-    return { title: `${kw} 후기 | 마리안웨딩 (샘플 제목)`, review: mockReview(payload) + buildFooter() };
+    return { title: `${kw} 후기 | 마리안웨딩 (샘플 제목)`, review: mockReview(payload) + tail };
   }
   const text = await callClaude(SYSTEM, buildUserPrompt(payload));
   const { title, body } = parseTitleBody(text);
-  return { title, review: body + buildFooter() }; // 글 말미에 업체 링크 자동 첨부
+  return { title, review: body + tail };
 }
 
 module.exports = { generateReview, BUSINESS };
