@@ -71,9 +71,10 @@
             options: ["본식스냅만", "본식스냅 + 본식DVD", "본식DVD만"] },
           { id: "route", type: "single", q: "어떻게 알게 되셨나요?",
             options: ["지인·친구 소개", "인스타·SNS 광고", "네이버·구글 검색", "웨딩카페 후기 보고", "웨딩플래너 추천"] },
-          { id: "compare", type: "single", q: "몇 군데나 비교해보셨어요?",
+          { id: "compare", type: "single", q: "몇 군데나 비교해보셨어요?", noCustom: true,
             options: ["여기만 봤어요", "2~3군데 비교", "4군데 이상 비교"] },
           { id: "competitors", type: "text", required: true, q: "비교했던 다른 업체 (없으면 '없음')",
+            hint: "비교 참고용으로만 사용되며, 타 업체를 비방하지 않습니다.",
             placeholder: "예) OO웨딩, OO스튜디오 / 비교 안 했으면 '없음'" },
           { id: "partner", type: "single", q: "예식장이 다이렉트 웨딩카페 제휴 웨딩홀인가요?",
             options: ["제휴 웨딩홀", "비제휴 / 잘 모름"],
@@ -252,7 +253,7 @@
 
           <div className="max-w-md mx-auto px-6 pt-8 space-y-9">
             {visible.map((q, i) => {
-              const showCustom = q.type === "multi" || (q.options && q.options.length > 2);
+              const showCustom = !q.noCustom && (q.type === "multi" || (q.options && q.options.length > 2));
               return (
               <div key={q.id}>
                 <div className="flex items-baseline gap-2.5 mb-3">
