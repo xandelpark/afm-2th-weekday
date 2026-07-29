@@ -200,6 +200,39 @@ const CONTRACT_GUIDE = `[계약후기 특별 지침 — 더 자세하고 비교�
 - SEO: "본식스냅 업체 비교", "본식스냅 추천", "본식스냅 고르는 법/기준", "(지역) 본식스냅 비교" 같은 선택·비교 롱테일 키워드를 제목·본문에 자연스럽게 녹여라(스터핑 금지).
 - 분량: 위 기준보다 넉넉히 — 카페도 900자 이상, 블로그는 1400자 이상을 목표로 충실하게.`;
 
+// 계약후기에 공통으로 녹일 마리안웨딩 세일즈 포인트(모두 사실).
+// 한곳에 몰아 나열하지 말고 서로 다른 문단에 흩뿌려 자연스럽게 — 순서·표현은 매번 랜덤.
+const CONTRACT_SELLING_POINTS = [
+  {
+    key: "전속작가",
+    fact: "마리안웨딩은 외주·프리랜서에 넘기지 않고 전속 작가들만 촬영한다(그래서 사진 퀄리티·톤이 일정하다).",
+    voice: "예) '전속 작가님들만 촬영하신다길래 퀄리티가 들쭉날쭉하지 않겠다 싶어 안심됐어요' 같은 결로.",
+  },
+  {
+    key: "카드결제",
+    fact: "카드 결제가 된다(계약금·잔금 카드 결제 가능).",
+    voice: "예) '결제도 카드로 돼서 부담이 덜했어요' 정도로 짧게 흘리듯.",
+  },
+  {
+    key: "패키지",
+    fact: "본식스냅과 본식DVD를 함께 진행할 수 있고, 같이 하면 패키지 할인이 된다. 처음에 하나만 했다가 나중에 추가해도 가성비가 좋다.",
+    voice: "예) 둘 다 한 신부면 '스냅이랑 DVD 같이 하니 패키지로 할인돼서 가성비가 좋았어요'; 하나만 한 신부면 '나중에 추가해도 된다고 하셔서, 그때도 합리적이라 부담이 없더라고요' 처럼 상황에 맞게.",
+  },
+];
+
+// 매 생성마다 순서를 섞어(Fisher-Yates) 흩뿌리기 지침을 만든다.
+function contractSellingBlock() {
+  const arr = CONTRACT_SELLING_POINTS.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  const lines = arr.map((p, i) => `  ${i + 1}) ${p.fact} ${p.voice}`).join("\n");
+  return `[마리안웨딩 정보 — 후기에 자연스럽게 녹여라. 절대 광고처럼 몰아 쓰지 말 것]
+아래 세 가지는 모두 사실이다. 후기에 반영하되 **반드시 서로 다른 문단에 하나씩** 흩뿌려라 — 글의 앞·중간·뒤로 떨어뜨려서, 두 개 이상을 같은 문단이나 연달아 붙이지 마라. (특히 '카드결제'와 '패키지 할인'은 성격이 비슷해 붙기 쉬운데, 절대 한 문단에 같이 넣지 말고 멀리 떼어놓아라.) 각 항목은 그 문단의 주제와 맞물리는 자리에 슬쩍 끼워라(예: 작가 얘기 하는 문단에 전속작가, 비용·결정 얘기 문단에 카드결제 하나만). 아래 순서는 대략의 등장 순서 힌트이고, 표현은 매번 다르게 실제 신부가 흘리듯 써라. 문맥상 어색하면 억지로 넣지 마라:
+${lines}`;
+}
+
 function pickStructure(type) {
   const pool = type === "계약후기" ? CONTRACT_STRUCTURES : STRUCTURES;
   return pool[Math.floor(Math.random() * pool.length)];
@@ -218,7 +251,9 @@ function buildUserPrompt(payload) {
       ? "예식 당일 경험과 후기용 선보정본 사진에 대한 '사진후기'"
       : "왜 이 업체와 계약하게 되었는지에 대한 '계약후기'";
 
-  const contractGuide = type === "계약후기" ? `\n${CONTRACT_GUIDE}\n` : "";
+  const contractGuide = type === "계약후기"
+    ? `\n${CONTRACT_GUIDE}\n\n${contractSellingBlock()}\n`
+    : "";
 
   return `${kind}를 써줘.
 
