@@ -1778,6 +1778,170 @@
       return bestI;
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🦶 3D 스탠스 감지 (worldLandmarks 기반 · 카메라 각도 무관) ★ 신규
+    // ═══════════════════════════════════════════════════════════════
+    //   기존 2D(closeness) 방식의 한계 — 화면좌표 원근왜곡 + 부정확한 z에 의존 →
+    //   각도가 조금만 달라져도 결과가 흔들림. 이 모듈은 MediaPipe worldLandmarks
+    //   (실제 3D 미터좌표)로 몸의 지면 평면을 세워, 앞/뒤/옆/대각선을 한 로직으로 처리.
+    //
+    //   원리:
+    //     1) up = 골반중심→어깨중심 (몸통 수직축). 지면평면 = up에 수직.
+    //     2) netDir(타구 방향) = 임팩트 순간 골반이 향한 방향.
+    //        임팩트에서는 모든 스탠스가 골반을 네트로 회전시키므로 안정적 court 기준.
+    //     3) feetLine(발 선) = 준비자세(임팩트 -500~-250ms) 때 양 발목 벡터.
+    //        발이 이미 세팅됐고 회전 전이라 스탠스가 가장 뚜렷.
+    //     4) angleToNet = feetLine 과 netDir 사이 각(0~90°).
+    //          ≈90° (발 선 ⟂ 네트 = 발이 베이스라인과 평행)     → open
+    //          ≈ 0° (발 선 ∥ 네트 = 앞발이 네트 쪽)             → closed
+    //          중간(≈45°)                                        → semi-open
+    //   handedness 무관(abs 각도) — 왼/오른손 모두 동일하게 성립.
+    //   신뢰도 낮으면 caller가 기존 2D로 폴백하도록 stance:'unknown' 반환.
+    // ───────────────────────────────────────────────────────────────
+    const V3 = {
+      of:   p => [p.x, p.y, p.z],
+      sub:  (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+      add:  (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+      scale:(a, s) => [a[0] * s, a[1] * s, a[2] * s],
+      dot:  (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+      cross:(a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]],
+      len:  a => Math.hypot(a[0], a[1], a[2]),
+      unit: a => { const n = Math.hypot(a[0], a[1], a[2]) || 1e-9; return [a[0]/n, a[1]/n, a[2]/n]; },
+      // v에서 up 성분을 제거 → 지면 평면 투영
+      onPlane: (v, up) => { const d = v[0]*up[0] + v[1]*up[1] + v[2]*up[2]; return [v[0]-up[0]*d, v[1]-up[1]*d, v[2]-up[2]*d]; },
+    };
+
+    // 한 프레임의 world 랜드마크로 몸 지면 좌표계 구성. 실패 시 null.
+    function bodyGroundFrame(w, lm) {
+      if (!w) return null;
+      const need = [KP.LEFT_HIP, KP.RIGHT_HIP, KP.LEFT_SHOULDER, KP.RIGHT_SHOULDER];
+      for (const i of need) {
+        if (!w[i]) return null;
+        if (lm && visOf(lm[i]) < 0.5) return null; // 2D visibility로 신뢰도 게이트
+      }
+      const lHip = V3.of(w[KP.LEFT_HIP]),  rHip = V3.of(w[KP.RIGHT_HIP]);
+      const lSh  = V3.of(w[KP.LEFT_SHOULDER]), rSh = V3.of(w[KP.RIGHT_SHOULDER]);
+      const hipMid = V3.scale(V3.add(lHip, rHip), 0.5);
+      const shMid  = V3.scale(V3.add(lSh, rSh), 0.5);
+      const torso = V3.sub(shMid, hipMid);
+      const torsoLen = V3.len(torso);
+      if (torsoLen < 0.1) return null;            // 몸통이 너무 짧으면(비정상) 버림
+      const up = V3.unit(torso);
+      const hipVec = V3.sub(rHip, lHip);          // 왼→오른 골반
+      const hipAxis = V3.onPlane(hipVec, up);
+      const hipAxisLen = V3.len(hipAxis);
+      if (hipAxisLen < 0.05) return null;         // 골반이 거의 정면(축 소실)
+      const hipAxisU = V3.unit(hipAxis);
+      let facing = V3.unit(V3.cross(up, hipAxisU)); // 골반 수직 = 배가 향한 방향
+      // 부호 보정: 코가 있는 쪽(앞)으로
+      if (w[KP.NOSE]) {
+        const noseRel = V3.onPlane(V3.sub(V3.of(w[KP.NOSE]), hipMid), up);
+        if (V3.dot(facing, noseRel) < 0) facing = V3.scale(facing, -1);
+      }
+      return { up, hipAxisU, facing, hipMid, hipAxisLen, torsoLen };
+    }
+
+    // prep 윈도우에서 발목(또는 발끝) 평균 위치를 지면좌표로.
+    function avgFootWorld(frames, lo, hi, up, idx) {
+      let sx = 0, sy = 0, sz = 0, n = 0;
+      for (let i = lo; i <= hi; i++) {
+        const w = frames[i]?.world, lm = frames[i]?.landmarks;
+        if (!w || !w[idx]) continue;
+        if (lm && visOf(lm[idx]) < 0.4) continue;
+        sx += w[idx].x; sy += w[idx].y; sz += w[idx].z; n++;
+      }
+      if (n === 0) return null;
+      return [sx / n, sy / n, sz / n];
+    }
+
+    // 3D 스탠스 각도 임계치 (angleToNet, 도).  실제 영상으로 보정 예정.
+    const STANCE3D = { open: 62, closed: 28 };  // ≥62 open · ≤28 closed · 사이 semi-open
+
+    function detectStance3D(frames, peakIdx, slowMoFactor = 1, hand = 'right') {
+      if (!Array.isArray(frames) || frames.length === 0 || peakIdx == null) {
+        return { stance: 'unknown', reason: 'invalid_input', method: '3d' };
+      }
+      // world 데이터가 프레임에 실렸는지 확인 (구버전 세션/미지원)
+      const hasWorld = frames.some(f => f && f.world);
+      if (!hasWorld) return { stance: 'unknown', reason: 'no_world', method: '3d' };
+
+      // netDir: 임팩트 ±80ms 윈도우 골반 facing 평균
+      const niLo = findFrameIdxAt(frames, peakIdx, -80 * slowMoFactor);
+      const niHi = findFrameIdxAt(frames, peakIdx,  80 * slowMoFactor);
+      let netAcc = [0, 0, 0], netN = 0, upAcc = [0, 0, 0];
+      for (let i = Math.min(niLo, niHi); i <= Math.max(niLo, niHi); i++) {
+        const bf = bodyGroundFrame(frames[i]?.world, frames[i]?.landmarks);
+        if (!bf) continue;
+        netAcc = V3.add(netAcc, bf.facing);
+        upAcc = V3.add(upAcc, bf.up);
+        netN++;
+      }
+      if (netN < 2) return { stance: 'unknown', reason: 'no_netdir', method: '3d' };
+      const netDir = V3.unit(netAcc);
+      const upImpact = V3.unit(upAcc);
+
+      // feetLine: 준비자세(-500~-250ms) 발목 평균으로
+      const pLo = findFrameIdxAt(frames, peakIdx, -500 * slowMoFactor);
+      const pHi = findFrameIdxAt(frames, peakIdx, -250 * slowMoFactor);
+      const lo = Math.min(pLo, pHi), hi = Math.max(pLo, pHi);
+      // prep 윈도우 대표 up (지면 투영 기준) — 준비자세 프레임들 평균
+      let upPrepAcc = [0, 0, 0], upPrepN = 0;
+      for (let i = lo; i <= hi; i++) {
+        const bf = bodyGroundFrame(frames[i]?.world, frames[i]?.landmarks);
+        if (bf) { upPrepAcc = V3.add(upPrepAcc, bf.up); upPrepN++; }
+      }
+      const upPrep = upPrepN >= 1 ? V3.unit(upPrepAcc) : upImpact;
+
+      const lAnk = avgFootWorld(frames, lo, hi, upPrep, KP.LEFT_ANKLE);
+      const rAnk = avgFootWorld(frames, lo, hi, upPrep, KP.RIGHT_ANKLE);
+      if (!lAnk || !rAnk) return { stance: 'unknown', reason: 'no_feet', method: '3d' };
+
+      const feetVec = V3.onPlane(V3.sub(rAnk, lAnk), upPrep);
+      const stanceWidth = V3.len(feetVec);            // 미터. 발이 겹치면 ~0
+      if (stanceWidth < 0.08) {
+        return { stance: 'unknown', reason: 'feet_stacked', stanceWidth: +stanceWidth.toFixed(3), method: '3d' };
+      }
+      const feetLine = V3.unit(feetVec);
+
+      // netDir 을 prep 지면평면 기준으로 재투영 (up 차이 보정)
+      const netOnPrep = V3.onPlane(netDir, upPrep);
+      if (V3.len(netOnPrep) < 0.2) {
+        return { stance: 'unknown', reason: 'netdir_vertical', method: '3d' };
+      }
+      const netU = V3.unit(netOnPrep);
+
+      const cosang = Math.min(1, Math.abs(V3.dot(feetLine, netU)));
+      const angleToNet = Math.acos(cosang) * 180 / Math.PI;   // 0=발선∥네트, 90=발선⟂네트
+
+      let stance, reasoning;
+      if (angleToNet >= STANCE3D.open) {
+        stance = 'open';
+        reasoning = `angleToNet ${angleToNet.toFixed(1)}° ≥ ${STANCE3D.open}° (발 선이 네트와 직각=베이스라인 평행)`;
+      } else if (angleToNet <= STANCE3D.closed) {
+        stance = 'closed';
+        reasoning = `angleToNet ${angleToNet.toFixed(1)}° ≤ ${STANCE3D.closed}° (발 선이 네트 방향=앞발 전진)`;
+      } else {
+        stance = 'semi-open';
+        reasoning = `angleToNet ${angleToNet.toFixed(1)}° ∈ (${STANCE3D.closed}, ${STANCE3D.open})`;
+      }
+
+      // 앞발 판정(디버그용): netDir 방향으로 더 나간 발이 앞발
+      const lProj = V3.dot(V3.onPlane(lAnk, upPrep), netU);
+      const rProj = V3.dot(V3.onPlane(rAnk, upPrep), netU);
+      const frontFoot = lProj > rProj ? 'left' : 'right';
+
+      return {
+        stance,
+        method: '3d',
+        angleToNet: +angleToNet.toFixed(1),
+        stanceWidth: +stanceWidth.toFixed(3),   // 미터
+        frontFoot,
+        framesUsedNet: netN,
+        reasoning,
+        thresholds: STANCE3D,
+      };
+    }
+
     // 카메라 각도별 closeness 임계치
     //   세미오픈을 오픈으로 잘못 분류하는 케이스가 많아 open 임계치 더 낮춤.
     //   semi 영역(open~semi 사이)을 넓게 잡아 사선 발 위치를 잘 잡도록.
@@ -4532,10 +4696,14 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (result?.landmarks?.length > 0) {
           const landmarks = result.landmarks[0];
+          // worldLandmarks: 실제 3D 미터좌표 (원점=골반 중심). 화면 2D와 달리 카메라 각도에
+          //   거의 무관한 진짜 3D 뼈대 → 스탠스 판정의 핵심 입력. 없을 수도 있으니 옵셔널.
+          const world = result.worldLandmarks?.[0] || null;
           const racketTip = estimateRacketTip(landmarks, hand);
           framesRef.current.push({
             t: tMs,
             landmarks: landmarks.map(p => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility })),
+            world: world ? world.map(p => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility })) : null,
             racketTip,
           });
           if (racketTip) racketTrailRef.current.push({ x: racketTip.x, y: racketTip.y, t: tMs });
@@ -4614,10 +4782,14 @@
             // 백핸드 스타일 사용자 prefer: 'auto' / 'one-handed' / 'two-handed'
             const bhPref = session.backhandStyle || 'auto';
             const perSwing = result.swings.map(sw => {
-              // 1) 스탠스 감지
-              const stanceResult = detectStance(frames, sw.peakIdx, slowMoFactor, cameraAngle);
+              // 1) 스탠스 감지 — 3D(worldLandmarks) 우선, 신뢰도 낮으면 2D 폴백
+              const stance3D = detectStance3D(frames, sw.peakIdx, slowMoFactor, hand);
+              const stance2D = detectStance(frames, sw.peakIdx, slowMoFactor, cameraAngle);
+              const stanceResult = stance3D.stance !== 'unknown'
+                ? { ...stance3D, fallback2D: stance2D.stance }
+                : { ...stance2D, tried3D: stance3D.reason };
               const finalStance = stanceResult.stance === 'unknown' ? 'semi-open' : stanceResult.stance;
-              console.log('[detectStance]', { swingTime: sw.peakTime, ...stanceResult });
+              console.log('[stance]', { swingTime: sw.peakTime, primary: stanceResult.method || '2d', ...stanceResult });
 
               // 2) 백핸드 스타일 결정 (백핸드 스윙에만 의미 있음)
               let backhandStyle = null;
@@ -5449,12 +5621,41 @@
                         <span className="text-slate-400">스탠스</span>
                         <span>{stanceLabel(result.bestSwing.stance)}</span>
                       </div>
+                      {result.bestSwing.stanceDebug && (
+                        <div className="flex justify-between text-[10px] text-slate-500">
+                          <span>판정</span>
+                          <span>
+                            {result.bestSwing.stanceDebug.method === '3d'
+                              ? `3D · 발선각 ${result.bestSwing.stanceDebug.angleToNet}° · 폭 ${Math.round((result.bestSwing.stanceDebug.stanceWidth || 0) * 100)}cm`
+                              : `2D폴백(${result.bestSwing.stanceDebug.tried3D || '—'})`}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between pt-2 mt-2 border-t border-slate-700">
                         <span className="text-slate-300">점수</span>
                         <span className={`font-bold ${scoreColorClass(result.bestSwing.scores.total)}`}>
                           {result.bestSwing.scores.total} / 100
                         </span>
                       </div>
+                      {/* 샷마다 스탠스 — 공 오는 방향에 따라 스탠스가 어떻게 달라지는지 */}
+                      {result.scoreData?.perSwing?.length > 1 && (
+                        <div className="pt-2 mt-2 border-t border-slate-700">
+                          <div className="text-[10px] text-slate-500 mb-1">샷별 스탠스 ({result.scoreData.perSwing.length}개)</div>
+                          <div className="space-y-0.5">
+                            {result.scoreData.perSwing.map((s, i) => (
+                              <div key={i} className="flex justify-between text-[10px] text-slate-400">
+                                <span>
+                                  {((s.time ?? s.peakTime ?? 0) / 1000).toFixed(1)}초 · {s.type === 'forehand' ? '포핸드' : s.type === 'backhand' ? '백핸드' : '—'}
+                                </span>
+                                <span className="text-slate-300">
+                                  {stanceLabel(s.stance)}
+                                  {s.stanceDebug?.method === '3d' ? ` (${s.stanceDebug.angleToNet}°)` : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </Card>
