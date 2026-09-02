@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>얼굴 블러 · Face Blur</title>
+  <!-- 얼굴 감지: face-api.js / 폴더 일괄 저장: JSZip — 모두 브라우저 내 처리 -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f4f2ee; --card: #ffffff; --ink: #1a1815; --muted: #8b8680;
+      --line: #e6e2db; --navy: #091940; --accent: #3b5bdb;
+    }
+    body {
+      font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+      background: var(--bg); color: var(--ink);
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+      padding: 32px 16px 64px;
+    }
+    header { text-align: center; margin-bottom: 24px; }
+    .eyebrow { letter-spacing: .18em; font-size: 11px; color: var(--muted); text-transform: uppercase; }
+    h1 { font-size: 30px; font-weight: 700; margin: 8px 0 6px; }
+    .sub { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      width: 100%; max-width: 820px; padding: 22px; box-shadow: 0 6px 24px rgba(0,0,0,.04);
+    }
+    #drop {
+      border: 2px dashed var(--line); border-radius: 14px; padding: 48px 20px;
+      text-align: center; cursor: pointer; transition: all .15s; background: #faf8f5;
+    }
+    #drop.drag { border-color: var(--accent); background: #eef1fd; }
+    #drop .big { font-size: 44px; margin-bottom: 10px; }
+    #drop .t { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    #drop .s { font-size: 13px; color: var(--muted); }
+    input[type=file] { display: none; }
+    #stage { display: none; }
+    .status {
+      font-size: 13px; margin: 4px 0 14px; display: flex; align-items: center;
+      gap: 8px; justify-content: center; color: var(--muted); min-height: 20px; text-align:center;
+    }
+    .status b { color: var(--navy); }
+    /* 결과 그리드 */
+    #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    #grid.one { grid-template-columns: 1fr; }
+    .folderHead { grid-column: 1 / -1; font-size: 13px; color: var(--muted); padding: 10px 2px 2px; border-top: 1px solid var(--line); margin-top: 8px; }
+    .folderHead.first { border-top: none; margin-top: 0; }
+    .folderHead b { color: var(--navy); }
+    .tile { position: relative; border-radius: 10px; overflow: hidden; background: #f0eee9; border: 1px solid var(--line); }
+    .tile canvas { width: 100%; height: auto; display: block; }
+    .tile .nm {
+      position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; color: #fff;
+      background: linear-gradient(transparent, rgba(0,0,0,.55)); padding: 14px 8px 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tile .dl {
+      position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 8px;
+      border: none; background: rgba(0,0,0,.5); color: #fff; cursor: pointer; font-size: 14px;
+    }
+    .tile .dl:hover { background: rgba(0,0,0,.75); }
+    .tile.nofaces::after {
+      content: "얼굴 없음"; position: absolute; top: 6px; left: 6px; font-size: 10px;
+      background: rgba(0,0,0,.5); color: #fff; padding: 2px 6px; border-radius: 6px;
+    }
+    .controls { margin-top: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .styles { display: flex; flex-wrap: wrap; gap: 8px; align-items:center; }
+    .styles .lbl { font-size:12px; color:var(--muted); margin-right:2px; }
+    .chip {
+      font-family: inherit; font-size: 13px; font-weight: 600; border-radius: 999px;
+      padding: 8px 14px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: all .12s;
+    }
+    .chip:hover { border-color: var(--ink); }
+    .chip.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .row label { font-size: 13px; color: var(--muted); width: 64px; flex-shrink: 0; }
+    input[type=range] { flex: 1; accent-color: var(--accent); }
+    .val { font-size: 13px; width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    button.act {
+      font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 10px;
+      padding: 12px 18px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: all .12s;
+    }
+    button.act:hover { border-color: var(--ink); }
+    button.primary { background: var(--navy); color: #fff; border-color: var(--navy); flex: 1; }
+    button.primary:hover { opacity: .9; }
+    button.act:disabled { opacity: .4; cursor: not-allowed; }
+    .privacy { margin-top: 20px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.6; max-width: 820px; }
+    .privacy b { color: var(--navy); }
+    .spinner { width: 15px; height: 15px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hint { font-size:12px; color: var(--muted); text-align:center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Privacy Tool</div>
+    <h1>얼굴 블러</h1>
+    <p class="sub">폴더를 통째로 올리면 안의 사진 얼굴을 한꺼번에 가립니다. <b>한 폴더는 같은 스타일</b>로 통일돼요.<br/>사진은 서버로 전송되지 않고 브라우저 안에서만 처리돼요.</p>
+  </header>
+
+  <div class="card">
+    <div id="drop">
+      <div class="big">📁</div>
+      <div class="t">폴더(또는 사진 여러 장)를 끌어다 놓으세요</div>
+      <div class="s">클릭하면 폴더를 고를 수 있어요 · 붙여넣기(⌘V)도 됩니다</div>
+    </div>
+    <!-- 클릭 시 폴더 선택 (webkitdirectory). 드래그는 폴더·파일 모두 허용 -->
+    <input type="file" id="file" accept="image/*" multiple webkitdirectory />
+
+    <div id="stage">
+      <div class="status" id="status"></div>
+      <div id="grid"></div>
+      <div class="controls">
+        <div class="styles" id="styles">
+          <span class="lbl">스타일</span>
+          <button class="chip active" data-style="random">🎲 랜덤(폴더당 1종)</button>
+          <button class="chip" data-style="mosaic">모자이크</button>
+          <button class="chip" data-style="roundMosaic">동그란 모자이크</button>
+          <button class="chip" data-style="squareBlur">네모 블러</button>
+          <button class="chip" data-style="roundBlur">동그란 블러</button>
+          <button class="chip" data-style="heavyBlur">강한 블러</button>
+          <button class="chip" data-style="frosted">프로스트</button>
+          <button class="chip" data-style="scribble">색연필</button>
+          <button class="chip" data-style="sticker">🐻 스티커</button>
+        </div>
+        <div class="row">
+          <label>가림 강도</label>
+          <input type="range" id="strength" min="10" max="100" value="65" />
+          <span class="val" id="strengthVal">65%</span>
+        </div>
+        <div class="btns">
+          <button class="act primary" id="zip">전체 ZIP 저장</button>
+          <button class="act" id="reshuffle">🎲 다시 섞기</button>
+          <button class="act" id="reset">다른 폴더</button>
+        </div>
+        <div class="hint">얼굴을 못 찾은 사진은 “얼굴 없음”으로 표시돼요.</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="privacy">🔒 <b>완전 로컬 처리</b> — 사진은 어디에도 전송·저장되지 않습니다. 얼굴 감지·가림·ZIP 생성 모두 이 브라우저 안에서 이뤄집니다.</p>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    const drop = el('drop'), fileInput = el('file'), stage = el('stage'), grid = el('grid');
+    const statusEl = el('status'), strength = el('strength'), strengthVal = el('strengthVal');
+
+    let results = [];          // [{name, base(canvas), w, h, faces[]}]
+    let modelsReady = false;
+    let mode = 'random';       // 선택 스타일
+    let folderStyles = {};     // 폴더명 → 적용 스타일 (여러 폴더를 던지면 각각 독립적으로)
+
+    const STYLES = ['mosaic', 'roundMosaic', 'squareBlur', 'roundBlur', 'heavyBlur', 'frosted', 'scribble', 'sticker'];
+    const STYLE_KR = { mosaic: '모자이크', roundMosaic: '동그란 모자이크', squareBlur: '네모 블러', roundBlur: '동그란 블러', heavyBlur: '강한 블러', frosted: '프로스트', scribble: '색연필', sticker: '스티커' };
+    // 이모지 스티커 (카카오프렌즈 등 저작권 캐릭터 대신 무료 이모지 사용)
+    const EMOJIS = ['😀', '😊', '🙈', '🐻', '🐰', '🐱', '😎', '🥰', '🌸', '⭐', '🐥', '😆', '🐶', '🌼', '💛'];
+    const MAXDIM = 1600;       // 처리 해상도 상한(메모리·속도)
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const randInt = (n) => Math.floor(Math.random() * n);
+    const setStatus = (html) => { statusEl.innerHTML = html; };
+
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+    async function ensureModels() {
+      if (modelsReady) return;
+      setStatus('<span class="spinner"></span> 얼굴 감지 모델 불러오는 중…');
+      // ssd = 실사진·옆모습·단체에 정확. 표준 신뢰도(0.5)로 오탐(풍경을 얼굴로 잘못 인식) 방지.
+      await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+      modelsReady = true;
+    }
+
+    // 원본 고해상도에서 감지(작은 얼굴 인식률↑). 0.4로 recall↑, 0개일 때만 0.2로 재시도(어려운 얼굴).
+    // 재시도는 0-얼굴 사진에만 걸려 속도 부담이 거의 없다.
+    async function detectFaces(imgEl) {
+      try {
+        let d = await faceapi.detectAllFaces(imgEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }));
+        if (!d.length) d = await faceapi.detectAllFaces(imgEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 }));
+        return d;
+      } catch (e) { return []; }
+    }
+
+    // ── 입력: 드래그(폴더/파일) · 클릭(폴더) · 붙여넣기 ──
+    drop.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const tagged = [...e.target.files].map(f => ({ file: f, folder: (f.webkitRelativePath || '').split('/')[0] || '' }));
+      process(tagged);
+    });
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('drag'); }));
+    drop.addEventListener('drop', async (e) => {
+      const items = e.dataTransfer.items;
+      if (items && items.length && items[0].webkitGetAsEntry) {
+        const tagged = [];
+        const entries = [...items].map(i => i.webkitGetAsEntry()).filter(Boolean);
+        // 최상위가 폴더면 그 폴더명으로 묶고, 낱개 파일이면 폴더 없음('')
+        for (const en of entries) await walkEntry(en, tagged, en.isDirectory ? en.name : '');
+        process(tagged);
+      } else {
+        process([...e.dataTransfer.files].map(f => ({ file: f, folder: '' })));
+      }
+    });
+    window.addEventListener('paste', (e) => {
+      const imgs = [...(e.clipboardData?.items || [])].filter(i => i.type.startsWith('image/')).map(i => i.getAsFile());
+      if (imgs.length) process(imgs.map(f => ({ file: f, folder: '' })));
+    });
+
+    // 폴더 엔트리 재귀 순회 → {file, folder} 수집 (하위폴더도 최상위 폴더명으로 묶음)
+    function walkEntry(entry, out, tag) {
+      return new Promise((resolve) => {
+        if (entry.isFile) {
+          entry.file(f => { if (f.type.startsWith('image/')) out.push({ file: f, folder: tag || '' }); resolve(); }, () => resolve());
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          const readAll = () => reader.readEntries(async (ents) => {
+            if (!ents.length) return resolve();
+            for (const en of ents) await walkEntry(en, out, tag);
+            readAll(); // 디렉토리는 여러 번 나눠 읽힐 수 있음
+          }, () => resolve());
+          readAll();
+        } else resolve();
+      });
+    }
+
+    async function process(tagged) {
+      const imgs = tagged.filter(t => t && t.file && t.file.type && t.file.type.startsWith('image/'));
+      if (!imgs.length) { setStatus('이미지 파일을 찾지 못했어요.'); return; }
+      // 폴더별로 묶이도록 정렬
+      imgs.sort((a, b) => (a.folder || '').localeCompare(b.folder || '') || (a.file.name || '').localeCompare(b.file.name || ''));
+      drop.style.display = 'none'; stage.style.display = 'block';
+      try { await ensureModels(); }
+      catch { setStatus('⚠️ 모델을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도하세요.'); return; }
+
+      // 폴더마다 스타일 1종씩 확정 (랜덤이면 폴더별로 독립적으로 뽑음 → 폴더끼리 다를 수 있음)
+      const folders = [...new Set(imgs.map(t => t.folder || ''))];
+      folderStyles = {};
+      folders.forEach(fn => { folderStyles[fn] = (mode === 'random') ? STYLES[randInt(STYLES.length)] : mode; });
+
+      results = []; grid.innerHTML = '';
+      for (let i = 0; i < imgs.length; i++) {
+        setStatus(`<span class="spinner"></span> 처리 중… ${i + 1}/${imgs.length}`);
+        const res = await buildResult(imgs[i].file);
+        if (!res) continue;
+        res.folder = imgs[i].folder || '';
+        assignStyles(res);
+        results.push(res);
+      }
+      rebuildGrid();
+      renderAll();
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const faceTotal = results.reduce((s, r) => s + r.faces.length, 0);
+      const folderCount = new Set(results.map(r => r.folder || '')).size;
+      const withFaces = results.filter(r => r.faces.length).length;
+      const skipped = results.length - withFaces;
+      const folderTxt = (folderCount > 1) ? `폴더 <b>${folderCount}</b>개 · ` : '';
+      setStatus(`${folderTxt}사진 <b>${results.length}</b>장 · 얼굴 <b>${faceTotal}</b>개 · 저장 <b>${withFaces}</b>장`
+        + `${skipped ? ` (얼굴 없는 ${skipped}장 제외)` : ''}`);
+      el('zip').textContent = `얼굴 감지 ${withFaces}장 ZIP 저장`;
+    }
+
+    // 파일 → 캡처 캔버스 + 얼굴 감지 + 스타일 배정
+    async function buildResult(file) {
+      const img = await fileToImage(file);
+      if (!img) return null;
+      const fw = img.naturalWidth || img.width, fh = img.naturalHeight || img.height;
+      const scale = Math.min(1, MAXDIM / Math.max(fw, fh));
+      const w = Math.round(fw * scale), h = Math.round(fh * scale);
+      const base = document.createElement('canvas'); base.width = w; base.height = h;
+      base.getContext('2d').drawImage(img, 0, 0, w, h);
+      // 감지는 원본 고해상도에서 → 좌표만 캡처 크기로 축소 (작은 얼굴 인식률↑)
+      const dets = await detectFaces(img);
+      const faces = dets.map(d => ({
+        x: d.box.x * scale, y: d.box.y * scale, width: d.box.width * scale, height: d.box.height * scale
+      }));
+      return { name: file.name || 'image.png', base, w, h, faces, folder: '', display: document.createElement('canvas') };
+    }
+
+    function fileToImage(file) {
+      return new Promise((resolve) => {
+        const r = new FileReader();
+        r.onload = () => { const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = r.result; };
+        r.onerror = () => resolve(null);
+        r.readAsDataURL(file);
+      });
+    }
+
+    // 얼굴별 크기 랜덤 배정. 스타일은 그 사진이 속한 폴더의 스타일(res.style).
+    function assignStyles(res) {
+      res.style = folderStyles[res.folder || ''] || 'mosaic';
+      res.faces.forEach(f => {
+        f.sizeFactor = rand(0.88, 1.4);
+        f.jitter = rand(0.8, 1.35);
+        f.region = regionOf(f);
+        f.scribble = (res.style === 'scribble') ? makeScribble(f.region) : null;
+        f.emoji = (res.style === 'sticker') ? EMOJIS[randInt(EMOJIS.length)] : null;
+      });
+    }
+    function regionOf(f) {
+      const sf = f.sizeFactor || 1;
+      const padX = f.width * 0.18 * sf, padY = f.height * 0.28 * sf;
+      const x = Math.max(0, f.x - padX), y = Math.max(0, f.y - padY);
+      return { x, y, w: f.width + padX * 2, h: f.height + padY * 2 };
+    }
+
+    // ── 렌더 ──
+    function renderAll() { results.forEach(renderOne); }
+    function renderOne(res) {
+      const c = res.display; c.width = res.w; c.height = res.h;
+      const ctx = c.getContext('2d');
+      ctx.filter = 'none'; ctx.drawImage(res.base, 0, 0);
+      const t = (+strength.value) / 100;
+      res.faces.forEach(f => {
+        const r = f.region;
+        ctx.save();
+        const mBlock = Math.max(14, r.w * (0.16 + t * 0.15) * f.jitter);   // 큰 네모(얼굴 서너 칸)
+        const bPx = Math.max(6, r.w * (0.15 + t * 0.30) * f.jitter);
+        if (res.style === 'mosaic') { clipTo(ctx, r, 'rect'); pixelate(ctx, res.base, r, mBlock); }
+        else if (res.style === 'roundMosaic') { clipTo(ctx, r, 'ellipse'); pixelate(ctx, res.base, r, mBlock); }
+        else if (res.style === 'squareBlur') { clipTo(ctx, r, 'rect'); blurRegion(ctx, res.base, bPx); }
+        else if (res.style === 'roundBlur') { clipTo(ctx, r, 'ellipse'); blurRegion(ctx, res.base, bPx); }
+        else if (res.style === 'heavyBlur') { clipTo(ctx, r, 'ellipse'); blurRegion(ctx, res.base, Math.max(12, r.w * (0.35 + t * 0.35) * f.jitter)); }
+        else if (res.style === 'frosted') { clipTo(ctx, r, 'ellipse'); blurRegion(ctx, res.base, Math.max(10, r.w * (0.28 + t * 0.30) * f.jitter)); ctx.fillStyle = `rgba(255,255,255,${(0.16 + t * 0.22).toFixed(3)})`; ctx.fillRect(r.x, r.y, r.w, r.h); }
+        else if (res.style === 'scribble') { clipTo(ctx, r, 'ellipse'); blurRegion(ctx, res.base, Math.max(5, r.w * 0.12 * f.jitter)); drawScribble(ctx, f.scribble, t); }
+        else if (res.style === 'sticker') {
+          ctx.save(); clipTo(ctx, r, 'ellipse'); blurRegion(ctx, res.base, Math.max(5, r.w * 0.14 * f.jitter)); ctx.restore(); // 가독성 차단용 블러 배경
+          drawEmoji(ctx, f.emoji, r);
+        }
+        ctx.restore();
+      });
+      ctx.filter = 'none';
+    }
+
+    function clipTo(ctx, r, shape) {
+      ctx.beginPath();
+      if (shape === 'rect') roundRect(ctx, r.x, r.y, r.w, r.h, Math.min(r.w, r.h) * 0.10);
+      else ctx.ellipse(r.x + r.w / 2, r.y + r.h / 2, r.w / 2, r.h / 2, 0, 0, Math.PI * 2);
+      ctx.clip();
+    }
+    function blurRegion(ctx, src, px) { ctx.filter = `blur(${px}px)`; ctx.drawImage(src, 0, 0); ctx.filter = 'none'; }
+    function drawEmoji(ctx, emoji, r) {
+      const size = Math.max(r.w, r.h) * 1.12;   // 얼굴을 덮을 만큼 크게
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+      ctx.fillText(emoji || '🙂', r.x + r.w / 2, r.y + r.h / 2);
+    }
+    function pixelate(ctx, src, r, block) {
+      const bw = Math.max(1, Math.round(r.w / block)), bh = Math.max(1, Math.round(r.h / block));
+      const tmp = document.createElement('canvas'); tmp.width = bw; tmp.height = bh;
+      tmp.getContext('2d').drawImage(src, r.x, r.y, r.w, r.h, 0, 0, bw, bh);
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(tmp, 0, 0, bw, bh, r.x, r.y, r.w, r.h); ctx.imageSmoothingEnabled = true;
+    }
+    // 색연필/연필 스케치 — 무채색(그래파이트) 스머지. 실제 색 X.
+    function makeScribble(r) {
+      const g = 34 + randInt(26); const col = [g, g, g];
+      const passes = 3 + randInt(3); const strokes = [];
+      for (let p = 0; p < passes; p++) {
+        const pts = []; const cols = 9 + randInt(5), rows = 10 + randInt(6); const dir = p % 2 === 0 ? 1 : -1;
+        for (let ri = 0; ri <= rows; ri++) {
+          const yy = r.y + (r.h * ri / rows);
+          for (let ci = 0; ci <= cols; ci++) {
+            const cx = dir > 0 ? ci : cols - ci;
+            pts.push({ x: r.x + (r.w * cx / cols) + rand(-r.w * 0.04, r.w * 0.04), y: yy + rand(-r.h * 0.05, r.h * 0.05) });
+          }
+        }
+        strokes.push({ pts, width: r.h * 0.02 * rand(0.7, 1.5), alpha: rand(0.5, 0.85) });
+      }
+      return { col, strokes };
+    }
+    function drawScribble(ctx, sc, t) {
+      if (!sc) return;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; const boost = 0.7 + t * 0.6;
+      sc.strokes.forEach(s => {
+        ctx.strokeStyle = `rgba(${sc.col[0]},${sc.col[1]},${sc.col[2]},${Math.min(1, s.alpha * boost)})`;
+        ctx.lineWidth = s.width * boost; ctx.beginPath();
+        s.pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)); ctx.stroke();
+      });
+    }
+    function roundRect(c, x, y, w, h, r) {
+      c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+      c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+    }
+
+    // ── 그리드 (폴더별 헤더 + 타일) ──
+    function rebuildGrid() {
+      grid.innerHTML = '';
+      let cur = null, headed = false, first = true;
+      results.forEach(res => {
+        const fn = res.folder || '';
+        if (fn !== cur) { cur = fn; if (fn) { addFolderHeader(fn, first); headed = true; } }
+        first = false;
+        addTile(res);
+      });
+      grid.classList.toggle('one', results.length === 1 && !headed);
+    }
+    function addFolderHeader(fn, isFirst) {
+      const h = document.createElement('div');
+      h.className = 'folderHead' + (isFirst ? ' first' : '');
+      h.innerHTML = `📁 <b>${fn}</b> · ${STYLE_KR[folderStyles[fn] || 'mosaic']} 스타일`;
+      grid.appendChild(h);
+    }
+    function addTile(res) {
+      const tile = document.createElement('div');
+      tile.className = 'tile' + (res.faces.length ? '' : ' nofaces');
+      tile.appendChild(res.display);
+      const dl = document.createElement('button'); dl.className = 'dl'; dl.textContent = '⬇︎';
+      dl.title = '이 사진 저장'; dl.onclick = () => downloadOne(res);
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = res.name;
+      tile.appendChild(dl); tile.appendChild(nm);
+      grid.appendChild(tile);
+    }
+    function outName(res) { return res.name.replace(/\.[^.]+$/, '') + '_blur.png'; }
+    function downloadOne(res) {
+      res.display.toBlob(b => { const a = document.createElement('a'); a.download = outName(res); a.href = URL.createObjectURL(b); a.click(); }, 'image/png');
+    }
+
+    // ── 컨트롤 ──
+    strength.addEventListener('input', () => { strengthVal.textContent = strength.value + '%'; renderAll(); });
+    el('styles').addEventListener('click', (e) => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      mode = b.dataset.style;
+      [...el('styles').querySelectorAll('.chip')].forEach(c => c.classList.toggle('active', c === b));
+      // 모든 폴더에 적용 (랜덤이면 폴더마다 새로 뽑음)
+      Object.keys(folderStyles).forEach(fn => { folderStyles[fn] = (mode === 'random') ? STYLES[randInt(STYLES.length)] : mode; });
+      results.forEach(assignStyles); rebuildGrid(); renderAll(); updateSummary();
+    });
+    el('reshuffle').addEventListener('click', () => {
+      if (mode === 'random') Object.keys(folderStyles).forEach(fn => { folderStyles[fn] = STYLES[randInt(STYLES.length)]; });
+      results.forEach(assignStyles); rebuildGrid(); renderAll(); updateSummary();
+    });
+    el('zip').addEventListener('click', async () => {
+      const saveable = results.filter(r => r.faces.length > 0);   // 얼굴 감지된 것만 저장
+      if (!saveable.length) { setStatus('저장할(얼굴이 감지된) 사진이 없어요.'); return; }
+      const btn = el('zip'); btn.disabled = true; const prev = btn.textContent; btn.textContent = 'ZIP 만드는 중…';
+      try {
+        const zip = new JSZip();
+        const used = {}, dirs = new Set();
+        for (const res of saveable) {
+          const dirName = (res.folder || 'photos') + '_블러';       // 폴더별 하위폴더 (상위폴더명 + _블러)
+          dirs.add(dirName);
+          const b = res.name.replace(/\.[^.]+$/, '');
+          const key = dirName + '/' + b;
+          let n = b + '.png';
+          if (used[key] != null) { used[key]++; n = `${b}_${used[key]}.png`; } else used[key] = 0;
+          const blob = await new Promise(r => res.display.toBlob(r, 'image/png'));
+          zip.folder(dirName).file(n, blob);
+        }
+        const out = await zip.generateAsync({ type: 'blob' });
+        // 폴더 1개면 그 폴더명, 여러 개면 묶음 이름
+        const zipName = (dirs.size === 1) ? [...dirs][0] + '.zip' : `블러_${dirs.size}개폴더.zip`;
+        const a = document.createElement('a'); a.download = zipName; a.href = URL.createObjectURL(out); a.click();
+      } finally { btn.disabled = false; btn.textContent = prev; }
+    });
+    el('reset').addEventListener('click', () => {
+      results = []; fileInput.value = ''; grid.innerHTML = ''; folderStyles = {};
+      el('zip').textContent = '전체 ZIP 저장';
+      stage.style.display = 'none'; drop.style.display = 'block'; setStatus('');
+    });
+  </script>
+</body>
+</html>

@@ -22,3 +22,18 @@ capcut-automation/pyCapCut/
 # python 캐시
 tennis-reels/__pycache__/
 __pycache__/
+
+# --- 외부 클론 도구 (각자 독립 git 저장소) ---
+tools/
+
+# --- wedding-autoedit: 대용량 산출물/가상환경 (소스 .py/.json만 추적) ---
+wedding-autoedit/.venv/
+wedding-autoedit/store/
+wedding-autoedit/store_full/
+wedding-autoedit/models/
+wedding-autoedit/*.npz
+wedding-autoedit/*.db
+wedding-autoedit/*.log
+
+# --- 스크린샷/작업 이미지 원본 ---
+tennis-reels/*/src/_test_*.png

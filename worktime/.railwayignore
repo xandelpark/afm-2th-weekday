@@ -1,0 +1,5 @@
+node_modules
+*.log
+_prod_secrets.txt
+shot_*.png
+.env

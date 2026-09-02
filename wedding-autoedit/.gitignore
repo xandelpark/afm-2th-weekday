@@ -1,0 +1,5 @@
+store/
+features.db*
+.venv/
+models/
+__pycache__/

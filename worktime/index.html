@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>코워크</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+  // Babel 최신본은 JSX를 automatic 런타임으로 바꿔 import를 주입한다.
+  // CDN에는 react/jsx-runtime이 없어 화면이 빈 채로 뜨므로 classic 런타임으로 고정한다.
+  Babel.registerPreset('react-classic', {
+    presets: [[Babel.availablePresets['react'], { runtime: 'classic' }]],
+  });
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    fontFamily: { sans: ['Pretendard','-apple-system','sans-serif'] },
+    colors: {
+      brand: { DEFAULT:'#3182F6', hover:'#1B6EF3', light:'#EBF3FF' },
+      ok:   { DEFAULT:'#0DCB66', light:'#E6FBF0' },
+      warn: { DEFAULT:'#F7A600', light:'#FFF8E6' },
+      bad:  { DEFAULT:'#F04452', light:'#FFF0F1' },
+      g: { 50:'#F8F9FA',100:'#F2F4F6',200:'#E5E8EB',300:'#D1D6DB',400:'#B0B8C1',
+           500:'#8B95A1',600:'#6B7684',700:'#4E5968',800:'#333D4B',900:'#191F28' },
+    },
+  }},
+};
+</script>
+<style>
+  body { background:#F5F6F8; -webkit-font-smoothing:antialiased; }
+  .card { background:#fff; border-radius:16px; box-shadow:0 1px 2px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.04); }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .dot-live { animation: pulse-dot 1.6s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react-classic">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── 유틸 ──
+const api = async (path, { method = 'GET', body, token } = {}) => {
+  const r = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || '요청에 실패했습니다');
+  return j;
+};
+const fmtHM = (ms) => {
+  if (!ms || ms < 0) ms = 0;
+  const m = Math.floor(ms / 60000);
+  return `${Math.floor(m / 60)}시간 ${String(m % 60).padStart(2, '0')}분`;
+};
+const fmtClock = (iso) =>
+  !iso ? '—' : new Date(iso).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Seoul' });
+const todayKST = () => new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+
+// ── 공통 UI ──
+function Btn({ children, onClick, variant='primary', className='', ...p }) {
+  const v = {
+    primary: 'bg-brand hover:bg-brand-hover text-white',
+    ghost:   'bg-g-100 hover:bg-g-200 text-g-700',
+    danger:  'bg-bad-light hover:bg-red-100 text-bad',
+  }[variant];
+  return <button onClick={onClick} className={`px-4 py-2.5 rounded-[10px] font-semibold text-sm transition ${v} ${className}`} {...p}>{children}</button>;
+}
+function Bar({ rate, met }) {
+  return (
+    <div className="h-2 bg-g-100 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${met ? 'bg-ok' : 'bg-warn'}`} style={{ width: `${Math.round(rate*100)}%` }} />
+    </div>
+  );
+}
+
+// ══════════ 로그인 ══════════
+function Login({ onWorker, onAdmin }) {
+  const [tab, setTab] = useState('worker');
+  const [code, setCode] = useState('');
+  const [pw, setPw] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setErr(''); setBusy(true);
+    try {
+      if (tab === 'worker') {
+        const r = await api('/api/login', { method:'POST', body:{ code } });
+        onWorker(r);
+      } else {
+        const r = await api('/api/admin/login', { method:'POST', body:{ password: pw } });
+        onAdmin(r);
+      }
+    } catch (e) { setErr(e.message); setCode(''); setPw(''); }
+    setBusy(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-5">
+      <div className="w-full max-w-[380px]">
+        <div className="text-center mb-8">
+          <div className="text-[26px] font-bold text-g-900">코워크</div>
+          <div className="text-sm text-g-500 mt-1.5">함께 일하는 시간</div>
+        </div>
+        <div className="card p-7">
+          <div className="flex gap-1 p-1 bg-g-100 rounded-[10px] mb-5">
+            {[['worker','리터쳐'],['admin','작가']].map(([k,label]) => (
+              <button key={k} onClick={() => { setTab(k); setErr(''); }}
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${tab===k ? 'bg-white text-g-900 shadow-sm' : 'text-g-500'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'worker' ? (
+            <>
+              <label className="block text-sm font-medium text-g-700 mb-2">접속 코드</label>
+              <input type="password" value={code} onChange={(e)=>setCode(e.target.value)}
+                onKeyDown={(e)=>e.key==='Enter'&&submit()} placeholder="6자리 코드"
+                inputMode="numeric" autoComplete="off"
+                className="w-full px-4 py-3 rounded-[10px] border border-g-200 focus:border-brand focus:outline-none text-[15px] tracking-widest" />
+              <p className="text-xs text-g-500 mt-2.5">로그인 후 작업 시작을 눌러주세요.</p>
+            </>
+          ) : (
+            <>
+              <label className="block text-sm font-medium text-g-700 mb-2">작가 비밀번호</label>
+              <input type="password" value={pw} onChange={(e)=>setPw(e.target.value)}
+                onKeyDown={(e)=>e.key==='Enter'&&submit()} placeholder="비밀번호"
+                autoComplete="new-password"
+                className="w-full px-4 py-3 rounded-[10px] border border-g-200 focus:border-brand focus:outline-none text-[15px]" />
+            </>
+          )}
+
+          {err && <div className="mt-3 text-sm text-bad bg-bad-light rounded-lg px-3 py-2">{err}</div>}
+          <Btn onClick={submit} disabled={busy} className="w-full mt-5 py-3">
+            {busy ? '확인 중…' : '로그인'}
+          </Btn>
+        </div>
+        <p className="text-center text-xs text-g-400 mt-5">접속 코드를 못 받으셨다면 작가님께 문의하세요.</p>
+      </div>
+    </div>
+  );
+}
+
+// ══════════ 리터쳐 화면 ══════════
+function WorkerView({ session, onLogout }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [notif, setNotif] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [mode, setMode] = useState(() => localStorage.getItem('wt_notif_mode') || 'off'); // push | local | off
+  const [alarm, setAlarm] = useState(null);   // 화면 알람 (권한 없이도 뜨는 모달)
+  const soundedRef = useRef(new Set());       // 같은 알람 소리를 반복해서 내지 않기 위한 표시
+  useEffect(() => { localStorage.setItem('wt_notif_mode', mode); }, [mode]);
+
+  const load = useCallback(async () => {
+    try { setData(await api('/api/me', { token: session.token })); setErr(''); }
+    catch (e) { setErr(e.message); }
+  }, [session.token]);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 60000);
+    const onVisible = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVisible); };
+  }, [load]);
+
+  const act = async (kind) => {
+    setBusy(true); setErr('');
+    try { await api(`/api/${kind}`, { method:'POST', token: session.token }); await load(); }
+    catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+
+  // 서비스워커 등록 + 푸시 구독. 권한이 이미 있으면 조용히 끝난다.
+  // 실패하면 창이 열린 동안만 알리는 모드로 낮춘다.
+  const setupPush = useCallback(async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const { key } = await api('/api/push/key');
+      if (!key) throw new Error('서버에 푸시 키가 없습니다');
+      // 이미 구독돼 있으면 그대로 재사용해서 서버에만 다시 등록한다
+      const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: Uint8Array.from(atob(key.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0)),
+      });
+      await api('/api/push/subscribe', { method:'POST', token: session.token, body: sub.toJSON() });
+      setMode('push');
+      return true;
+    } catch (e) {
+      console.warn('푸시 구독 실패 → 로컬 알림으로 대체:', e.message);
+      setMode('local');
+      return false;
+    }
+  }, [session.token]);
+
+  // 로그인하면 알림을 자동으로 켠다. 권한이 이미 있으면 묻지 않고 바로 구독한다.
+  useEffect(() => {
+    if (typeof Notification === 'undefined') return;
+    (async () => {
+      if (Notification.permission === 'granted') { await setupPush(); return; }
+      if (Notification.permission === 'default') {
+        let perm = 'default';
+        try { perm = await Notification.requestPermission(); } catch {}
+        setNotif(perm);
+        if (perm === 'granted') await setupPush();
+      }
+    })();
+  }, [setupPush]);
+
+  // 버튼으로 다시 시도할 때 (권한을 나중에 허용한 경우)
+  const enableNotif = async () => {
+    let perm = Notification.permission;
+    if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch {} }
+    setNotif(perm);
+    if (perm === 'granted') await setupPush();
+  };
+
+  // ── 소리 ──
+  // 브라우저는 사용자가 페이지를 한 번 건드리기 전엔 소리를 막는다.
+  // 그래서 오디오를 미리 만들어 두고, 첫 클릭 때 깨운다. 알람이 클릭 전에 떴다면 그 클릭에서 소리가 난다.
+  const audioRef = useRef(null);
+  const pendingBeepRef = useRef(false);
+
+  const playBeep = useCallback(() => {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!audioRef.current) audioRef.current = new AC();
+      const ctx = audioRef.current;
+      if (ctx.state === 'suspended') {
+        // 아직 잠겨 있다 → 첫 클릭에서 울리도록 예약
+        pendingBeepRef.current = true;
+        ctx.resume().catch(() => {});
+        return;
+      }
+      [0, 0.45, 0.9].forEach((delay) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine';
+        o.frequency.setValueAtTime(880, ctx.currentTime + delay);
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + delay);
+        g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + delay + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + 0.35);
+        o.start(ctx.currentTime + delay);
+        o.stop(ctx.currentTime + delay + 0.36);
+      });
+    } catch {}
+  }, []);
+
+  // 아무 클릭에나 오디오를 깨운다. 밀린 소리가 있으면 그때 울린다.
+  useEffect(() => {
+    const unlock = async () => {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!audioRef.current) audioRef.current = new AC();
+        if (audioRef.current.state === 'suspended') await audioRef.current.resume();
+        if (pendingBeepRef.current) { pendingBeepRef.current = false; playBeep(); }
+      } catch {}
+    };
+    document.addEventListener('pointerdown', unlock);
+    document.addEventListener('keydown', unlock);
+    return () => {
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+  }, [playBeep]);
+
+  // ── 화면 알람 ──
+  // OS 알림 권한이나 맥 알림 설정과 무관하게 동작한다.
+  // 창만 열려 있으면 모달 + 소리 + 탭 제목 깜빡임으로 알린다.
+  const fireAlarm = useCallback((a) => {
+    // 이미 같은 알람이 떠 있으면 소리를 다시 내지 않는다 (20초마다 삑삑거리는 걸 막는다)
+    let already = false;
+    setAlarm((cur) => { already = !!(cur && cur.tag === a.tag); return cur && cur.tag === a.tag ? cur : a; });
+    if (already || soundedRef.current.has(a.tag)) return;
+    soundedRef.current.add(a.tag);
+    playBeep();
+    // OS 알림도 되면 같이 띄운다 (되면 좋고, 안 돼도 위 모달로 충분)
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification(a.title, { body: a.body, tag: a.tag });
+      }
+    } catch {}
+  }, [playBeep]);
+
+  // 확인을 눌러야 오늘치 알람이 끝난다 (새로고침해도 되살아나지 않게)
+  const dismissAlarm = useCallback(() => {
+    setAlarm((cur) => {
+      if (cur?.ackKey) localStorage.setItem(cur.ackKey, todayKST());
+      return null;
+    });
+  }, []);
+
+  // 탭이 백그라운드여도 제목이 깜빡여 눈에 띈다
+  useEffect(() => {
+    if (!alarm) { document.title = '코워크'; return; }
+    let on = false;
+    const t = setInterval(() => {
+      on = !on;
+      document.title = on ? `🔔 ${alarm.title}` : '코워크';
+    }, 800);
+    return () => { clearInterval(t); document.title = '코워크'; };
+  }, [alarm]);
+
+  // 코어타임 종료 / 작업 종료 미클릭 감지
+  useEffect(() => {
+    if (!data?.policy) return;
+    const check = () => {
+      const p = data.policy;
+      const today = todayKST();
+      const now = Date.now();
+      const t = (hhmm) => new Date(`${today}T${hhmm}:00+09:00`).getTime();
+
+      // '확인'을 누를 때까지 계속 띄운다. 발생 시점에 닫아버리면 한 번 놓쳤을 때 되살릴 방법이 없다.
+      // 코어타임 종료 — 작업 중일 때만
+      if (p.alert_core_end !== false && data.summary?.working
+          && localStorage.getItem('wt_ack_core') !== today
+          && now >= t(p.core_end)) {
+        fireAlarm({
+          title: '코어타임이 끝났습니다',
+          body: `${p.core_start}~${p.core_end} 코어타임을 채우셨어요. 마치실 때 작업 종료를 눌러주세요.`,
+          tag: 'core_end',
+          ackKey: 'wt_ack_core',
+        });
+        return;
+      }
+      // 작업 가능 시간이 끝났는데 아직 작업 중 — 종료 리마인더
+      if (p.alert_no_checkout !== false && data.summary?.working
+          && localStorage.getItem('wt_ack_out') !== today
+          && now >= t(p.work_end)) {
+        fireAlarm({
+          title: '작업 종료를 눌러주세요',
+          body: '아직 작업 중으로 남아 있어요. 누르지 않으면 오늘 작업시간이 기록되지 않아요.',
+          tag: 'no_checkout',
+          ackKey: 'wt_ack_out',
+        });
+      }
+    };
+    check();
+    const iv = setInterval(check, 20000);
+    // 백그라운드에서 타이머가 멈췄더라도 창을 다시 보면 바로 확인한다
+    const onVis = () => { if (!document.hidden) check(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
+  }, [data, fireAlarm]);
+
+
+
+  if (!data) return <div className="min-h-screen flex items-center justify-center text-g-500">불러오는 중…</div>;
+  const { summary: s, policy: p, sessions } = data;
+
+  return (
+    <div className="min-h-screen pb-16">
+      {/* 화면 알람 — 알림 권한이나 맥 설정과 무관하게 뜬다 */}
+      {alarm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-5">
+          <div className="card w-full max-w-[380px] p-7 text-center" onClick={(e)=>e.stopPropagation()}>
+            <div className="text-4xl mb-3">🔔</div>
+            <div className="text-xl font-bold text-g-900">{alarm.title}</div>
+            <p className="text-sm text-g-600 mt-2.5 leading-relaxed">{alarm.body}</p>
+            <div className="mt-6 flex gap-2">
+              <Btn variant="ghost" onClick={dismissAlarm} className="flex-1 py-3">확인</Btn>
+              {alarm.tag === 'no_checkout' && (
+                <Btn onClick={async()=>{ dismissAlarm(); await act('checkout'); }} className="flex-1 py-3">
+                  작업 종료
+                </Btn>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <header className="bg-white border-b border-g-100">
+        <div className="max-w-[560px] mx-auto px-5 h-14 flex items-center justify-between">
+          <div className="font-bold text-g-900">{data.name}님</div>
+          <button onClick={onLogout} className="text-sm text-g-500 hover:text-g-800">로그아웃</button>
+        </div>
+      </header>
+
+      <main className="max-w-[560px] mx-auto px-5 pt-6 space-y-4">
+        {err && <div className="text-sm text-bad bg-bad-light rounded-lg px-3 py-2">{err}</div>}
+
+        {/* 작업 시작 / 종료 */}
+        <div className="card p-7 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <span className={`w-2.5 h-2.5 rounded-full ${s.working ? 'bg-ok dot-live' : 'bg-g-300'}`} />
+            <span className={`font-bold text-lg ${s.working ? 'text-ok' : 'text-g-500'}`}>
+              {s.working ? '작업 중' : s.checked_in ? '작업 종료' : '시작 전'}
+            </span>
+          </div>
+          <div className="text-sm text-g-500 mb-6">
+            {new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short',timeZone:'Asia/Seoul'})}
+          </div>
+
+          {!s.working ? (
+            <button onClick={()=>act('checkin')} disabled={busy}
+              className="w-full py-5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold text-xl transition disabled:opacity-50">
+              작업 시작
+            </button>
+          ) : (
+            <button onClick={()=>act('checkout')} disabled={busy}
+              className="w-full py-5 rounded-2xl bg-g-800 hover:bg-g-900 text-white font-bold text-xl transition disabled:opacity-50">
+              작업 종료
+            </button>
+          )}
+
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <div><div className="text-xs text-g-500 mb-1">시작</div><div className="font-bold text-g-900 tabular-nums">{fmtClock(s.first_in)}</div></div>
+            <div><div className="text-xs text-g-500 mb-1">종료</div><div className="font-bold text-g-900 tabular-nums">{s.working ? '—' : fmtClock(s.last_out)}</div></div>
+            <div><div className="text-xs text-g-500 mb-1">작업</div><div className="font-bold text-g-900">{fmtHM(s.work_ms)}</div></div>
+          </div>
+        </div>
+
+        {/* 코어타임 5시간 */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="font-bold text-g-900">코어타임 {Math.round(s.core_total_ms/3600000)}시간</div>
+              <div className="text-xs text-g-500 mt-0.5">{p.core_start} ~ {p.core_end} 사이에 함께 일해요</div>
+            </div>
+            <span className={`text-sm font-bold px-2.5 py-1 rounded-lg ${s.core_met ? 'bg-ok-light text-ok' : 'bg-warn-light text-warn'}`}>
+              {s.core_met ? '충족 ✓' : `${Math.round(s.core_rate*100)}%`}
+            </span>
+          </div>
+          <Bar rate={s.core_rate} met={s.core_met} />
+          <div className="text-xs text-g-500 mt-2">{fmtHM(s.core_ms)} / {fmtHM(s.core_total_ms)}</div>
+          {s.working && !s.core_met && (
+            Date.now() < new Date(`${data.date}T${p.core_end}:00+09:00`).getTime()
+              ? <p className="text-xs text-warn mt-2.5">아직 채우는 중이에요. {p.core_end}까지 함께 있어주세요.</p>
+              : <p className="text-xs text-warn mt-2.5">코어타임({p.core_start}~{p.core_end})을 다 채우지 못했어요.</p>
+          )}
+        </div>
+
+        {/* 알림 */}
+        <div className="card p-4 flex items-center gap-2.5">
+          <span className={`w-2 h-2 rounded-full ${mode==='push' ? 'bg-ok' : 'bg-brand'}`} />
+          <span className="text-sm text-g-700 flex-1">
+            {mode === 'push'
+              ? <>{p.core_end}에 알려드려요 — <b className="text-g-900">창을 닫아도</b> 알림이 옵니다</>
+              : <>{p.core_end}에 알려드려요 — <b className="text-g-900">이 창을 열어두시면</b> 소리와 함께 뜹니다</>}
+          </span>
+          <button onClick={()=>fireAlarm({ title:'알람 테스트', body:'이 창이 보이고 소리가 나면 정상입니다.', tag:'test' })}
+            className="text-xs font-semibold text-brand px-2 py-1 rounded hover:bg-brand-light whitespace-nowrap">
+            테스트
+          </button>
+        </div>
+
+        {/* 오늘 기록 */}
+        <div className="card p-6">
+          <div className="font-bold text-g-900 mb-3">오늘 기록</div>
+          {sessions.length === 0 ? (
+            <div className="text-sm text-g-400 py-4 text-center">아직 시작하지 않았습니다</div>
+          ) : sessions.map((x, i) => (
+            <div key={i} className="flex items-center justify-between py-2.5 border-b border-g-100 last:border-0">
+              <div className="text-sm text-g-800 font-medium tabular-nums">
+                {fmtClock(x.started_at)} — {
+                  x.end_reason === 'no_checkout' ? <span className="text-bad">종료 기록 없음</span>
+                  : x.ended_at ? fmtClock(x.ended_at) : <span className="text-ok">작업 중</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
+// ══════════ 작가 화면 ══════════
+function AdminView({ session, onLogout }) {
+  const [tab, setTab] = useState('today');
+  return (
+    <div className="min-h-screen pb-16">
+      <header className="bg-white border-b border-g-100">
+        <div className="max-w-[1120px] mx-auto px-5 h-14 flex items-center justify-between">
+          <div className="font-bold text-g-900">코워크 · 작가</div>
+          <button onClick={onLogout} className="text-sm text-g-500 hover:text-g-800">로그아웃</button>
+        </div>
+        <div className="max-w-[1120px] mx-auto px-5 flex gap-1">
+          {[['today','오늘 현황'],['month','월간 기록'],['members','리터쳐 관리'],['policy','시간 설정']].map(([k,l]) => (
+            <button key={k} onClick={()=>setTab(k)}
+              className={`px-3 py-2.5 text-sm font-semibold border-b-2 transition ${tab===k ? 'border-brand text-brand' : 'border-transparent text-g-500 hover:text-g-800'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </header>
+      <main className="max-w-[1120px] mx-auto px-5 pt-6">
+        {tab==='today'   && <AdminToday token={session.token} />}
+        {tab==='month'   && <AdminMonth token={session.token} />}
+        {tab==='members' && <AdminMembers token={session.token} />}
+        {tab==='policy'  && <AdminPolicy token={session.token} />}
+      </main>
+    </div>
+  );
+}
+
+function AdminToday({ token }) {
+  const [date, setDate] = useState(todayKST());
+  const [d, setD] = useState(null);
+  const load = useCallback(async () => {
+    try { setD(await api(`/api/admin/overview?date=${date}`, { token })); } catch {}
+  }, [token, date]);
+  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
+
+  if (!d) return <div className="text-g-500 py-10 text-center">불러오는 중…</div>;
+  const active = d.workers.filter(w => w.active);
+  const working = active.filter(w => w.summary.working).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <input type="date" value={date} onChange={(e)=>setDate(e.target.value)}
+          className="px-3 py-2 rounded-[10px] border border-g-200 text-sm" />
+        <div className="text-sm text-g-600">
+          작업 중 <span className="font-bold text-ok">{working}</span> / {active.length}명
+        </div>
+      </div>
+
+      {active.length === 0 ? (
+        <div className="card p-10 text-center text-g-400 text-sm">
+          등록된 리터쳐가 없습니다. 리터쳐 관리에서 추가해주세요.
+        </div>
+      ) : active.map((w) => {
+        const m = w.summary;
+        const [badge, cls] =
+          !m.checked_in       ? ['기록 없음',    'bg-g-100 text-g-400']
+          : m.no_checkout     ? ['종료 기록 없음','bg-bad-light text-bad']
+          : m.working         ? ['작업 중',     'bg-brand-light text-brand']
+          : m.core_met        ? ['5시간 충족',  'bg-ok-light text-ok']
+          :                     [`코어타임 ${Math.round(m.core_rate*100)}%`, 'bg-warn-light text-warn'];
+        return (
+          <div key={w.id} className="card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <span className={`w-2 h-2 rounded-full ${m.working ? 'bg-ok dot-live' : m.checked_in ? 'bg-g-400' : 'bg-g-200'}`} />
+                <span className="font-bold text-g-900">{w.name}</span>
+              </div>
+              <span className={`text-xs font-bold px-2 py-1 rounded ${cls}`}>{badge}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div><div className="text-xs text-g-500">시작</div><div className="font-semibold tabular-nums">{fmtClock(m.first_in)}</div></div>
+              <div><div className="text-xs text-g-500">종료</div>
+                <div className="font-semibold tabular-nums">
+                  {m.no_checkout ? <span className="text-bad">미기록</span> : m.working ? '—' : fmtClock(m.last_out)}
+                </div></div>
+              <div><div className="text-xs text-g-500">작업</div><div className="font-semibold">{fmtHM(m.work_ms)}</div></div>
+            </div>
+            {m.checked_in && !m.no_checkout && <div className="mt-3"><Bar rate={m.core_rate} met={m.core_met} /></div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AdminMonth({ token }) {
+  const [month, setMonth] = useState(todayKST().slice(0,7));
+  const [d, setD] = useState(null);
+  const [pick, setPick] = useState(null);   // 선택한 리터쳐 → 달력 상세
+
+  useEffect(() => { (async()=>{
+    setD(null);
+    try { setD(await api(`/api/admin/month?month=${month}`, { token })); } catch {}
+  })(); }, [token, month]);
+
+  if (!d) return <div className="text-g-500 py-10 text-center">불러오는 중…</div>;
+
+  const [Y, M] = month.split('-').map(Number);
+  const daysInMonth = new Date(Y, M, 0).getDate();
+  const nums = Array.from({length: daysInMonth}, (_,i)=>i+1);
+  const dow = (n) => new Date(`${month}-${String(n).padStart(2,'0')}T00:00:00+09:00`).getUTCDay();
+  const byDate = (row) => Object.fromEntries(row.days.map(x=>[Number(x.date.slice(8)), x]));
+
+  const person = pick && d.rows.find(r => String(r.worker_id) === String(pick));
+  if (person) return <PersonCalendar row={person} month={month} onBack={()=>setPick(null)} />;
+
+  return (
+    <div className="space-y-4">
+      <input type="month" value={month} onChange={(e)=>setMonth(e.target.value)}
+        className="px-3 py-2 rounded-[10px] border border-g-200 text-sm" />
+
+      {d.rows.length === 0 ? <div className="card p-10 text-center text-g-400 text-sm">등록된 리터쳐가 없습니다</div> : (
+        <div className="card p-5">
+          <div className="font-bold text-g-900 mb-1">팀 전체 기록</div>
+          <div className="text-xs text-g-500 mb-4">이름을 누르면 그 사람 달력이 열립니다</div>
+
+          <div className="overflow-x-auto">
+            <table className="border-separate border-spacing-0" style={{minWidth:'max-content'}}>
+              <thead>
+                <tr>
+                  <th className="sticky left-0 bg-white z-10 text-left text-xs font-semibold text-g-500 pr-3 pb-2">이름</th>
+                  {nums.map(n => {
+                    const w = dow(n);
+                    return (
+                      <th key={n} className={`w-6 pb-2 text-[10px] font-semibold ${w===0?'text-bad':w===6?'text-brand':'text-g-400'}`}>
+                        {n}
+                      </th>
+                    );
+                  })}
+                  <th className="text-right text-xs font-semibold text-g-500 pl-4 pb-2 whitespace-nowrap">일수</th>
+                  <th className="text-right text-xs font-semibold text-g-500 pl-3 pb-2 whitespace-nowrap">충족</th>
+                  <th className="text-right text-xs font-semibold text-g-500 pl-3 pb-2 whitespace-nowrap">총 작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.rows.map((r) => {
+                  const map = byDate(r);
+                  return (
+                    <tr key={r.worker_id}>
+                      <td className="sticky left-0 bg-white z-10 pr-3 py-1">
+                        <button onClick={()=>setPick(r.worker_id)}
+                          className="font-semibold text-sm text-g-900 hover:text-brand whitespace-nowrap">
+                          {r.name}
+                        </button>
+                      </td>
+                      {nums.map(n => {
+                        const x = map[n];
+                        const w = dow(n);
+                        const [bg, mark] =
+                          !x                ? [w===0||w===6 ? 'bg-g-50' : 'bg-g-100', '']
+                          : x.no_checkout   ? ['bg-bad-light text-bad', '✕']
+                          : x.core_met      ? ['bg-ok-light text-ok', '○']
+                          :                   ['bg-warn-light text-warn', '△'];
+                        return (
+                          <td key={n} className="px-[1px] py-1">
+                            <div title={x ? `${n}일 · ${x.no_checkout ? '종료 기록 없음' : fmtClock(x.first_in)+'~'+fmtClock(x.last_out)+' · '+fmtHM(x.work_ms)}` : `${n}일 · 기록 없음`}
+                              className={`w-[22px] h-[22px] rounded flex items-center justify-center text-[10px] font-bold ${bg}`}>
+                              {mark}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className="text-right text-sm font-semibold text-g-800 pl-4 tabular-nums">{r.worked_days}</td>
+                      <td className={`text-right text-sm font-bold pl-3 tabular-nums ${r.core_met_days===r.worked_days && r.worked_days>0 ? 'text-ok':'text-warn'}`}>{r.core_met_days}</td>
+                      <td className="text-right text-sm font-semibold text-g-800 pl-3 whitespace-nowrap">{fmtHM(r.total_ms)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex gap-3 mt-4 text-[11px] text-g-500">
+            <span><b className="text-ok">○</b> 코어타임 충족</span>
+            <span><b className="text-warn">△</b> 코어타임 부족</span>
+            <span><b className="text-bad">✕</b> 종료 기록 없음</span>
+            <span className="text-g-400">회색 = 기록 없음</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 사람별 월간 달력
+function PersonCalendar({ row, month, onBack }) {
+  const [Y, M] = month.split('-').map(Number);
+  const daysInMonth = new Date(Y, M, 0).getDate();
+  const firstDow = new Date(`${month}-01T00:00:00+09:00`).getUTCDay();
+  const map = Object.fromEntries(row.days.map(x=>[Number(x.date.slice(8)), x]));
+
+  const cells = [];
+  for (let i=0;i<firstDow;i++) cells.push(null);
+  for (let n=1;n<=daysInMonth;n++) cells.push(n);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="text-sm text-g-500 hover:text-g-900">← 팀 전체로</button>
+
+      <div className="card p-5">
+        <div className="flex items-baseline justify-between mb-4">
+          <div>
+            <div className="font-bold text-lg text-g-900">{row.name}</div>
+            <div className="text-xs text-g-500 mt-0.5">{Y}년 {M}월</div>
+          </div>
+          <div className="text-sm text-g-600">
+            {row.worked_days}일 작업 · 코어타임 충족 <b className={row.core_met_days===row.worked_days && row.worked_days>0 ? 'text-ok':'text-warn'}>{row.core_met_days}</b>일
+            {row.no_checkout_days > 0 && <> · 종료 기록 없음 <b className="text-bad">{row.no_checkout_days}</b>일</>}
+            {' · 총 '}<b className="text-g-900">{fmtHM(row.total_ms)}</b>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1.5">
+          {['일','월','화','수','목','금','토'].map((w,i)=>(
+            <div key={w} className={`text-center text-xs font-semibold pb-1 ${i===0?'text-bad':i===6?'text-brand':'text-g-500'}`}>{w}</div>
+          ))}
+          {cells.map((n, i) => {
+            if (n === null) return <div key={'e'+i} className="min-h-[86px]" />;
+            const x = map[n];
+            const w = i % 7;
+            const tone =
+              !x              ? 'bg-g-50 border-g-100'
+              : x.no_checkout ? 'bg-bad-light border-bad/20'
+              : x.core_met    ? 'bg-ok-light border-ok/20'
+              :                 'bg-warn-light border-warn/25';
+            return (
+              <div key={n} className={`min-h-[86px] rounded-xl border p-2 ${tone}`}>
+                <div className={`text-xs font-bold mb-1 ${w===0?'text-bad':w===6?'text-brand':'text-g-700'}`}>{n}</div>
+                {!x ? null : x.no_checkout ? (
+                  <div className="text-[11px] text-bad font-semibold leading-tight">
+                    {fmtClock(x.first_in)} 시작<br/>종료 기록 없음
+                  </div>
+                ) : (
+                  <div className="leading-tight">
+                    <div className="text-[11px] text-g-800 font-semibold tabular-nums">
+                      {fmtClock(x.first_in)}~{fmtClock(x.last_out)}
+                    </div>
+                    <div className={`text-[11px] font-bold mt-0.5 ${x.core_met ? 'text-ok':'text-warn'}`}>
+                      {fmtHM(x.work_ms)}
+                    </div>
+                    {x.segments && x.segments.length > 1 && (
+                      <div className="text-[10px] text-g-500 mt-0.5">{x.segments.length}회 나눠 작업</div>
+                    )}
+                    {!x.core_met && (
+                      <div className="text-[10px] text-warn mt-0.5">코어 {Math.round(x.core_rate*100)}%</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-3 mt-4 text-[11px] text-g-500">
+          <span><b className="text-ok">초록</b> 코어타임 충족</span>
+          <span><b className="text-warn">노랑</b> 코어타임 부족</span>
+          <span><b className="text-bad">빨강</b> 종료 기록 없음</span>
+        </div>
+      </div>
+
+      {/* 구간이 여러 번인 날 상세 */}
+      {row.days.some(x => x.segments && x.segments.length > 1) && (
+        <div className="card p-5">
+          <div className="font-bold text-g-900 mb-3">여러 번 나눠 작업한 날</div>
+          {row.days.filter(x => x.segments && x.segments.length > 1).map((x) => (
+            <div key={x.date} className="py-2.5 border-b border-g-100 last:border-0">
+              <div className="text-sm font-semibold text-g-900 mb-1">{Number(x.date.slice(8))}일 · 합계 {fmtHM(x.work_ms)}</div>
+              <div className="flex flex-wrap gap-2">
+                {x.segments.map((s,i)=>(
+                  <span key={i} className="text-xs text-g-600 bg-g-100 rounded px-2 py-1 tabular-nums">
+                    {fmtClock(s.in)}~{s.out ? fmtClock(s.out) : '미기록'}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function AdminMembers({ token }) {
+  const [d, setD] = useState(null);
+  const [name, setName] = useState('');
+  const [issued, setIssued] = useState(null);
+  const load = useCallback(async () => {
+    try { setD(await api(`/api/admin/overview?date=${todayKST()}`, { token })); } catch {}
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
+
+  const add = async () => {
+    if (!name.trim()) return;
+    const r = await api('/api/admin/workers', { method:'POST', token, body:{ name } });
+    setIssued({ name: r.worker.name, code: r.code }); setName(''); load();
+  };
+  const reset = async (id, nm) => {
+    const r = await api('/api/admin/workers/reset', { method:'POST', token, body:{ id } });
+    setIssued({ name: nm, code: r.code }); load();
+  };
+  const toggle = async (id) => { await api('/api/admin/workers/toggle', { method:'POST', token, body:{ id } }); load(); };
+
+  if (!d) return <div className="text-g-500 py-10 text-center">불러오는 중…</div>;
+
+  return (
+    <div className="space-y-4">
+      {issued && (
+        <div className="card p-5 border-2 border-brand">
+          <div className="text-sm text-g-600">{issued.name}님의 접속 코드</div>
+          <div className="text-3xl font-bold tracking-[0.2em] text-brand my-2 tabular-nums">{issued.code}</div>
+          <div className="text-xs text-bad font-medium">이 코드는 다시 볼 수 없습니다. 지금 전달해주세요.</div>
+          <Btn variant="ghost" onClick={()=>setIssued(null)} className="mt-3 py-2">확인했습니다</Btn>
+        </div>
+      )}
+
+      <div className="card p-5">
+        <div className="font-bold text-g-900 mb-3">리터쳐 추가</div>
+        <div className="flex gap-2">
+          <input value={name} onChange={(e)=>setName(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&add()}
+            placeholder="이름" className="flex-1 px-3 py-2.5 rounded-[10px] border border-g-200 focus:border-brand focus:outline-none text-sm" />
+          <Btn onClick={add}>추가</Btn>
+        </div>
+        <p className="text-xs text-g-400 mt-2">추가하면 6자리 접속 코드가 발급됩니다.</p>
+      </div>
+
+      <div className="card p-5">
+        <div className="font-bold text-g-900 mb-3">리터쳐 목록</div>
+        {d.workers.length === 0 ? <div className="text-sm text-g-400 py-4 text-center">없습니다</div>
+        : d.workers.map((w) => (
+          <div key={w.id} className="flex items-center justify-between py-3 border-b border-g-100 last:border-0">
+            <div>
+              <span className={`font-semibold ${w.active ? 'text-g-900':'text-g-400 line-through'}`}>{w.name}</span>
+              <span className="text-xs text-g-400 ml-2 tabular-nums">코드 {w.code_hint}</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={()=>reset(w.id, w.name)} className="text-xs text-brand font-semibold px-2 py-1 rounded hover:bg-brand-light">코드 재발급</button>
+              <button onClick={()=>toggle(w.id)} className="text-xs text-g-500 font-semibold px-2 py-1 rounded hover:bg-g-100">{w.active?'비활성':'활성'}</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminPolicy({ token }) {
+  const [p, setP] = useState(null);
+  const [msg, setMsg] = useState('');
+  useEffect(() => { (async()=>{ const d = await api(`/api/admin/overview?date=${todayKST()}`, { token }); setP(d.policy); })(); }, [token]);
+  if (!p) return <div className="text-g-500 py-10 text-center">불러오는 중…</div>;
+
+  const save = async () => {
+    await api('/api/admin/policy', { method:'POST', token, body:p });
+    setMsg('저장되었습니다'); setTimeout(()=>setMsg(''), 2000);
+  };
+  const F = ({ label, k, type='time', hint }) => (
+    <div>
+      <label className="block text-sm font-medium text-g-700 mb-1.5">{label}</label>
+      <input type={type} value={p[k]} onChange={(e)=>setP({...p, [k]: type==='number'?Number(e.target.value):e.target.value})}
+        className="w-full px-3 py-2.5 rounded-[10px] border border-g-200 focus:border-brand focus:outline-none text-sm" />
+      {hint && <p className="text-xs text-g-400 mt-1">{hint}</p>}
+    </div>
+  );
+
+  return (
+    <div className="card p-6 max-w-[520px] space-y-4">
+      <div className="font-bold text-g-900">시간 설정</div>
+      <div className="grid grid-cols-2 gap-4">
+        <F label="작업 가능 시작" k="work_start" />
+        <F label="작업 가능 종료" k="work_end" />
+        <F label="코어타임 시작" k="core_start" />
+        <F label="코어타임 종료" k="core_end" />
+      </div>
+      <p className="text-xs text-g-500 -mt-1">
+        코어타임 {p.core_start}~{p.core_end} 사이에 작업 시작·종료가 걸쳐 있어야 채운 것으로 봅니다.
+      </p>
+      <div className="flex items-center gap-4 pt-1">
+        {[['alert_core_end','코어타임 종료 알림'],['alert_no_checkout','작업 종료 미클릭 알림']].map(([k,l])=>(
+          <label key={k} className="flex items-center gap-2 text-sm text-g-700">
+            <input type="checkbox" checked={p[k] !== false} onChange={(e)=>setP({...p,[k]:e.target.checked})} className="w-4 h-4 accent-brand" />
+            {l}
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 pt-2">
+        <Btn onClick={save}>저장</Btn>
+        {msg && <span className="text-sm text-ok font-semibold">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ══════════ 앱 ══════════
+function App() {
+  const [session, setSession] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('wt_session') || 'null'); } catch { return null; }
+  });
+  const set = (s) => { sessionStorage.setItem('wt_session', JSON.stringify(s)); setSession(s); };
+  const clear = () => { sessionStorage.removeItem('wt_session'); setSession(null); };
+
+  if (!session) return <Login onWorker={set} onAdmin={set} />;
+  if (session.role === 'admin') return <AdminView session={session} onLogout={clear} />;
+  return <WorkerView session={session} onLogout={clear} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

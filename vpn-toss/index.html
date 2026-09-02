@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#F2F4F6" />
+  <title>토스VPN · 한 번에 연결</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    // Babel 최신본은 JSX를 automatic 런타임(import 주입)으로 변환 → 브라우저가 거부해 화면이 빈다.
+    // classic 런타임(React.createElement)으로 고정한다.
+    Babel.registerPreset("react-classic", {
+      presets: [[Babel.availablePresets["react"], { runtime: "classic" }]],
+    });
+  </script>
+
+  <style>
+    :root { --toss-blue: #3182F6; }
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body { background: #F2F4F6; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    body { overscroll-behavior: none; }
+    ::-webkit-scrollbar { display: none; }
+
+    @keyframes pop-in { 0% { transform: scale(.94); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
+    .pop-in { animation: pop-in .32s cubic-bezier(.22,1,.36,1); }
+
+    @keyframes count-up { from { transform: translateY(6px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    .count-up { animation: count-up .28s cubic-bezier(.22,1,.36,1); }
+
+    /* 연결 시 퍼져나가는 링 */
+    @keyframes ripple { 0% { transform: scale(1); opacity: .5 } 100% { transform: scale(2.4); opacity: 0 } }
+    .ripple { animation: ripple 1.4s ease-out infinite; }
+
+    @keyframes spin { to { transform: rotate(360deg) } }
+    .spin { animation: spin .8s linear infinite; }
+
+    .press { transition: transform .12s ease; }
+    .press:active { transform: scale(.96); }
+
+    .fade-swap { transition: opacity .18s ease; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react-classic">
+    const { useState, useEffect, useRef } = React;
+
+    // 서버(가상) 목록 — 국가, 도시, 시간대, 국기
+    const SERVERS = [
+      { code: "KR", country: "대한민국", city: "서울",       flag: "🇰🇷", tz: "Asia/Seoul",        utc: 9,   ping: 8  },
+      { code: "JP", country: "일본",     city: "도쿄",       flag: "🇯🇵", tz: "Asia/Tokyo",        utc: 9,   ping: 22 },
+      { code: "SG", country: "싱가포르", city: "싱가포르",   flag: "🇸🇬", tz: "Asia/Singapore",    utc: 8,   ping: 41 },
+      { code: "US", country: "미국",     city: "뉴욕",       flag: "🇺🇸", tz: "America/New_York",  utc: -4,  ping: 132 },
+      { code: "US", country: "미국",     city: "로스앤젤레스", flag: "🇺🇸", tz: "America/Los_Angeles", utc: -7, ping: 118 },
+      { code: "GB", country: "영국",     city: "런던",       flag: "🇬🇧", tz: "Europe/London",     utc: 1,   ping: 156 },
+      { code: "DE", country: "독일",     city: "프랑크푸르트", flag: "🇩🇪", tz: "Europe/Berlin",     utc: 2,   ping: 148 },
+      { code: "FR", country: "프랑스",   city: "파리",       flag: "🇫🇷", tz: "Europe/Paris",      utc: 2,   ping: 151 },
+      { code: "NL", country: "네덜란드", city: "암스테르담", flag: "🇳🇱", tz: "Europe/Amsterdam",  utc: 2,   ping: 145 },
+      { code: "CH", country: "스위스",   city: "취리히",     flag: "🇨🇭", tz: "Europe/Zurich",     utc: 2,   ping: 149 },
+      { code: "CA", country: "캐나다",   city: "토론토",     flag: "🇨🇦", tz: "America/Toronto",   utc: -4,  ping: 139 },
+      { code: "AU", country: "호주",     city: "시드니",     flag: "🇦🇺", tz: "Australia/Sydney",  utc: 10,  ping: 168 },
+      { code: "HK", country: "홍콩",     city: "홍콩",       flag: "🇭🇰", tz: "Asia/Hong_Kong",    utc: 8,   ping: 38 },
+      { code: "IN", country: "인도",     city: "뭄바이",     flag: "🇮🇳", tz: "Asia/Kolkata",      utc: 5.5, ping: 96 },
+      { code: "BR", country: "브라질",   city: "상파울루",   flag: "🇧🇷", tz: "America/Sao_Paulo", utc: -3,  ping: 201 },
+      { code: "AE", country: "아랍에미리트", city: "두바이", flag: "🇦🇪", tz: "Asia/Dubai",        utc: 4,   ping: 112 },
+    ];
+
+    const randOct = () => Math.floor(Math.random() * 254) + 1;
+    const genIP = () => `${randOct()}.${randOct()}.${randOct()}.${randOct()}`;
+
+    // 현지 시각 포맷 (해당 시간대)
+    function localTime(tz) {
+      try {
+        return new Intl.DateTimeFormat("ko-KR", {
+          timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+        }).format(new Date());
+      } catch (e) { return "--:--:--"; }
+    }
+    function utcLabel(utc) {
+      const sign = utc >= 0 ? "+" : "−";
+      const h = Math.abs(utc);
+      const hh = Number.isInteger(h) ? h : Math.floor(h);
+      const mm = Number.isInteger(h) ? "00" : "30";
+      return `UTC ${sign}${hh}:${mm}`;
+    }
+
+    function useClock() {
+      const [, tick] = useState(0);
+      useEffect(() => { const id = setInterval(() => tick(t => t + 1), 1000); return () => clearInterval(id); }, []);
+    }
+
+    function App() {
+      useClock();
+      const [connected, setConnected] = useState(false);
+      const [connecting, setConnecting] = useState(false);
+      const [server, setServer] = useState(SERVERS[0]);
+      const [ip, setIp] = useState(genIP());
+      const [showList, setShowList] = useState(false);
+      const [swapKey, setSwapKey] = useState(0);        // IP/시간대 카드 애니메이션 트리거
+      const [elapsed, setElapsed] = useState(0);        // 연결 유지 시간(초)
+      const timerRef = useRef(null);
+
+      // 연결 유지 타이머
+      useEffect(() => {
+        if (connected) {
+          timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+        } else {
+          clearInterval(timerRef.current); setElapsed(0);
+        }
+        return () => clearInterval(timerRef.current);
+      }, [connected]);
+
+      // 특정 서버로 연결(또는 전환)
+      function connectTo(target) {
+        setShowList(false);
+        setConnecting(true);
+        setConnected(false);
+        setTimeout(() => {
+          setServer(target);
+          setIp(genIP());
+          setSwapKey(k => k + 1);
+          setConnecting(false);
+          setConnected(true);
+        }, 900);
+      }
+
+      // 메인 버튼: 연결 안 됐으면 랜덤 서버 연결, 연결됐으면 해제
+      function handleMain() {
+        if (connecting) return;
+        if (connected) { setConnected(false); return; }
+        const pick = SERVERS[Math.floor(Math.random() * SERVERS.length)];
+        connectTo(pick);
+      }
+
+      // 연결 중 다른 나라로 "한 번 더" — IP·시간대 새로고침
+      function shuffle() {
+        if (connecting) return;
+        let pick = server;
+        while (pick === server) pick = SERVERS[Math.floor(Math.random() * SERVERS.length)];
+        connectTo(pick);
+      }
+
+      const fmtElapsed = (s) => {
+        const h = String(Math.floor(s / 3600)).padStart(2, "0");
+        const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+        const sec = String(s % 60).padStart(2, "0");
+        return `${h}:${m}:${sec}`;
+      };
+
+      const statusColor = connected ? "text-[#3182F6]" : connecting ? "text-[#8B95A1]" : "text-[#8B95A1]";
+      const statusText = connecting ? "연결 중…" : connected ? "보호되고 있어요" : "연결되지 않음";
+
+      return (
+        <div className="min-h-[100dvh] w-full flex justify-center">
+          <div className="w-full max-w-[440px] min-h-[100dvh] bg-[#F2F4F6] px-5 pb-10 flex flex-col">
+
+            {/* 헤더 */}
+            <header className="pt-5 pb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[22px]">🛡️</span>
+                <span className="text-[18px] font-bold text-[#191F28] tracking-tight">토스VPN</span>
+              </div>
+              <span className={`text-[13px] font-semibold ${statusColor}`}>
+                {connected ? "● 켜짐" : "○ 꺼짐"}
+              </span>
+            </header>
+
+            {/* 메인 연결 카드 */}
+            <section className="mt-3 bg-white rounded-[24px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+              <p className="text-[15px] font-semibold text-[#8B95A1]">현재 상태</p>
+              <p className={`text-[26px] font-extrabold tracking-tight mt-0.5 ${connected ? "text-[#191F28]" : "text-[#4E5968]"}`}>
+                {statusText}
+              </p>
+
+              {/* 원형 연결 버튼 */}
+              <div className="relative flex items-center justify-center my-7 h-[196px]">
+                {connected && !connecting && (
+                  <>
+                    <span className="absolute h-[150px] w-[150px] rounded-full bg-[#3182F6]/15 ripple" />
+                    <span className="absolute h-[150px] w-[150px] rounded-full bg-[#3182F6]/10 ripple" style={{ animationDelay: ".7s" }} />
+                  </>
+                )}
+                <button
+                  onClick={handleMain}
+                  className={`press relative z-10 h-[168px] w-[168px] rounded-full flex flex-col items-center justify-center transition-colors duration-300
+                    ${connected ? "bg-[#3182F6] shadow-[0_10px_30px_rgba(49,130,246,0.35)]"
+                     : connecting ? "bg-[#E5E8EB]"
+                     : "bg-white border-2 border-[#E5E8EB] shadow-[0_6px_20px_rgba(0,0,0,0.06)]"}`}
+                >
+                  {connecting ? (
+                    <span className="h-9 w-9 rounded-full border-[3px] border-[#B0B8C1] border-t-transparent spin" />
+                  ) : (
+                    <>
+                      <span className="text-[44px] leading-none pop-in" key={server.code + swapKey}>{connected ? server.flag : "🔓"}</span>
+                      <span className={`mt-2 text-[15px] font-bold ${connected ? "text-white" : "text-[#4E5968]"}`}>
+                        {connected ? "연결됨" : "탭하여 연결"}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 연결 유지 시간 */}
+              <div className="text-center">
+                {connected && !connecting ? (
+                  <p className="text-[14px] text-[#8B95A1]">
+                    <span className="font-bold text-[#4E5968] tabular-nums">{fmtElapsed(elapsed)}</span> 동안 보호 중
+                  </p>
+                ) : (
+                  <p className="text-[14px] text-[#B0B8C1]">버튼을 누르면 안전한 서버로 연결돼요</p>
+                )}
+              </div>
+            </section>
+
+            {/* IP · 시간대 카드 (연결 시 실제 값이 바뀜) */}
+            <section key={swapKey} className="mt-4 grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-[20px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+                <p className="text-[13px] font-semibold text-[#8B95A1]">내 IP 주소</p>
+                <p className={`mt-1.5 text-[19px] font-extrabold tabular-nums tracking-tight ${connected ? "text-[#3182F6] count-up" : "text-[#191F28]"}`}>
+                  {connected ? ip : "203.0.113.7"}
+                </p>
+                <p className="mt-0.5 text-[12px] text-[#B0B8C1]">{connected ? "가상 IP" : "실제 IP (노출됨)"}</p>
+              </div>
+
+              <div className="bg-white rounded-[20px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+                <p className="text-[13px] font-semibold text-[#8B95A1]">현지 시간대</p>
+                <p className={`mt-1.5 text-[19px] font-extrabold tabular-nums tracking-tight ${connected ? "text-[#191F28] count-up" : "text-[#191F28]"}`}>
+                  {connected ? localTime(server.tz) : localTime("Asia/Seoul")}
+                </p>
+                <p className="mt-0.5 text-[12px] text-[#B0B8C1]">
+                  {connected ? `${server.flag} ${utcLabel(server.utc)}` : "🇰🇷 UTC +9:00"}
+                </p>
+              </div>
+            </section>
+
+            {/* 현재 서버 + 액션 */}
+            <section className="mt-4 bg-white rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.04)] overflow-hidden">
+              <button onClick={() => setShowList(true)}
+                className="press w-full flex items-center gap-3 p-4 active:bg-[#F9FAFB]">
+                <span className="text-[30px]">{connected ? server.flag : "🌐"}</span>
+                <div className="flex-1 text-left">
+                  <p className="text-[16px] font-bold text-[#191F28]">
+                    {connected ? `${server.country} · ${server.city}` : "서버를 선택하세요"}
+                  </p>
+                  <p className="text-[13px] text-[#8B95A1]">
+                    {connected ? `핑 ${server.ping}ms · 빠름` : "40개 이상의 지역"}
+                  </p>
+                </div>
+                <span className="text-[#C9CDD2] text-[20px]">›</span>
+              </button>
+
+              {connected && (
+                <div className="border-t border-[#F2F4F6] p-3">
+                  <button onClick={shuffle}
+                    className="press w-full py-3.5 rounded-[14px] bg-[#F2F4F6] text-[#3182F6] text-[15px] font-bold active:bg-[#E8EAED]">
+                    🎲 다른 나라로 한 번 더
+                  </button>
+                </div>
+              )}
+            </section>
+
+            <p className="mt-6 text-center text-[12px] text-[#C9CDD2] leading-relaxed">
+              데모용 시뮬레이션 앱이에요. 실제 트래픽을 암호화하지 않으며<br/>IP·시간대는 화면 표시용으로만 변경됩니다.
+            </p>
+
+            {/* 서버 선택 바텀시트 */}
+            {showList && (
+              <div className="fixed inset-0 z-50 flex items-end justify-center"
+                   onClick={() => setShowList(false)}>
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="relative w-full max-w-[440px] bg-white rounded-t-[24px] max-h-[76dvh] flex flex-col pop-in"
+                     onClick={(e) => e.stopPropagation()}>
+                  <div className="pt-3 flex justify-center"><span className="h-1.5 w-10 rounded-full bg-[#E5E8EB]" /></div>
+                  <div className="px-5 pt-3 pb-2 flex items-center justify-between">
+                    <h2 className="text-[19px] font-extrabold text-[#191F28]">서버 선택</h2>
+                    <button onClick={() => setShowList(false)} className="text-[#8B95A1] text-[14px] font-semibold">닫기</button>
+                  </div>
+                  <div className="overflow-y-auto px-3 pb-8">
+                    {SERVERS.map((s, i) => {
+                      const active = connected && s === server;
+                      return (
+                        <button key={i} onClick={() => connectTo(s)}
+                          className={`press w-full flex items-center gap-3 p-3.5 rounded-[16px] active:bg-[#F9FAFB] ${active ? "bg-[#EFF6FF]" : ""}`}>
+                          <span className="text-[28px]">{s.flag}</span>
+                          <div className="flex-1 text-left">
+                            <p className="text-[15px] font-bold text-[#191F28]">{s.country} · {s.city}</p>
+                            <p className="text-[12px] text-[#8B95A1]">{utcLabel(s.utc)} · 현지 {localTime(s.tz)}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[12px] font-bold ${s.ping < 60 ? "text-[#0F9D58]" : s.ping < 130 ? "text-[#F5A623]" : "text-[#8B95A1]"}`}>{s.ping}ms</span>
+                            {active && <span className="text-[#3182F6] text-[16px]">✓</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

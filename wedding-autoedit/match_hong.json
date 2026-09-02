@@ -1,0 +1,1578 @@
+[
+ {
+  "hl_t": 0.0,
+  "score": 0.4114,
+  "src_clip": "C0003.MP4",
+  "src_t": 928.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/거치캠/C0003.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 1.0,
+  "score": 0.425,
+  "src_clip": "C0003.MP4",
+  "src_t": 421.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/거치캠/C0003.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 2.0,
+  "score": 0.4275,
+  "src_clip": "C0003.MP4",
+  "src_t": 421.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/거치캠/C0003.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 4.0,
+  "score": 0.9963,
+  "src_clip": "C6604.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6604.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 5.0,
+  "score": 0.9968,
+  "src_clip": "C6604.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6604.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 6.0,
+  "score": 0.9742,
+  "src_clip": "C6606.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6606.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 7.0,
+  "score": 0.9666,
+  "src_clip": "C6606.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6606.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 8.0,
+  "score": 0.9777,
+  "src_clip": "C6608.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6608.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 9.0,
+  "score": 0.9725,
+  "src_clip": "C6608.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6608.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 10.0,
+  "score": 0.9924,
+  "src_clip": "C6607.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6607.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 11.0,
+  "score": 0.9961,
+  "src_clip": "C6607.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6607.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 12.0,
+  "score": 0.9982,
+  "src_clip": "C6546.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6546.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 13.0,
+  "score": 0.9969,
+  "src_clip": "C6546.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6546.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 14.0,
+  "score": 0.9998,
+  "src_clip": "C6550.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6550.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 15.0,
+  "score": 0.9998,
+  "src_clip": "C6550.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6550.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 16.0,
+  "score": 0.9998,
+  "src_clip": "C6550.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6550.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 17.0,
+  "score": 0.999,
+  "src_clip": "C6548.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6548.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 18.0,
+  "score": 0.9351,
+  "src_clip": "C6548.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6548.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 19.0,
+  "score": 0.9992,
+  "src_clip": "C6549.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6549.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 20.0,
+  "score": 0.9992,
+  "src_clip": "C6549.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6549.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 21.0,
+  "score": 0.9998,
+  "src_clip": "C6554.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6554.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 22.0,
+  "score": 0.9997,
+  "src_clip": "C6554.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6554.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 23.0,
+  "score": 0.9998,
+  "src_clip": "C6555.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6555.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 24.0,
+  "score": 0.9982,
+  "src_clip": "C6555.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6555.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 25.0,
+  "score": 0.9999,
+  "src_clip": "C6556.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6556.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 26.0,
+  "score": 0.9999,
+  "src_clip": "C6556.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6556.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 27.0,
+  "score": 0.9996,
+  "src_clip": "C6559.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6559.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 28.0,
+  "score": 0.9998,
+  "src_clip": "C6559.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6559.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 29.0,
+  "score": 0.9065,
+  "src_clip": "C6559.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6559.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 30.0,
+  "score": 0.9992,
+  "src_clip": "C6558.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6558.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 31.0,
+  "score": 0.9994,
+  "src_clip": "C6558.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6558.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 32.0,
+  "score": 0.9966,
+  "src_clip": "C6562.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6562.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 33.0,
+  "score": 0.9883,
+  "src_clip": "C6562.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6562.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 34.0,
+  "score": 0.9997,
+  "src_clip": "C6563.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6563.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 35.0,
+  "score": 0.9998,
+  "src_clip": "C6563.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6563.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 36.0,
+  "score": 0.9991,
+  "src_clip": "C6565.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6565.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 37.0,
+  "score": 0.9982,
+  "src_clip": "C6565.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6565.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 38.0,
+  "score": 0.977,
+  "src_clip": "C6564.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6564.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 39.0,
+  "score": 0.9985,
+  "src_clip": "C6564.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6564.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 40.0,
+  "score": 0.9988,
+  "src_clip": "C6568.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6568.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 41.0,
+  "score": 0.9992,
+  "src_clip": "C6568.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6568.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 42.0,
+  "score": 0.8646,
+  "src_clip": "C6568.MP4",
+  "src_t": 7.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6568.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 43.0,
+  "score": 0.9993,
+  "src_clip": "C6569.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6569.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 44.0,
+  "score": 0.9993,
+  "src_clip": "C6569.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6569.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 45.0,
+  "score": 0.9946,
+  "src_clip": "C6570.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6570.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 46.0,
+  "score": 0.9667,
+  "src_clip": "C6570.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6570.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 47.0,
+  "score": 0.9998,
+  "src_clip": "C6571.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6571.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 48.0,
+  "score": 0.9996,
+  "src_clip": "C6571.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6571.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 49.0,
+  "score": 0.9995,
+  "src_clip": "C6572.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6572.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 50.0,
+  "score": 0.9997,
+  "src_clip": "C6572.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6572.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 51.0,
+  "score": 0.9995,
+  "src_clip": "C6576.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6576.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 52.0,
+  "score": 0.9993,
+  "src_clip": "C6576.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6576.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 53.0,
+  "score": 0.9987,
+  "src_clip": "C6577.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6577.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 54.0,
+  "score": 0.9997,
+  "src_clip": "C6577.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6577.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 55.0,
+  "score": 0.9987,
+  "src_clip": "C6580.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6580.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 56.0,
+  "score": 0.9998,
+  "src_clip": "C6580.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6580.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 57.0,
+  "score": 0.9994,
+  "src_clip": "C6580.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6580.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 58.0,
+  "score": 0.9857,
+  "src_clip": "C6579.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6579.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 59.0,
+  "score": 0.9832,
+  "src_clip": "C6579.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6579.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 60.0,
+  "score": 0.9976,
+  "src_clip": "C6581.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6581.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 61.0,
+  "score": 0.9974,
+  "src_clip": "C6581.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6581.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 62.0,
+  "score": 0.905,
+  "src_clip": "C6583.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6583.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 63.0,
+  "score": 0.9932,
+  "src_clip": "C6583.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6583.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 64.0,
+  "score": 0.9989,
+  "src_clip": "C6584.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6584.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 65.0,
+  "score": 0.9992,
+  "src_clip": "C6584.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6584.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 66.0,
+  "score": 0.9998,
+  "src_clip": "C6590.MP4",
+  "src_t": 7.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6590.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 67.0,
+  "score": 0.9999,
+  "src_clip": "C6590.MP4",
+  "src_t": 8.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6590.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 68.0,
+  "score": 0.9197,
+  "src_clip": "C6591.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6591.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 69.0,
+  "score": 0.9995,
+  "src_clip": "C6591.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6591.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 70.0,
+  "score": 0.9983,
+  "src_clip": "C6591.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6591.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 71.0,
+  "score": 0.9995,
+  "src_clip": "C6593.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6593.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 72.0,
+  "score": 0.9636,
+  "src_clip": "C6593.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6593.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 73.0,
+  "score": 0.9998,
+  "src_clip": "C6594.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6594.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 74.0,
+  "score": 0.9994,
+  "src_clip": "C6594.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6594.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 75.0,
+  "score": 0.9999,
+  "src_clip": "C6592.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6592.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 76.0,
+  "score": 0.9998,
+  "src_clip": "C6592.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6592.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 77.0,
+  "score": 0.9975,
+  "src_clip": "C6595.MP4",
+  "src_t": 12.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6595.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 78.0,
+  "score": 0.9971,
+  "src_clip": "C6595.MP4",
+  "src_t": 13.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6595.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 79.0,
+  "score": 0.9465,
+  "src_clip": "C6587.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6587.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 80.0,
+  "score": 0.9936,
+  "src_clip": "C6587.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6587.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 81.0,
+  "score": 0.9992,
+  "src_clip": "C6589.MP4",
+  "src_t": 9.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6589.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 82.0,
+  "score": 0.9996,
+  "src_clip": "C6589.MP4",
+  "src_t": 10.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6589.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 83.0,
+  "score": 0.8676,
+  "src_clip": "C6589.MP4",
+  "src_t": 10.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6589.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 84.0,
+  "score": 0.9994,
+  "src_clip": "C6588.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6588.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 85.0,
+  "score": 0.9976,
+  "src_clip": "C6588.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6588.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 86.0,
+  "score": 0.7862,
+  "src_clip": "C6653.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6653.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 87.0,
+  "score": 0.7659,
+  "src_clip": "C6653.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6653.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 88.0,
+  "score": 0.7656,
+  "src_clip": "C6654.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6654.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 89.0,
+  "score": 0.7646,
+  "src_clip": "C6654.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6654.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 90.0,
+  "score": 0.898,
+  "src_clip": "C6615.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6615.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 91.0,
+  "score": 0.9146,
+  "src_clip": "C6615.MP4",
+  "src_t": 17.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6615.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 92.0,
+  "score": 0.9994,
+  "src_clip": "C6616.MP4",
+  "src_t": 14.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 93.0,
+  "score": 0.999,
+  "src_clip": "C6616.MP4",
+  "src_t": 15.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 94.0,
+  "score": 0.9247,
+  "src_clip": "C6616.MP4",
+  "src_t": 44.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 95.0,
+  "score": 0.9253,
+  "src_clip": "C6616.MP4",
+  "src_t": 45.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 96.0,
+  "score": 0.9261,
+  "src_clip": "C6616.MP4",
+  "src_t": 46.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 97.0,
+  "score": 0.9991,
+  "src_clip": "C6616.MP4",
+  "src_t": 68.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 98.0,
+  "score": 0.8263,
+  "src_clip": "C6616.MP4",
+  "src_t": 70.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 99.0,
+  "score": 0.6953,
+  "src_clip": "C6616.MP4",
+  "src_t": 89.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 100.0,
+  "score": 0.7021,
+  "src_clip": "C6616.MP4",
+  "src_t": 89.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 101.0,
+  "score": 0.9699,
+  "src_clip": "C6617.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6617.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 102.0,
+  "score": 0.9955,
+  "src_clip": "C6617.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6617.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 103.0,
+  "score": 0.9975,
+  "src_clip": "C6617.MP4",
+  "src_t": 24.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6617.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 104.0,
+  "score": 0.6414,
+  "src_clip": "C6616.MP4",
+  "src_t": 57.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6616.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 105.0,
+  "score": 0.7962,
+  "src_clip": "C0001.MP4",
+  "src_t": 736.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/거치캠/C0001.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 106.0,
+  "score": 0.9899,
+  "src_clip": "C6618.MP4",
+  "src_t": 10.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6618.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 107.0,
+  "score": 0.7538,
+  "src_clip": "C6618.MP4",
+  "src_t": 11.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6618.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 108.0,
+  "score": 0.7372,
+  "src_clip": "C6619.MP4",
+  "src_t": 139.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 109.0,
+  "score": 0.6458,
+  "src_clip": "C6618.MP4",
+  "src_t": 27.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6618.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 110.0,
+  "score": 0.938,
+  "src_clip": "C6618.MP4",
+  "src_t": 28.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6618.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 111.0,
+  "score": 0.6961,
+  "src_clip": "C0001.MP4",
+  "src_t": 1220.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/거치캠/C0001.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 112.0,
+  "score": 0.8074,
+  "src_clip": "C6619.MP4",
+  "src_t": 42.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 113.0,
+  "score": 0.8534,
+  "src_clip": "C6619.MP4",
+  "src_t": 40.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 114.0,
+  "score": 0.9402,
+  "src_clip": "C6619.MP4",
+  "src_t": 37.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 115.0,
+  "score": 0.9442,
+  "src_clip": "C6619.MP4",
+  "src_t": 38.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 116.0,
+  "score": 0.9174,
+  "src_clip": "C6619.MP4",
+  "src_t": 55.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 117.0,
+  "score": 0.9172,
+  "src_clip": "C6619.MP4",
+  "src_t": 56.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 118.0,
+  "score": 0.9205,
+  "src_clip": "C6619.MP4",
+  "src_t": 103.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 119.0,
+  "score": 0.9378,
+  "src_clip": "C6619.MP4",
+  "src_t": 102.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 120.0,
+  "score": 0.8973,
+  "src_clip": "C6619.MP4",
+  "src_t": 114.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 121.0,
+  "score": 0.855,
+  "src_clip": "C6619.MP4",
+  "src_t": 114.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 122.0,
+  "score": 0.8989,
+  "src_clip": "C6619.MP4",
+  "src_t": 128.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 123.0,
+  "score": 0.9711,
+  "src_clip": "C6619.MP4",
+  "src_t": 127.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 124.0,
+  "score": 0.9815,
+  "src_clip": "C6619.MP4",
+  "src_t": 127.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 125.0,
+  "score": 0.9776,
+  "src_clip": "C6619.MP4",
+  "src_t": 150.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 126.0,
+  "score": 0.9667,
+  "src_clip": "C6619.MP4",
+  "src_t": 151.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 127.0,
+  "score": 0.9945,
+  "src_clip": "C6620.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6620.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 128.0,
+  "score": 0.9951,
+  "src_clip": "C6620.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6620.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 129.0,
+  "score": 0.9982,
+  "src_clip": "C6621.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6621.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 130.0,
+  "score": 0.9995,
+  "src_clip": "C6621.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6621.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 131.0,
+  "score": 0.9988,
+  "src_clip": "C6622.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6622.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 132.0,
+  "score": 0.9989,
+  "src_clip": "C6622.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6622.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 133.0,
+  "score": 0.997,
+  "src_clip": "C6623.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6623.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 134.0,
+  "score": 0.9985,
+  "src_clip": "C6623.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6623.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 135.0,
+  "score": 0.7894,
+  "src_clip": "C6624.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6624.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 136.0,
+  "score": 0.7698,
+  "src_clip": "C6624.MP4",
+  "src_t": 7.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6624.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 137.0,
+  "score": 0.7612,
+  "src_clip": "C6624.MP4",
+  "src_t": 7.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6624.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 138.0,
+  "score": 0.9963,
+  "src_clip": "C6626.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6626.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 139.0,
+  "score": 0.9994,
+  "src_clip": "C6626.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6626.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 140.0,
+  "score": 0.9956,
+  "src_clip": "C6627.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6627.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 141.0,
+  "score": 0.9939,
+  "src_clip": "C6627.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6627.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 142.0,
+  "score": 0.9896,
+  "src_clip": "C6628.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6628.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 143.0,
+  "score": 0.9969,
+  "src_clip": "C6628.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6628.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 144.0,
+  "score": 0.9993,
+  "src_clip": "C6629.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6629.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 145.0,
+  "score": 0.9994,
+  "src_clip": "C6629.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6629.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 146.0,
+  "score": 0.995,
+  "src_clip": "C6632.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6632.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 147.0,
+  "score": 0.9962,
+  "src_clip": "C6632.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6632.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 148.0,
+  "score": 0.9993,
+  "src_clip": "C6631.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6631.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 149.0,
+  "score": 0.9991,
+  "src_clip": "C6631.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6631.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 150.0,
+  "score": 0.9994,
+  "src_clip": "C6631.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6631.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 151.0,
+  "score": 0.9987,
+  "src_clip": "C6633.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6633.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 152.0,
+  "score": 0.9893,
+  "src_clip": "C6633.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6633.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 153.0,
+  "score": 0.9809,
+  "src_clip": "C6634.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6634.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 154.0,
+  "score": 0.9698,
+  "src_clip": "C6634.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6634.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 155.0,
+  "score": 0.9694,
+  "src_clip": "C6636.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6636.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 156.0,
+  "score": 0.9886,
+  "src_clip": "C6636.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6636.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 157.0,
+  "score": 0.9766,
+  "src_clip": "C6635.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6635.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 158.0,
+  "score": 0.9846,
+  "src_clip": "C6635.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6635.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 159.0,
+  "score": 0.9953,
+  "src_clip": "C6638.MP4",
+  "src_t": 0.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6638.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 160.0,
+  "score": 0.9934,
+  "src_clip": "C6638.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6638.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 161.0,
+  "score": 0.9989,
+  "src_clip": "C6640.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6640.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 162.0,
+  "score": 0.9995,
+  "src_clip": "C6640.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6640.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 163.0,
+  "score": 0.9997,
+  "src_clip": "C6640.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6640.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 164.0,
+  "score": 0.9986,
+  "src_clip": "C6642.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6642.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 165.0,
+  "score": 0.9509,
+  "src_clip": "C6642.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6642.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 166.0,
+  "score": 0.9188,
+  "src_clip": "C6642.MP4",
+  "src_t": 17.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6642.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 167.0,
+  "score": 0.9124,
+  "src_clip": "C6642.MP4",
+  "src_t": 18.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6642.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 168.0,
+  "score": 0.9792,
+  "src_clip": "C6642.MP4",
+  "src_t": 24.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6642.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 169.0,
+  "score": 0.9232,
+  "src_clip": "C6642.MP4",
+  "src_t": 25.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6642.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 170.0,
+  "score": 0.9886,
+  "src_clip": "C6643.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6643.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 171.0,
+  "score": 0.9986,
+  "src_clip": "C6643.MP4",
+  "src_t": 6.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6643.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 172.0,
+  "score": 0.903,
+  "src_clip": "C6643.MP4",
+  "src_t": 19.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6643.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 173.0,
+  "score": 0.9748,
+  "src_clip": "C6643.MP4",
+  "src_t": 20.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6643.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 174.0,
+  "score": 0.9304,
+  "src_clip": "C6643.MP4",
+  "src_t": 26.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6643.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 175.0,
+  "score": 0.9941,
+  "src_clip": "C6643.MP4",
+  "src_t": 27.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6643.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 176.0,
+  "score": 0.9876,
+  "src_clip": "C6643.MP4",
+  "src_t": 28.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6643.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 177.0,
+  "score": 0.9996,
+  "src_clip": "C6644.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6644.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 178.0,
+  "score": 0.9997,
+  "src_clip": "C6644.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6644.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 179.0,
+  "score": 0.8921,
+  "src_clip": "C6645.MP4",
+  "src_t": 30.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6645.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 180.0,
+  "score": 0.8678,
+  "src_clip": "C6645.MP4",
+  "src_t": 38.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6645.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 181.0,
+  "score": 0.8491,
+  "src_clip": "C6619.MP4",
+  "src_t": 110.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 182.0,
+  "score": 0.8664,
+  "src_clip": "C6619.MP4",
+  "src_t": 108.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6619.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 183.0,
+  "score": 0.9363,
+  "src_clip": "C6645.MP4",
+  "src_t": 59.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6645.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 184.0,
+  "score": 0.8827,
+  "src_clip": "C6645.MP4",
+  "src_t": 62.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6645.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 185.0,
+  "score": 0.9998,
+  "src_clip": "C6646.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6646.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 186.0,
+  "score": 0.9998,
+  "src_clip": "C6646.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6646.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 187.0,
+  "score": 0.9976,
+  "src_clip": "C6656.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6656.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 188.0,
+  "score": 0.9973,
+  "src_clip": "C6656.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6656.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 189.0,
+  "score": 0.7428,
+  "src_clip": "C6656.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6656.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 190.0,
+  "score": 0.6533,
+  "src_clip": "C6658.MP4",
+  "src_t": 4.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6658.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 191.0,
+  "score": 0.5861,
+  "src_clip": "C6658.MP4",
+  "src_t": 5.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6658.MP4",
+  "matched": false
+ },
+ {
+  "hl_t": 192.0,
+  "score": 0.9897,
+  "src_clip": "C6659.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6659.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 193.0,
+  "score": 0.9757,
+  "src_clip": "C6659.MP4",
+  "src_t": 3.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6659.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 194.0,
+  "score": 0.8539,
+  "src_clip": "C6661.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6661.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 195.0,
+  "score": 0.9546,
+  "src_clip": "C6661.MP4",
+  "src_t": 1.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6661.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 196.0,
+  "score": 0.9077,
+  "src_clip": "C6661.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6661.MP4",
+  "matched": true
+ },
+ {
+  "hl_t": 197.0,
+  "score": 0.9795,
+  "src_clip": "C6661.MP4",
+  "src_t": 2.0,
+  "src_path": "/Volumes/Extreme SSD/학습/260425.홍주영.동서울웨딩컨벤션.마리안웨딩.노시진.123/스냅캠/C6661.MP4",
+  "matched": true
+ }
+]

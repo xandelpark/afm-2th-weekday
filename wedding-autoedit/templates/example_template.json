@@ -1,0 +1,115 @@
+{
+  "template_id": "본식_표준_주례있음_v1",
+  "learned_from": ["본식_20250412", "본식_20250503", "본식_20250517"],
+  "total_duration": 312.0,
+  "note": "하이라이트를 식순 구간으로 나누고, 각 컷을 '원본 어디서 왔는가'가 아니라 '무엇으로 채워야 하는가'로 명문화한 것. 슬롯 스펙은 전부 기계적으로 측정 가능한 값만 쓴다.",
+
+  "sections": [
+    {
+      "section": "신부입장",
+      "duration": 42.0,
+      "slots": [
+        {
+          "slot_id": "신부입장_01",
+          "offset": 0.0,
+          "duration": 3.2,
+          "must": {
+            "subject": "신부",
+            "shot_size": "full",
+            "people_count": [1, 2]
+          },
+          "prefer": {
+            "camera_move": "static",
+            "angle": "front",
+            "speed": "slow_50",
+            "section_progress": [0.0, 0.15]
+          },
+          "min_quality": { "sharpness_pct": 60, "no_face_occlusion": true },
+          "confidence_floor": 0.72
+        },
+        {
+          "slot_id": "신부입장_02",
+          "offset": 3.2,
+          "duration": 2.4,
+          "must": {
+            "subject": "신부",
+            "shot_size": "closeup"
+          },
+          "prefer": {
+            "camera_move": "static",
+            "angle": "front",
+            "expression": "smile",
+            "section_progress": [0.1, 0.3]
+          },
+          "min_quality": { "sharpness_pct": 75, "no_face_occlusion": true },
+          "confidence_floor": 0.80
+        },
+        {
+          "slot_id": "신부입장_03",
+          "offset": 5.6,
+          "duration": 2.8,
+          "must": {
+            "subject": "혼주",
+            "shot_size": "medium"
+          },
+          "prefer": {
+            "camera_move": "static",
+            "reaction": true,
+            "section_progress": [0.1, 0.4]
+          },
+          "min_quality": { "sharpness_pct": 60 },
+          "confidence_floor": 0.85,
+          "comment": "부모님 리액션 컷. 감정 판단이 필요해 오매칭 위험이 크므로 문턱을 높게 잡는다 → 대체로 빈칸으로 남기고 사람이 채우는 슬롯"
+        },
+        {
+          "slot_id": "신부입장_04",
+          "offset": 8.4,
+          "duration": 4.0,
+          "must": {
+            "subject": "신부",
+            "shot_size": "full",
+            "camera_move": "follow"
+          },
+          "prefer": {
+            "angle": "back",
+            "section_progress": [0.3, 0.6]
+          },
+          "min_quality": { "sharpness_pct": 55 },
+          "confidence_floor": 0.70
+        }
+      ]
+    },
+    {
+      "section": "서약",
+      "duration": 38.0,
+      "slots": [
+        {
+          "slot_id": "서약_01",
+          "offset": 0.0,
+          "duration": 5.0,
+          "must": { "subject": "신랑신부", "shot_size": "medium", "people_count": [2, 3] },
+          "prefer": { "camera_move": "static", "angle": "front", "audio": "original" },
+          "min_quality": { "sharpness_pct": 70 },
+          "confidence_floor": 0.75
+        },
+        {
+          "slot_id": "서약_02",
+          "offset": 5.0,
+          "duration": 3.5,
+          "must": { "subject": "손", "shot_size": "extreme_closeup" },
+          "prefer": { "camera_move": "static", "section_progress": [0.2, 0.8] },
+          "min_quality": { "sharpness_pct": 80 },
+          "confidence_floor": 0.78,
+          "comment": "맞잡은 손 인서트. 피사체가 명확해 매칭 성공률이 높은 슬롯"
+        }
+      ]
+    }
+  ],
+
+  "rhythm": {
+    "note": "슬롯을 못 채워 비었을 때, 앞뒤 컷 길이를 어떻게 보정할지의 기준",
+    "avg_cut_duration": 3.1,
+    "cut_duration_p25_p75": [2.2, 4.3],
+    "section_cut_counts": { "신부입장": 13, "서약": 9, "성혼선언": 6, "축가": 15, "행진": 11 }
+  }
+}
