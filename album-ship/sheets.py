@@ -67,7 +67,11 @@ def read_rows(svc, spreadsheet_id, sheet_name, last_col="AB"):
 
 
 def check_y(svc, spreadsheet_id, sheet_name, row_numbers, col="Y"):
-    """지정한 행들의 Y열을 TRUE 로 설정. 반환: 갱신된 셀 수."""
+    """지정한 행들의 Y열을 TRUE 로 설정. 반환: 갱신된 셀 수.
+
+    Y 외의 열은 절대 쓰지 않는다. 특히 Z(발송예정일)는 Make 자동화가 채우는 값이므로
+    우리가 날짜를 적어 넣으면 문자는 안 나가는데 나간 것처럼 보이는 상태가 된다.
+    """
     data = [{"range": f"'{sheet_name}'!{col}{rn}", "values": [[True]]}
             for rn in sorted(set(row_numbers))]
     if not data:
