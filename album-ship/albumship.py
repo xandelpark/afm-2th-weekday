@@ -145,9 +145,11 @@ def _click_rows(svc, cfg, sheet_name, targets, settle=1.2, recheck_wait=30):
     cdp.front()
     sid = cfg["spreadsheet_id"]
 
+    is_on = lambda r: _read_yz(svc, sid, sheet_name, r)[0]
+
     done, pending = [], []
     for i, p in enumerate(targets, 1):
-        okc, err = B.toggle_checkbox(cdp, sid, p["row"])
+        okc, err = B.set_checked(cdp, sid, p["row"], is_on)
         if not okc:
             pending.append((p, err))
             print(f"[{i}/{len(targets)}] 행 {p['row']} ✗ {err}")

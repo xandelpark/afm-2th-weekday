@@ -121,17 +121,40 @@ def launch(profile_dir, port=PORT, url="about:blank"):
     raise RuntimeError("디버깅 Chrome 이 뜨지 않았습니다.")
 
 
-def toggle_checkbox(cdp, spreadsheet_id, row, col="Y", gid=0, settle=1.2):
-    """해당 칸으로 이동해 껐다 켠다. 성공 여부(선택이 맞았는지)를 반환."""
+def focus_cell(cdp, spreadsheet_id, row, col="Y", gid=0):
+    """해당 칸으로 이동하고 칸 박스 [x0,y0,x1,y1] 을 돌려준다. (박스, None) 또는 (None, 사유)."""
     cdp.goto(f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
              f"/edit?gid={gid}&range={col}{row}")
     if cdp.name_box() != f"{col}{row}":
-        return False, f"칸 선택 실패({cdp.name_box()})"
+        return None, f"칸 선택 실패({cdp.name_box()})"
     box = cdp.active_cell_rect()
     if not box:
-        return False, "좌표 못 찾음"
-    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-    cdp.click(cx, cy)          # 해제
-    time.sleep(settle)
-    cdp.click(cx, cy)          # 재체크 → Make 트리거
-    return True, None
+        return None, "좌표 못 찾음"
+    return box, None
+
+
+def set_checked(cdp, spreadsheet_id, row, is_checked_fn, col="Y", gid=0, settle=1.5):
+    """체크박스를 '켜진 상태'로 만든다.
+
+    한 번 클릭할 때마다 토글되므로 **현재 상태를 실제로 읽어서 필요한 만큼만** 누른다.
+    꺼져 있으면 1번, 이미 켜져 있으면 아예 누르지 않는다.
+    (무조건 2번 누르면 꺼져 있던 칸이 도로 꺼진다 — 실제로 그렇게 사고가 났다.)
+
+    행 높이가 큰 칸은 체크박스가 세로 가운데가 아니라 **아래쪽에 그려진다.**
+    칸 가운데를 누르면 빈 공간이라 아무 일도 안 일어나므로 후보 지점을 차례로 시도한다.
+
+    is_checked_fn: 시트에서 현재 Y값을 읽어오는 함수 (API 조회)
+    """
+    box, err = focus_cell(cdp, spreadsheet_id, row, col, gid)
+    if err:
+        return False, err
+    if is_checked_fn(row):
+        return True, None
+    cx = (box[0] + box[2]) / 2
+    # 가운데 → 아래쪽 → 위쪽 (세로 정렬이 가운데/아래/위 어느 쪽이든 잡히도록)
+    for cy in ((box[1] + box[3]) / 2, box[3] - 12, box[1] + 12):
+        cdp.click(cx, cy)
+        time.sleep(settle)
+        if is_checked_fn(row):
+            return True, None
+    return False, "클릭해도 켜지지 않음 (체크박스 위치 못 찾음)"
