@@ -3,3 +3,4 @@ token.json
 config.json
 .chrome/
 __pycache__/
+scheduled/
