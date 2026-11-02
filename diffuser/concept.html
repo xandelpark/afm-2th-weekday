@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3모드 구성 — 위스키 세트형 디퓨저</title>
+<style>
+  :root{--paper:#F7F5F1;--ink:#1C1A17;--ink2:#5B564E;--line:#DEDAD2;
+        --serif:"Apple SD Gothic Neo",Georgia,serif;
+        --sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.65;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 100px}
+  header{padding:70px 0 40px;border-bottom:1px solid var(--line)}
+  .kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink2)}
+  h1{font-family:var(--serif);font-weight:400;font-size:clamp(28px,4.4vw,48px);letter-spacing:-.02em;
+     margin:16px 0 14px;line-height:1.22}
+  .lede{font-size:16px;color:var(--ink2);max-width:680px}
+  .lede b{color:var(--ink);font-weight:600}
+  .sec{padding:58px 0;border-bottom:1px solid var(--line)}
+  h2{font-family:var(--serif);font-weight:400;font-size:26px;margin:0 0 6px}
+  .sec-note{color:var(--ink2);font-size:14px;margin:0 0 32px;max-width:700px}
+  .sec-note b{color:var(--ink)}
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  .mode{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+        display:flex;flex-direction:column}
+  .stage{background:#EFEDE7;padding:18px 10px 4px}
+  .mode svg{display:block;width:100%;height:auto}
+  .mbody{padding:20px 22px 24px;display:flex;flex-direction:column;gap:12px;flex:1}
+  .tag{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2)}
+  .mt{font-family:var(--serif);font-size:23px;letter-spacing:-.01em}
+  .desc{font-size:13.5px;color:var(--ink2)}
+  .desc b{color:var(--ink)}
+  .spec{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;
+        color:var(--ink2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .opt{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .opt .stage{padding:14px 10px 2px}
+  .obody{padding:18px 20px 22px}
+  .obody h3{margin:0 0 8px;font-family:var(--serif);font-weight:400;font-size:19px}
+  .obody p{margin:0 0 10px;font-size:13.5px;color:var(--ink2)}
+  .obody p:last-child{margin:0}
+  .obody b{color:var(--ink)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;
+        border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  th,td{text-align:left;padding:13px 14px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);font-weight:500;
+     background:#FBFAF7}
+  tr:last-child td{border-bottom:none}
+  .box{margin-top:32px;padding:24px 26px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+  .box.warn{border-color:#C9A96A;background:#FDFAF3}
+  .box h3{margin:0 0 10px;font-family:var(--serif);font-weight:400;font-size:20px}
+  .box ol,.box ul{margin:0;padding-left:20px;color:var(--ink2);font-size:14px}
+  .box li{margin-bottom:7px}
+  .box li:last-child{margin-bottom:0}
+  .box b{color:var(--ink)}
+  .nav{margin-top:26px;font-size:13px;color:var(--ink2)}
+  .nav a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line);margin-right:16px}
+  .setstage{background:#EFEDE7;border:1px solid var(--line);border-radius:16px;padding:22px 18px 10px}
+  .setstage svg{display:block;width:100%;height:auto}
+  @media(max-width:940px){.modes,.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="gGlass" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".92"/>
+    <stop offset=".18" stop-color="#E9EAE6" stop-opacity=".55"/>
+    <stop offset=".55" stop-color="#F6F6F3" stop-opacity=".35"/>
+    <stop offset=".86" stop-color="#D6D8D2" stop-opacity=".6"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity=".85"/>
+  </linearGradient>
+  <linearGradient id="gOil" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#E0A85E"/><stop offset=".4" stop-color="#C6873C"/>
+    <stop offset=".75" stop-color="#A96B28"/><stop offset="1" stop-color="#D19A52"/>
+  </linearGradient>
+  <linearGradient id="gIce" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/>
+    <stop offset=".45" stop-color="#DDE4E4" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#B7C2C2" stop-opacity=".7"/>
+  </linearGradient>
+  <linearGradient id="gCeramic" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FBF9F4"/><stop offset=".55" stop-color="#EDE8DD"/>
+    <stop offset="1" stop-color="#CFC7B6"/>
+  </linearGradient>
+  <linearGradient id="gWood" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#A98352"/><stop offset=".45" stop-color="#7E5E38"/>
+    <stop offset="1" stop-color="#5A4126"/>
+  </linearGradient>
+  <linearGradient id="gCork" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#E4C79A"/><stop offset=".45" stop-color="#C9A46E"/>
+    <stop offset="1" stop-color="#9C7A48"/>
+  </linearGradient>
+  <linearGradient id="gCap" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#EFE0BC"/><stop offset=".35" stop-color="#C9A96A"/>
+    <stop offset=".7" stop-color="#8E6F3C"/><stop offset="1" stop-color="#D8BE85"/>
+  </linearGradient>
+  <radialGradient id="gShadow" cx=".5" cy=".5" r=".5">
+    <stop offset="0" stop-color="#000" stop-opacity=".2"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="clipBottle"><path d="M137,281 L137,161 C137,153 145,148 157,136 L169,124 L169,101 L191,101 L191,124 L203,136 C215,148 223,153 223,161 L223,281 Z"/></clipPath>
+  <clipPath id="clipTulip"><path d="M153,156 C140,182 136,200 138,216 C140,238 152,254 164,256 L196,256 C208,254 220,238 222,216 C224,200 220,182 207,156 Z"/></clipPath>
+  <clipPath id="clipGlass"><path d="M134,152 L141,258 Q141,264 149,264 L211,264 Q219,264 219,258 L226,152 Z"/></clipPath>
+</defs></svg>
+
+<header>
+  <div class="kicker">Concept v2 · 위스키 + 글라스 하이브리드</div>
+  <h1>한 병으로<br>집 세 곳</h1>
+  <p class="lede">위스키 병 하나에 잔 두세 개를 묶은 무전원 디퓨저 세트.
+  기분따라 향을 갈아끼우고, 안 맡고 싶을 땐 코르크 뚜껑으로 덮어 끄고,
+  손에는 한 방울도 안 묻는다. <b>어느 잔에 담느냐가 곧 세기 조절</b>이 된다.</p>
+</header>
+
+<section class="sec">
+  <h2>한 병으로 집 세 곳</h2>
+  <p class="sec-note">병 하나에 잔 두세 개를 묶는다. 디퓨저 하나를 사면
+  <b>거실·침실·화장실에 동시에 올라간다.</b> 기존 디퓨저는 방마다 하나씩 사야 해서
+  세 방을 채우려면 20만원이 넘는다.</p>
+
+  <div class="setstage">
+    <svg viewBox="0 0 940 300" role="img" aria-label="1병 3잔 세트">
+      <ellipse cx="470" cy="272" rx="420" ry="18" fill="url(#gShadow)"/>
+      <rect x="70" y="256" width="800" height="18" rx="8" fill="url(#gWood)"/>
+      <rect x="70" y="256" width="800" height="6" rx="3" fill="#C09A67" opacity=".7"/>
+
+      <g transform="translate(-40,-31) scale(1.02)">
+        <g stroke="#3C352B" stroke-width="4.5" stroke-linecap="round" opacity=".92">
+          <line x1="176" y1="112" x2="136" y2="42"/><line x1="178" y1="112" x2="160" y2="30"/>
+          <line x1="180" y1="112" x2="182" y2="24"/><line x1="182" y1="112" x2="204" y2="32"/>
+          <line x1="184" y1="112" x2="224" y2="46"/>
+        </g>
+        <path d="M137,281 L137,161 C137,153 145,148 157,136 L169,124 L169,101 L191,101 L191,124 L203,136 C215,148 223,153 223,161 L223,281 Z"
+              fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.3"/>
+        <g clip-path="url(#clipBottle)"><rect x="130" y="192" width="102" height="96" fill="url(#gOil)" opacity=".92"/></g>
+        <rect x="166" y="98" width="28" height="8" rx="3" fill="url(#gCap)"/>
+      </g>
+      <text x="140" y="292" font-size="12" fill="#5B564E" text-anchor="middle" letter-spacing="1">병 · 거실</text>
+
+      <g transform="translate(232,22) scale(.86)">
+        <g clip-path="url(#clipGlass)">
+          <rect x="120" y="234" width="120" height="40" fill="url(#gOil)" opacity=".85"/>
+          <g transform="rotate(-9 172 222)"><rect x="148" y="200" width="46" height="44" rx="8"
+             fill="url(#gIce)" stroke="#fff" stroke-opacity=".8" stroke-width="1.4"/></g>
+          <g transform="rotate(12 196 236)"><rect x="176" y="216" width="42" height="40" rx="7"
+             fill="url(#gCeramic)" stroke="#C9C1B0" stroke-width="1.2"/></g>
+        </g>
+        <path d="M134,152 L141,258 Q141,264 149,264 L211,264 Q219,264 219,258 L226,152 Z" fill="#FFF" fill-opacity=".16"/>
+        <path d="M128,148 L136,262 Q136,272 148,272 L212,272 Q224,272 224,262 L232,148 Z" fill="none" stroke="#BDBAB2" stroke-width="1.5"/>
+        <line x1="128" y1="148" x2="232" y2="148" stroke="#CFCCC4" stroke-width="2.5"/>
+      </g>
+      <text x="386" y="292" font-size="12" fill="#5B564E" text-anchor="middle" letter-spacing="1">록 글라스 · 침실</text>
+
+      <g transform="translate(452,71) scale(.68)">
+        <g clip-path="url(#clipTulip)">
+          <rect x="120" y="228" width="120" height="48" fill="url(#gOil)" opacity=".85"/>
+        </g>
+        <path d="M153,156 C140,182 136,200 138,216 C140,238 152,254 164,256 L196,256 C208,254 220,238 222,216 C224,200 220,182 207,156 Z" fill="#FFF" fill-opacity=".16"/>
+        <path d="M162,258 L156,270 Q155,274 160,274 L200,274 Q205,274 204,270 L198,258 Z" fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.7"/>
+        <path d="M147,150 C133,180 129,200 131,216 C133,240 148,258 162,260 L198,260 C212,258 227,240 229,216 C231,200 227,180 213,150 Z" fill="none" stroke="#BDBAB2" stroke-width="1.7"/>
+        <line x1="147" y1="150" x2="213" y2="150" stroke="#CFCCC4" stroke-width="2.6"/>
+      </g>
+      <text x="574" y="292" font-size="12" fill="#5B564E" text-anchor="middle" letter-spacing="1">노징 잔 · 책상</text>
+
+      <g transform="translate(650,115) scale(.52)">
+        <g clip-path="url(#clipGlass)">
+          <rect x="120" y="238" width="120" height="36" fill="url(#gOil)" opacity=".85"/>
+          <g transform="rotate(-6 180 234)"><rect x="158" y="216" width="42" height="40" rx="7"
+             fill="url(#gCeramic)" stroke="#C9C1B0" stroke-width="1.3"/></g>
+        </g>
+        <path d="M134,152 L141,258 Q141,264 149,264 L211,264 Q219,264 219,258 L226,152 Z" fill="#FFF" fill-opacity=".16"/>
+        <path d="M128,148 L136,262 Q136,272 148,272 L212,272 Q224,272 224,262 L232,148 Z" fill="none" stroke="#BDBAB2" stroke-width="2"/>
+        <line x1="128" y1="148" x2="232" y2="148" stroke="#CFCCC4" stroke-width="3"/>
+      </g>
+      <text x="740" y="292" font-size="12" fill="#5B564E" text-anchor="middle" letter-spacing="1">작은 잔 · 욕실</text>
+
+      <g transform="translate(794,186)">
+        <rect x="0" y="0" width="64" height="18" rx="7" fill="url(#gCork)" stroke="#8A6A3E" stroke-width="1.1"/>
+        <rect x="5" y="2" width="54" height="5" rx="2.5" fill="#E9D2A8" opacity=".75"/>
+        <rect x="0" y="26" width="64" height="18" rx="7" fill="url(#gCork)" stroke="#8A6A3E" stroke-width="1.1"/>
+        <rect x="5" y="28" width="54" height="5" rx="2.5" fill="#E9D2A8" opacity=".75"/>
+        <rect x="0" y="52" width="64" height="18" rx="7" fill="url(#gCork)" stroke="#8A6A3E" stroke-width="1.1"/>
+        <rect x="5" y="54" width="54" height="5" rx="2.5" fill="#E9D2A8" opacity=".75"/>
+      </g>
+      <text x="824" y="292" font-size="12" fill="#5B564E" text-anchor="middle" letter-spacing="1">뚜껑 ×3</text>
+    </svg>
+  </div>
+
+  <div class="two" style="margin-top:30px">
+    <div class="box" style="margin-top:0">
+      <h3>잔 크기가 곧 세기다</h3>
+      <p style="margin:0 0 12px;font-size:14px;color:var(--ink2)">잔을 전부 같은 크기로 만들 이유가 없다.
+      위스키 잔은 원래 종류가 많고, <b style="color:var(--ink)">입구 지름이 곧 발향 면적</b>이다.
+      공간 크기에 맞춰 다른 잔을 주면 그 자체가 세기 조절이 된다.</p>
+      <table style="border:none">
+        <thead><tr><th>잔</th><th>공간</th><th>큐브</th></tr></thead>
+        <tbody>
+          <tr><td>병 + 긴 스틱</td><td>거실</td><td>—</td></tr>
+          <tr><td>록 글라스 (대)</td><td>침실</td><td>얼음 3~4알</td></tr>
+          <tr><td>노징 잔 (중)</td><td>책상·머리맡</td><td>니트 (없음)</td></tr>
+          <tr><td>작은 록 글라스</td><td>욕실·화장대</td><td>얼음 1~2알</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:12px 0 0;font-size:14px;color:var(--ink2)">크기가 다르면 <b style="color:var(--ink)">진열했을 때 리듬</b>도 생긴다.
+      같은 잔 세 개는 식기지만, 크기가 다른 세 개는 컬렉션으로 보인다.</p>
+    </div>
+    <div class="box" style="margin-top:0">
+      <h3>가격 프레임이 뒤집힌다</h3>
+      <p style="margin:0 0 12px;font-size:14px;color:var(--ink2)">앞서 8~9만원에 이 기능을 다 넣는 건
+      공격적이라고 봤다. 그런데 <b style="color:var(--ink)">"세 곳을 채운다"가 되면 같은 값이 싸게 느껴진다.</b>
+      비교 대상이 디퓨저 한 개가 아니라 세 개가 되기 때문이다.</p>
+      <table style="border:none">
+        <thead><tr><th>구성</th><th>가격</th><th>체감</th></tr></thead>
+        <tbody>
+          <tr><td>싱글 (병1 + 잔1 + 뚜껑1)</td><td>4~5만원</td><td>입문·선물</td></tr>
+          <tr><td><b>트리플 (병1 + 잔3 + 뚜껑3)</b></td><td><b>8~9만원</b></td><td>한 곳당 3만원 이하</td></tr>
+          <tr><td>리필 병</td><td>1.8~2.5만원</td><td>월 1회</td></tr>
+          <tr><td>잔 추가 단품</td><td>1.5~2만원</td><td>네 번째 방</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:12px 0 0;font-size:14px;color:var(--ink2)">경쟁 제품으로 세 방을 채우면 <b style="color:var(--ink)">20만원이 넘는다.</b>
+      이 문장 하나가 상세페이지 맨 위에 올라간다.</p>
+    </div>
+  </div>
+
+  <div class="box warn">
+    <h3>얼음은 록 글라스에, 노징 잔은 니트로</h3>
+    <p style="margin:0 0 12px;font-size:14px;color:var(--ink2)">글렌캐런 같은 노징 잔에 얼음을 넣은 모습이
+    어색하게 느껴지는 건 <b style="color:var(--ink)">편견이 아니라 문화 코드</b>다. 위스키에서
+    노징 잔은 니트로 마시는 잔이고, 얼음이 들어가는 잔은 록 글라스(올드패션드)다. 이 구분은 꽤 단단해서,
+    어기면 "잘못 쓰는 것"처럼 보인다.</p>
+    <p style="margin:0 0 12px;font-size:14px;color:var(--ink2)"><b style="color:var(--ink)">설명이 필요한 제품은 안 팔린다.</b>
+    그래서 코드를 거스르지 않고 잔을 나눈다.</p>
+    <ul>
+      <li><b>록 글라스 — 얼음</b>. 세라믹·유리 큐브가 들어간다. 입구가 넓어 확산이 되고,
+      큐브를 넣고 빼기도 쉽다. 침실·욕실처럼 <b>퍼뜨리는</b> 자리.</li>
+      <li><b>노징 잔 — 니트</b>. 오일만 담는다. 발향체 없이 액면만으로 발향하되,
+      좁은 입구가 향을 잔 안에 모아둔다. <b>들어서 코에 대고 맡는</b> 자리 — 책상·머리맡.
+      뚜껑을 열었을 때 축적된 향이 확 올라오는 게 이 잔의 하이라이트다.</li>
+    </ul>
+    <p style="margin:12px 0 0;font-size:14px;color:var(--ink2)">노징 잔은 발향체가 없어 <b style="color:var(--ink)">세척도 쉽다.</b>
+    좁은 입구에 큐브를 넣었다면 오히려 꺼내기 힘들었을 텐데, 그 문제가 통째로 사라진다.
+    그리고 애호가는 원래 두 잔을 다 갖고 있으니, <b style="color:var(--ink)">세트에 둘 다 있는 게 자연스럽다.</b></p>
+  </div>
+
+  <div class="box warn">
+    <h3>이 구성이 만드는 새 숙제</h3>
+    <ul>
+      <li><b>오일 총량</b> — 100ml를 세 잔에 나누면 잔당 10ml 남짓이라 금방 마른다.
+      병을 <b>200ml 하프보틀</b>급으로 키우거나, 큐브가 머금는 양을 늘려야 한다.
+      위스키에도 200ml 하프보틀이 있으니 형태와 싸우지 않는다.</li>
+      <li><b>리필 주기</b> — 세 곳에서 동시에 쓰면 월 1회쯤 리필하게 된다.
+      고객에겐 부담이지만 사업에는 좋다. <b>정기구독으로 설계할 여지</b>가 여기서 생긴다.</li>
+      <li><b>집 전체가 한 향</b> — 병이 하나니 세 곳이 같은 향이 된다.
+      호텔 같은 통일감이라는 장점이지만, "기분따라 다른 향"과는 결이 다르다.
+      주 단위로 병을 바꾸면 <b>집 전체가 한꺼번에 바뀌는</b> 경험이 되니 오히려 극적이다.</li>
+      <li><b>파손·부피</b> — 유리잔 세 개는 배송 파손율과 박스 부피를 키운다.
+      완충 설계와 배송비를 원가에 미리 반영할 것.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>세 가지 모드</h2>
+  <p class="sec-note">같은 오일, 같은 향. <b>어디에 담느냐로 세기가 결정된다.</b>
+  기존 디퓨저는 스틱을 몇 개 빼는 것 말고 세기 조절 수단이 없다.</p>
+
+  <div class="modes">
+
+    <article class="mode">
+      <div class="stage">
+        <svg viewBox="0 0 360 340" role="img" aria-label="강 모드 — 병에 긴 스틱">
+          <ellipse cx="180" cy="300" rx="132" ry="16" fill="url(#gShadow)"/>
+          <rect x="62" y="286" width="236" height="16" rx="7" fill="url(#gWood)"/>
+          <rect x="62" y="286" width="236" height="5" rx="2.5" fill="#C09A67" opacity=".65"/>
+          <rect x="122" y="287" width="116" height="3" rx="1.5" fill="#5A4126" opacity=".35"/>
+          <g stroke="#3C352B" stroke-width="4.5" stroke-linecap="round" opacity=".92">
+            <line x1="176" y1="112" x2="132" y2="34"/>
+            <line x1="178" y1="112" x2="158" y2="22"/>
+            <line x1="180" y1="112" x2="182" y2="16"/>
+            <line x1="182" y1="112" x2="206" y2="24"/>
+            <line x1="184" y1="112" x2="228" y2="38"/>
+          </g>
+          <path d="M137,281 L137,161 C137,153 145,148 157,136 L169,124 L169,101 L191,101 L191,124 L203,136 C215,148 223,153 223,161 L223,281 Z"
+                fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.2"/>
+          <g clip-path="url(#clipBottle)">
+            <rect x="130" y="196" width="102" height="92" fill="url(#gOil)" opacity=".92"/>
+            
+            <rect x="130" y="272" width="102" height="16" fill="#8A5A22" opacity=".35"/>
+          </g>
+          <rect x="166" y="98" width="28" height="8" rx="3" fill="url(#gCap)"/>
+          <path d="M150,168 C154,196 152,236 150,272" stroke="#fff" stroke-opacity=".55"
+                stroke-width="5" fill="none" stroke-linecap="round"/>
+          <g><rect x="256" y="258" width="40" height="28" rx="5" fill="url(#gCap)"/>
+             <rect x="260" y="258" width="32" height="5" rx="2" fill="#F2E4C2" opacity=".8"/></g>
+        </svg>
+      </div>
+      <div class="mbody">
+        <div><div class="tag">Mode 01</div><div class="mt">강 — 공간 전체</div></div>
+        <p class="desc">미니 보틀에 <b>긴 스틱</b>을 꽂는다. 거실·현관처럼 넓은 공간을
+        하루 종일 채우는 모드. 병목의 실리콘 와이퍼가 스틱을 뽑을 때 오일을 훑어
+        <b>손에 묻지 않는다.</b></p>
+        <div class="spec">병 + 긴 스틱 5~6개 · 캡은 벗겨 옆에 둔다</div>
+      </div>
+    </article>
+
+    <article class="mode">
+      <div class="stage">
+        <svg viewBox="0 0 360 340" role="img" aria-label="약 모드 — 잔에 얼음">
+          <ellipse cx="180" cy="300" rx="132" ry="16" fill="url(#gShadow)"/>
+          <rect x="62" y="286" width="236" height="16" rx="7" fill="url(#gWood)"/>
+          <rect x="62" y="286" width="236" height="5" rx="2.5" fill="#C09A67" opacity=".65"/>
+          <rect x="122" y="287" width="116" height="3" rx="1.5" fill="#5A4126" opacity=".35"/>
+          <g clip-path="url(#clipGlass)">
+            <rect x="120" y="234" width="120" height="40" fill="url(#gOil)" opacity=".85"/>
+            <g transform="rotate(-9 172 222)">
+              <rect x="148" y="200" width="46" height="44" rx="8" fill="url(#gIce)"
+                    stroke="#fff" stroke-opacity=".8" stroke-width="1.4"/>
+              <rect x="155" y="207" width="14" height="12" rx="4" fill="#fff" opacity=".75"/>
+            </g>
+            <g transform="rotate(13 196 236)">
+              <rect x="176" y="216" width="42" height="40" rx="7" fill="url(#gIce)"
+                    stroke="#fff" stroke-opacity=".8" stroke-width="1.4"/>
+              <rect x="182" y="222" width="12" height="10" rx="3" fill="#fff" opacity=".7"/>
+            </g>
+            <g transform="rotate(-4 178 244)">
+              <rect x="156" y="226" width="44" height="38" rx="7" fill="url(#gCeramic)"
+                    stroke="#C9C1B0" stroke-width="1.2"/>
+            </g>
+          </g>
+          <path d="M134,152 L141,258 Q141,264 149,264 L211,264 Q219,264 219,258 L226,152 Z"
+                fill="#FFFFFF" fill-opacity=".16"/>
+          <path d="M128,148 L136,262 Q136,272 148,272 L212,272 Q224,272 224,262 L232,148 Z" fill="none" stroke="#BDBAB2" stroke-width="1.4"/>
+          <line x1="128" y1="148" x2="232" y2="148" stroke="#CFCCC4" stroke-width="2.5"/>
+          <path d="M147,158 C150,192 150,228 150,258" stroke="#fff" stroke-opacity=".7"
+                stroke-width="5" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="mbody">
+        <div><div class="tag">Mode 02</div><div class="mt">약 — 가까이</div></div>
+        <p class="desc">잔에 한 모금만큼 따르고 <b>얼음(세라믹·유리 큐브)</b>을 넣는다.
+        침실·책상처럼 가까운 거리에서 은은하게. 큐브 개수로 세기가 또 한 번 조절된다.
+        잔을 기울이면 <b>달그락 소리</b>가 난다.</p>
+        <div class="spec">잔 + 큐브 3~4알 · 오일 5~10ml</div>
+      </div>
+    </article>
+
+    <article class="mode">
+      <div class="stage">
+        <svg viewBox="0 0 360 340" role="img" aria-label="끔 모드 — 캡과 코스터">
+          <ellipse cx="180" cy="300" rx="132" ry="16" fill="url(#gShadow)"/>
+          <rect x="62" y="286" width="236" height="16" rx="7" fill="url(#gWood)"/>
+          <rect x="62" y="286" width="236" height="5" rx="2.5" fill="#C09A67" opacity=".65"/>
+          <rect x="122" y="287" width="116" height="3" rx="1.5" fill="#5A4126" opacity=".35"/>
+          <g transform="translate(-58,44) scale(.78)">
+            <path d="M137,281 L137,161 C137,153 145,148 157,136 L169,124 L169,101 L191,101 L191,124 L203,136 C215,148 223,153 223,161 L223,281 Z"
+                  fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.4"/>
+            <g clip-path="url(#clipBottle)">
+              <rect x="130" y="196" width="102" height="92" fill="url(#gOil)" opacity=".92"/>
+            </g>
+            <rect x="162" y="74" width="36" height="30" rx="5" fill="url(#gCap)"/>
+            <rect x="166" y="74" width="28" height="5" rx="2" fill="#F2E4C2" opacity=".8"/>
+            <rect x="164" y="100" width="32" height="6" rx="2" fill="#8E6F3C" opacity=".7"/>
+          </g>
+          <g transform="translate(66,44) scale(.78)">
+            <g clip-path="url(#clipGlass)">
+              <rect x="120" y="234" width="120" height="40" fill="url(#gOil)" opacity=".8"/>
+              <g transform="rotate(-9 172 232)"><rect x="150" y="212" width="44" height="42" rx="8"
+                 fill="url(#gIce)" stroke="#fff" stroke-opacity=".7" stroke-width="1.4"/></g>
+              <g transform="rotate(11 194 240)"><rect x="176" y="222" width="40" height="38" rx="7"
+                 fill="url(#gCeramic)" stroke="#C9C1B0" stroke-width="1.2"/></g>
+            </g>
+            <path d="M134,152 L141,258 Q141,264 149,264 L211,264 Q219,264 219,258 L226,152 Z"
+                  fill="#FFFFFF" fill-opacity=".16"/>
+            <path d="M128,148 L136,262 Q136,272 148,272 L212,272 Q224,272 224,262 L232,148 Z" fill="none" stroke="#BDBAB2" stroke-width="1.6"/>
+            <rect x="112" y="124" width="136" height="24" rx="8" fill="url(#gCork)"
+                  stroke="#8A6A3E" stroke-width="1.2"/>
+            <rect x="118" y="127" width="124" height="6" rx="3" fill="#E9D2A8" opacity=".75"/>
+            <rect x="126" y="144" width="108" height="5" rx="2" fill="#8A6A3E" opacity=".45"/>
+          </g>
+        </svg>
+      </div>
+      <div class="mbody">
+        <div><div class="tag">Mode 03</div><div class="mt">끔 — 덮는다</div></div>
+        <p class="desc">병은 <b>캡</b>을 닫고, 잔은 <b>코스터를 위에 얹는다.</b>
+        코스터가 평소엔 받침, 끌 땐 뚜껑이라 "뚜껑을 어디 두나" 문제가 없다.
+        얼음이 잔 높이보다 낮아 그냥 덮인다.</p>
+        <div class="spec">완전 무향은 아님 — 확 줄어드는 수준</div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="sec">
+  <h2>코스터 = 뚜껑</h2>
+  <p class="sec-note">아기 식기 실리콘 뚜껑처럼, <b>아랫면에 원형 홈을 파서 잔 테두리를 물게 한다.</b>
+  잔 안쪽에 끼우는 마개가 아니라 위에서 덮어 무는 구조라, 잔 지름이 조금 달라도 맞고
+  들어올릴 때 딸려 올라오지 않는다. 소재는 코르크 — 위스키 마개와 언어가 같고,
+  가볍고 안 깨지고 그립이 좋다.</p>
+
+  <div class="two">
+    <article class="opt">
+      <div class="stage" style="padding:22px 10px 10px">
+        <svg viewBox="0 0 420 230" role="img" aria-label="뚜껑 모드 단면">
+          <text x="20" y="26" font-size="12" fill="#5B564E" letter-spacing="2">닫을 때 — 단면</text>
+          <path d="M96,64 Q92,64 92,70 L92,98 Q92,104 98,104 L120,104 L120,86 Q120,82 124,82
+                   L136,82 Q140,82 140,86 L140,104 L280,104 L280,86 Q280,82 284,82
+                   L296,82 Q300,82 300,86 L300,104 L322,104 Q328,104 328,98 L328,70
+                   Q328,64 324,64 Z" fill="url(#gCork)" stroke="#8A6A3E" stroke-width="1.2"/>
+          <g fill="#8FB0AE" opacity=".85">
+            <rect x="121" y="83" width="18" height="5" rx="2.5"/>
+            <rect x="281" y="83" width="18" height="5" rx="2.5"/>
+          </g>
+          <rect x="120" y="86" width="20" height="118" fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.2"/>
+          <rect x="280" y="86" width="20" height="118" fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.2"/>
+          <rect x="140" y="176" width="140" height="28" fill="url(#gOil)" opacity=".8"/>
+          <g transform="rotate(-8 186 158)"><rect x="164" y="138" width="42" height="40" rx="7"
+             fill="url(#gIce)" stroke="#fff" stroke-opacity=".8" stroke-width="1.3"/></g>
+          <g transform="rotate(10 244 164)"><rect x="224" y="146" width="38" height="36" rx="6"
+             fill="url(#gCeramic)" stroke="#C9C1B0" stroke-width="1.1"/></g>
+          <g stroke="#5B564E" stroke-width="1" fill="none" opacity=".7">
+            <path d="M352,84 L376,84"/><path d="M352,104 L376,104"/><path d="M368,84 L368,104"/>
+            <path d="M368,84 l-3,4 M368,84 l3,4 M368,104 l-3,-4 M368,104 l3,-4"/>
+          </g>
+          <text x="382" y="98" font-size="11" fill="#5B564E">홈</text>
+          <text x="20" y="218" font-size="11.5" fill="#5B564E">홈 안쪽에 얇은 실리콘 링(청록) — 밀폐 + 코르크에 향 배임 방지</text>
+        </svg>
+      </div>
+      <div class="obody">
+        <h3>덮으면 꺼진다</h3>
+        <p>코르크 원반 아랫면의 <b>원형 홈에 잔 테두리가 쏙 들어간다.</b>
+        살짝 눌러 무는 정도라, 들어도 잔이 딸려 오지 않고 기울여도 안 벗겨진다.</p>
+        <p><b>홈 안쪽엔 얇은 실리콘 링을 넣는다.</b> 두 가지를 동시에 해결한다 —
+        밀폐가 올라가고, <b>코르크에 향이 배는 걸 막는다.</b> 코르크는 다공성이라
+        맨살로 닿으면 향을 머금어서, 향을 바꿀 때 이전 향이 따라온다.</p>
+      </div>
+    </article>
+
+    <article class="opt">
+      <div class="stage" style="padding:22px 10px 10px">
+        <svg viewBox="0 0 420 230" role="img" aria-label="받침 모드 단면">
+          <text x="20" y="26" font-size="12" fill="#5B564E" letter-spacing="2">받칠 때 — 뒤집는다</text>
+          <rect x="132" y="52" width="20" height="106" fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.2"/>
+          <rect x="268" y="52" width="20" height="106" fill="url(#gGlass)" stroke="#BDBAB2" stroke-width="1.2"/>
+          <rect x="152" y="140" width="116" height="18" fill="#E6E7E3" opacity=".7"/>
+          <rect x="152" y="110" width="116" height="32" fill="url(#gOil)" opacity=".78"/>
+          <g transform="rotate(-8 198 96)"><rect x="176" y="76" width="42" height="40" rx="7"
+             fill="url(#gIce)" stroke="#fff" stroke-opacity=".8" stroke-width="1.3"/></g>
+          <g transform="rotate(10 250 102)"><rect x="230" y="84" width="38" height="36" rx="6"
+             fill="url(#gCeramic)" stroke="#C9C1B0" stroke-width="1.1"/></g>
+          <path d="M96,158 Q92,158 92,164 L92,192 Q92,198 98,198 L322,198 Q328,198 328,192
+                   L328,164 Q328,158 324,158 Z" fill="url(#gCork)" stroke="#8A6A3E" stroke-width="1.2"/>
+          <rect x="120" y="158" width="180" height="4" rx="2" fill="#8A6A3E" opacity=".3"/>
+          <text x="20" y="222" font-size="11.5" fill="#5B564E">평평한 면이 위로 — 잔 바닥이 얹히고, 흘린 오일을 받는다</text>
+        </svg>
+      </div>
+      <div class="obody">
+        <h3>뒤집으면 받침이 된다</h3>
+        <p>홈이 아래로 가게 뒤집으면 <b>평평한 면이 위</b>로 온다. 잔을 그 위에 올려두고,
+        병에서 따르다 흘려도 코르크가 받는다.</p>
+        <p>이렇게 하면 부품이 안 늘어난다. <b>"뚜껑을 어디 두나" 문제가 없고</b>,
+        받침을 따로 살 필요도 없다. 그리고 뒤집어 쓰는 동작이
+        병 캡을 다루는 방식과 같은 언어로 묶인다.</p>
+      </div>
+    </article>
+  </div>
+
+  <div class="box warn">
+    <h3>코르크로 갈 때 확인할 것</h3>
+    <ul>
+      <li><b>향 배임</b> — 코르크는 다공성이다. 오일 증기에 계속 노출되면 배어든다.
+      홈 접촉면 실리콘 링은 필수고, 아랫면 전체에 얇은 코팅을 검토할 것.</li>
+      <li><b>밀폐도</b> — 코르크만으로는 완전 밀폐가 안 된다. 실리콘 링을 넣어도
+      <b>완전 무향은 아니고 확 줄어드는 수준.</b> 카피에 "완전 차단"을 쓰면 안 된다.</li>
+      <li><b>잔 테두리 공차</b> — 유리잔은 개체차가 있다. 홈 폭을 넉넉히 잡고
+      실리콘이 그 차이를 흡수하게 설계할 것. 홈이 빡빡하면 유리가 깨진다.</li>
+      <li><b>대안</b> — 코르크 대신 <b>실리콘 단독</b>도 가능하다.
+      아기 식기 뚜껑 그대로의 물성이라 밀폐는 가장 좋지만, 프리미엄 인상이 약해진다.
+      원목 + 실리콘 링 조합도 후보.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>얼음을 어떻게 할 것인가</h2>
+  <p class="sec-note">발향은 세라믹만 할 수 있고, 반짝임은 유리만 할 수 있다.
+  <b>둘을 어떻게 나눌지</b>가 남은 선택이다.</p>
+  <div class="two">
+    <article class="opt">
+      <div class="stage">
+        <svg viewBox="0 0 360 250" role="img" aria-label="혼합안">
+          <g transform="translate(0,-58)">
+            <g clip-path="url(#clipGlass)">
+              <rect x="120" y="234" width="120" height="40" fill="url(#gOil)" opacity=".85"/>
+              <g transform="rotate(-10 170 220)"><rect x="146" y="198" width="46" height="44" rx="8"
+                 fill="url(#gIce)" stroke="#fff" stroke-opacity=".85" stroke-width="1.5"/>
+                 <rect x="153" y="205" width="14" height="12" rx="4" fill="#fff" opacity=".8"/></g>
+              <g transform="rotate(14 198 234)"><rect x="178" y="214" width="42" height="40" rx="7"
+                 fill="url(#gIce)" stroke="#fff" stroke-opacity=".85" stroke-width="1.5"/>
+                 <rect x="184" y="220" width="12" height="10" rx="3" fill="#fff" opacity=".75"/></g>
+              <g transform="rotate(-3 178 246)"><rect x="156" y="228" width="44" height="38" rx="7"
+                 fill="url(#gCeramic)" stroke="#C9C1B0" stroke-width="1.2"/></g>
+            </g>
+            <path d="M134,152 L141,258 Q141,264 149,264 L211,264 Q219,264 219,258 L226,152 Z"
+                  fill="#FFFFFF" fill-opacity=".16"/>
+            <path d="M128,148 L136,262 Q136,272 148,272 L212,272 Q224,272 224,262 L232,148 Z" fill="none" stroke="#BDBAB2" stroke-width="1.4"/>
+            <line x1="128" y1="148" x2="232" y2="148" stroke="#CFCCC4" stroke-width="2.5"/>
+          </g>
+        </svg>
+      </div>
+      <div class="obody">
+        <h3>A. 유리 + 세라믹 혼합</h3>
+        <p>맑은 유리 큐브 2알에 무광 세라믹 큐브 1알을 섞는다.
+        <b>실제 얼음도 투명도가 제각각</b>이라 오히려 자연스럽다.</p>
+        <p><b>장점</b> 향을 바꿀 때 세라믹 큐브만 갈면 된다. 큐브가 곧 리필 상품이 되어
+        병보다 싼 진입 상품이 생긴다.</p>
+        <p><b>단점</b> 자세히 보면 한 알이 불투명하다.</p>
+      </div>
+    </article>
+    <article class="opt">
+      <div class="stage">
+        <svg viewBox="0 0 360 250" role="img" aria-label="바닥 원판안">
+          <g transform="translate(0,-58)">
+            <g clip-path="url(#clipGlass)">
+              <rect x="138" y="248" width="86" height="18" rx="4" fill="url(#gCeramic)"
+                    stroke="#C9C1B0" stroke-width="1"/>
+              <rect x="120" y="238" width="120" height="36" fill="url(#gOil)" opacity=".72"/>
+              <g transform="rotate(-10 170 220)"><rect x="146" y="198" width="46" height="44" rx="8"
+                 fill="url(#gIce)" stroke="#fff" stroke-opacity=".85" stroke-width="1.5"/>
+                 <rect x="153" y="205" width="14" height="12" rx="4" fill="#fff" opacity=".8"/></g>
+              <g transform="rotate(14 198 234)"><rect x="178" y="214" width="42" height="40" rx="7"
+                 fill="url(#gIce)" stroke="#fff" stroke-opacity=".85" stroke-width="1.5"/>
+                 <rect x="184" y="220" width="12" height="10" rx="3" fill="#fff" opacity=".75"/></g>
+              <g transform="rotate(-3 172 248)"><rect x="152" y="230" width="44" height="38" rx="7"
+                 fill="url(#gIce)" stroke="#fff" stroke-opacity=".8" stroke-width="1.4"/></g>
+            </g>
+            <path d="M134,152 L141,258 Q141,264 149,264 L211,264 Q219,264 219,258 L226,152 Z"
+                  fill="#FFFFFF" fill-opacity=".16"/>
+            <path d="M128,148 L136,262 Q136,272 148,272 L212,272 Q224,272 224,262 L232,148 Z" fill="none" stroke="#BDBAB2" stroke-width="1.4"/>
+            <line x1="128" y1="148" x2="232" y2="148" stroke="#CFCCC4" stroke-width="2.5"/>
+          </g>
+        </svg>
+      </div>
+      <div class="obody">
+        <h3>B. 전부 유리 + 바닥 세라믹 원판</h3>
+        <p>큐브는 전부 맑은 유리로 하고, 발향용 세라믹은 <b>잔 바닥에 원판으로 깔아</b>
+        큐브에 가려 안 보이게 한다.</p>
+        <p><b>장점</b> 위에서 보면 <b>얼음만 든 잔</b>. 비주얼이 가장 깨끗하다.</p>
+        <p><b>단점</b> 세라믹이 잔에 붙으니 향을 바꿀 때 <b>잔을 통째로 씻어야</b> 한다.
+        큐브 교체로 향을 바꾸는 편의를 포기해야 한다.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>세 문제가 다 닫혔다</h2>
+  <table>
+    <thead><tr><th>문제</th><th>해법</th><th>부품</th></tr></thead>
+    <tbody>
+      <tr><td>향을 못 바꾼다 (락인)</td><td>병째 교체 · 스틱과 큐브는 향별 전용</td><td>미니 보틀</td></tr>
+      <tr><td>끌 수가 없다</td><td>병은 캡 닫기 / 잔은 코스터 덮기</td><td>캡 · 코스터</td></tr>
+      <tr><td>손에 묻고 흐르고 가구가 상한다</td><td>병목 실리콘 와이퍼가 스틱을 훑는다 · 잔은 항상 코스터 위</td><td>와이퍼 링</td></tr>
+      <tr><td>세기 조절이 안 된다</td><td>병(강) / 잔(약) / 큐브 개수</td><td>잔 · 큐브</td></tr>
+      <tr><td>발향 면적이 좁다</td><td>잔의 넓은 입구 + 큐브 표면적</td><td>록 글라스</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <h3>반드시 설계에 넣을 안전 항목</h3>
+    <ul>
+      <li><b>쓴맛 첨가제(비터런트)</b> — 술잔에 담긴 액체 + 얼음은 진짜 술로 보인다.
+      아이·반려동물·취한 손님. 극소량으로 삼킬 수 없게 만드는 표준 안전장치이고 원가가 거의 안 든다.</li>
+      <li><b>얼음 집게</b> — 큐브를 손으로 집으면 오일이 묻는다. 세트에 집게를 넣으면 해결되고, 바 도구 은유도 하나 더 붙는다.</li>
+      <li><b>큐브 크기 하한</b> — 작은 큐브는 삼킴·질식 위험 대상이 된다.
+      소아 삼킴 방지 기준을 넘도록 크게 잡아야 하고, 그러면 잔도 록 글라스급으로 커진다.
+      <b>디자인 제약으로 먼저 반영할 것.</b></li>
+      <li><b>잔 각인</b> — 들었을 때 보이는 위치에 음용 금지 문구.</li>
+      <li><b>기본 상태 = 덮어둠</b> — 코스터를 덮는 걸 "끄기"가 아니라 "제자리"로 안내한다.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h3>아직 안 풀린 것</h3>
+    <ol>
+      <li><b>강 모드에서 뺀 긴 스틱을 어디 두나.</b> 캡을 닫으려면 스틱을 빼야 하는데,
+      젖은 스틱을 놓을 자리가 없다. 전용 유리 튜브를 세트에 넣을지, 코스터에 홈을 팔지,
+      아니면 "완전 끄기는 잔 모드에서만"으로 정의할지 — 결정 필요.</li>
+      <li><b>잔 세척.</b> 향을 바꿀 때 오일이라 물로만은 잘 안 지워진다.
+      혼합안(A)으로 가면 큐브 교체로 상당 부분 완화된다.</li>
+      <li><b>결로.</b> 오래 덮어두면 잔 안쪽에 맺힌다. 상세페이지에 미리 쓰지 않으면
+      불량 문의가 반드시 들어온다.</li>
+      <li><b>무게중심.</b> 병에 긴 스틱을 꽂으면 위가 무거워진다. 바닥을 두껍게 —
+      위스키 병은 원래 바닥이 두꺼우니 형태와 안 싸운다.</li>
+      <li><b>무드 방향</b> — 황동·원목 / 미니멀 석재 / 다크 메탈 중 미정.</li>
+    </ol>
+  </div>
+
+  <div class="nav">
+    <a href="moodboard.html">← 무드 3안 보기</a>
+    <a href="reference.html">실사 레퍼런스 보기 →</a>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

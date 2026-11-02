@@ -1,0 +1,127 @@
+[
+ {
+  "key": "hyascent_body",
+  "label": "Hyascent 아워글래스 본체",
+  "store": "hyascent.com",
+  "files": [
+   "hyascent_body_1.jpg",
+   "hyascent_body_2.png"
+  ]
+ },
+ {
+  "key": "hyascent_cristal",
+  "label": "Hyascent Crístal (크리스탈 베이스)",
+  "store": "hyascent.com",
+  "files": [
+   "hyascent_cristal_1.jpg",
+   "hyascent_cristal_2.jpg"
+  ]
+ },
+ {
+  "key": "hyascent_refill",
+  "label": "Hyascent 교체용 리필 카트리지",
+  "store": "hyascent.com",
+  "files": [
+   "hyascent_refill_1.jpg"
+  ]
+ },
+ {
+  "key": "tc_ceramic",
+  "label": "Thomson Carter 세라믹 리드 디퓨저",
+  "store": "thomsoncarter.com",
+  "files": [
+   "tc_ceramic_1.jpg",
+   "tc_ceramic_2.jpg"
+  ]
+ },
+ {
+  "key": "tc_sovereign",
+  "label": "Thomson Carter Sovereign",
+  "store": "thomsoncarter.com",
+  "files": [
+   "tc_sovereign_1.jpg",
+   "tc_sovereign_2.jpg"
+  ]
+ },
+ {
+  "key": "mlm_home",
+  "label": "Maison Louis Marie Home Diffuser",
+  "store": "maisonlouismarie.com",
+  "files": [
+   "mlm_home_1.jpg",
+   "mlm_home_2.jpg"
+  ]
+ },
+ {
+  "key": "aera_mini",
+  "label": "Aera Mini (카트리지 교체 구조)",
+  "store": "aeraforhome.com",
+  "files": [
+   "aera_mini_1.png",
+   "aera_mini_2.png"
+  ]
+ },
+ {
+  "key": "aera_full",
+  "label": "Aera 본체",
+  "store": "aeraforhome.com",
+  "files": [
+   "aera_full_1.png",
+   "aera_full_2.jpg"
+  ]
+ },
+ {
+  "key": "aera_refill",
+  "label": "Aera 리필 세트",
+  "store": "aeraforhome.com",
+  "files": [
+   "aera_refill_1.png",
+   "aera_refill_2.png"
+  ]
+ },
+ {
+  "key": "vit_air",
+  "label": "Vitruvi Air 무수분 디퓨저",
+  "store": "vitruvi.com",
+  "files": [
+   "vit_air_1.png",
+   "vit_air_2.png"
+  ]
+ },
+ {
+  "key": "vit_stone",
+  "label": "Vitruvi Stone 세라믹 디퓨저",
+  "store": "vitruvi.com",
+  "files": [
+   "vit_stone_1.png",
+   "vit_stone_2.png"
+  ]
+ },
+ {
+  "key": "vit_refill",
+  "label": "Vitruvi 향 리필 카트리지",
+  "store": "vitruvi.com",
+  "files": [
+   "vit_refill_1.png",
+   "vit_refill_2.jpg"
+  ]
+ },
+ {
+  "key": "pura_kit",
+  "label": "Pura 스마트 디퓨저 키트",
+  "store": "brooklyncandlestudio.com",
+  "files": [
+   "pura_kit_1.jpg",
+   "pura_kit_2.jpg"
+  ]
+ },
+ {
+  "key": "bcs_reed",
+  "label": "Brooklyn Candle 리드 디퓨저",
+  "store": "brooklyncandlestudio.com",
+  "files": [
+   "bcs_reed_1.jpg",
+   "bcs_reed_2.jpg"
+  ]
+ }
+]

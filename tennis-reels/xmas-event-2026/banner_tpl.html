@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>데일리테니스 인계점 연말연시 현수막</title>
+<style>
+  /* 3000×900mm 현수막 — 1px = 2mm (1500×450) */
+  :root{
+    --plum:#5D4575; --gold:#CFA85B; --paper:#F3EFE2; --bone:#E7E0CF;
+    --ink:#3A3340; --xred:#B3202A; --pine:#1F5A3B; --soft:#6B6272; --rule:rgba(58,51,64,.28);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ width:1500px; height:450px; background:var(--paper); overflow:hidden; }
+  body{ color:var(--ink); font-family:"AppleMyungjo","Apple SD Gothic Neo",serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page{ position:relative; width:1500px; height:450px; padding:30px 92px 22px 86px; display:grid;
+    grid-template-columns:220px minmax(0,1fr) 420px; gap:30px; align-items:center; }
+  .frame{ position:absolute; inset:9px; border:1.2px solid var(--rule); pointer-events:none; }
+  .frame::after{ content:""; position:absolute; inset:5px; border:.7px solid var(--rule); }
+  .deco{ position:absolute; z-index:5; pointer-events:none; }
+  .deco.tl{ top:0; left:0; width:150px; }
+  .deco.tr{ top:0; right:0; width:150px; transform:scaleX(-1); }
+  .deco.bl{ bottom:0; left:0; width:105px; transform:scaleY(-1); }
+  .deco.br{ bottom:0; right:0; width:105px; transform:scale(-1,-1); }
+  .lights{ position:absolute; left:150px; right:150px; top:8px; height:26px; width:auto; }
+
+  /* 좌: 트리 */
+  .photo{ position:relative; border:2px solid var(--gold); padding:6px; background:rgba(255,255,255,.45); align-self:center; }
+  .photo img{ display:block; width:100%; height:290px; object-fit:cover; object-position:50% 40%; }
+  .photo .cap{ position:absolute; left:50%; bottom:-9px; transform:translateX(-50%); background:var(--paper); padding:0 10px;
+    font-family:"Didot",serif; font-style:italic; font-size:15px; letter-spacing:.1em; color:var(--xred); white-space:nowrap; }
+
+  /* 가운데: 카피 */
+  .mid{ text-align:center; white-space:nowrap; }
+  .kicker{ font-family:"Didot",serif; font-size:13px; letter-spacing:.26em; color:var(--pine); }
+  .kicker .star{ color:var(--xred); letter-spacing:0; margin:0 8px; }
+  .pre{ font-size:28px; color:var(--pine); margin-top:12px; }
+  .ko{ font-size:68px; line-height:1.08; margin-top:0; letter-spacing:-.01em; }
+  .ko .x{ color:var(--xred); }
+  .sub{ font-size:22px; color:var(--soft); margin-top:2px; }
+  .target{ display:inline-block; margin-top:14px; padding:7px 24px; background:var(--xred); color:#FFF6E6; font-size:26px;
+    box-shadow:0 0 0 3px var(--paper), 0 0 0 4.5px var(--gold); }
+  .target b{ color:#F1DDB0; font-weight:normal; }
+  .cond{ margin-top:12px; font-size:21px; color:var(--xred); }
+  .cond b{ font-weight:normal; border-bottom:1.5px solid var(--xred); }
+  .how{ margin-top:12px; display:flex; justify-content:center; align-items:center; gap:12px; font-size:22px; }
+  .how2{ margin-top:4px; }
+  .how .dot{ color:var(--gold); }
+  .how .d{ color:var(--xred); }
+  .handle{ font-family:"Didot",serif; font-style:italic; font-size:17px; color:var(--soft); margin-top:8px; letter-spacing:.06em; }
+
+  /* 우: 1등 */
+  .grand{ position:relative; border:2px solid var(--gold); padding:5px; }
+  .grand-in{ border:.8px solid var(--gold); background:linear-gradient(180deg,#FBF8EF 0%, var(--bone) 100%); padding:18px 14px 10px; }
+  .badge{ position:absolute; top:-14px; left:50%; transform:translateX(-50%); background:var(--xred); color:#FFF0D2;
+    font-family:"Didot",serif; font-size:16px; letter-spacing:.3em; padding:5px 18px 5px 22px; white-space:nowrap; }
+  .g-head{ text-align:center; font-size:24px; white-space:nowrap; }
+  .g-head .n{ color:var(--xred); }
+  .g-head .en2{ font-family:"Didot",serif; font-style:italic; color:var(--plum); }
+  .rackets{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px; }
+  .rk{ text-align:center; }
+  .rk .imgbox{ height:140px; display:flex; align-items:flex-end; justify-content:center; }
+  .rk img{ max-height:140px; max-width:140px; filter:drop-shadow(0 4px 5px rgba(53,38,70,.22)); }
+  .rk .who{ font-size:22px; margin-top:6px; }
+  .rk .who i{ font-family:"Didot",serif; font-style:normal; color:var(--plum); font-size:24px; }
+  .rk .spec{ font-size:14px; white-space:nowrap; color:var(--soft); margin-top:2px; }
+  .rk .price{ display:inline-block; margin-top:5px; font-size:17px; color:var(--xred); border:1px solid var(--xred); padding:1px 9px; }
+  .minor{ margin-top:10px; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:18px; white-space:nowrap; }
+  .minor .r{ color:var(--xred); margin-right:6px; }
+  .minor .c{ color:var(--soft); font-size:14px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="frame"></div>
+  {{LIGHTS}}
+  <img class="deco tl" src="{{CORNER}}" alt=""><img class="deco tr" src="{{CORNER}}" alt="">
+  <img class="deco bl" src="{{CORNER}}" alt=""><img class="deco br" src="{{CORNER}}" alt="">
+
+  <div class="photo"><img src="{{XMAS}}" alt=""><div class="cap">✦ Merry Christmas ✦</div></div>
+
+  <div class="mid">
+    <div class="kicker"><span class="star">✦</span>DAILY TENNIS 인계점 · CHRISTMAS EVENT<span class="star">✦</span></div>
+    <div class="pre">벌써 연말이 다가오네요!</div>
+    <div class="ko">미리 크리스마스<span class="x">!</span></div>
+    <div class="sub">크리스마스 · 연말연시 추첨 이벤트</div>
+    <div class="target"><b>추첨 시까지</b> 등록 회원 대상</div>
+      <div class="cond">※ 응모 기간 : <b>12월 중순 ~ 1월 10일 추첨 전까지</b></div>
+    <div class="how">카운터에서 추첨권에 이름 적고 응모</div>
+    <div class="how how2"><span class="d">2027. 1. 10(일)</span> 인스타 라이브 추첨</div>
+    <div class="handle">@hi.dailytennis</div>
+  </div>
+
+  <div class="grand">
+    <div class="badge">✦ GRAND PRIZE ✦</div>
+    <div class="grand-in">
+      <div class="g-head"><span class="n">1등</span> 윌슨 <span class="en2">Defyer</span> 디파이어 라켓</div>
+      <div class="rackets">
+        <div class="rk"><div class="imgbox"><img src="{{UL}}" alt=""></div>
+          <div class="who">여자 <i>1</i>명</div><div class="spec">DEFYER 100UL</div><div class="spec">265g · 1그립</div><div class="price">정가 359,000원</div></div>
+        <div class="rk"><div class="imgbox"><img src="{{S100}}" alt=""></div>
+          <div class="who">남자 <i>1</i>명</div><div class="spec">DEFYER 100</div><div class="spec">300g · 2그립</div><div class="price">정가 369,000원</div></div>
+      </div>
+    </div>
+    <div class="minor">
+      <div><span class="r">2등</span>스타벅스 5만원권 <span class="c">남녀 각 1명</span></div>
+      <div><span class="r">3등</span>스트링 교체권 <span class="c">남녀 각 2명</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

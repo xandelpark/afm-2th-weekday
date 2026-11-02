@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무드 3안 — 교체형 세라믹 디퓨저</title>
+<style>
+  :root{
+    --paper:#F7F5F1; --ink:#1C1A17; --ink2:#5B564E; --line:#DEDAD2;
+    --serif:"Apple SD Gothic Neo",-apple-system,"Noto Serif KR",Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+       -webkit-font-smoothing:antialiased;line-height:1.65}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 100px}
+
+  header{padding:76px 0 44px;border-bottom:1px solid var(--line)}
+  .kicker{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink2)}
+  h1{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.6vw,52px);
+     letter-spacing:-.02em;margin:16px 0 14px;line-height:1.2}
+  .lede{font-size:16px;color:var(--ink2);max-width:640px}
+  .lede b{color:var(--ink);font-weight:600}
+
+  h2{font-family:var(--serif);font-weight:400;font-size:26px;letter-spacing:-.01em;
+     margin:0 0 6px}
+  .sec{padding:60px 0;border-bottom:1px solid var(--line)}
+  .sec-note{color:var(--ink2);font-size:14px;margin:0 0 32px;max-width:660px}
+
+  /* 구조 다이어그램 */
+  .parts{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .part{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px}
+  .part .num{font-family:var(--serif);font-size:13px;color:var(--ink2);letter-spacing:.1em}
+  .part h3{font-size:16px;margin:8px 0 8px;font-weight:600}
+  .part p{margin:0;font-size:13.5px;color:var(--ink2)}
+  .part .tag{display:inline-block;margin-top:14px;font-size:11px;letter-spacing:.08em;
+    padding:4px 9px;border-radius:100px;background:#F1EEE8;color:var(--ink2)}
+
+  /* 무드 카드 */
+  .moods{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+  .mood{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+        display:flex;flex-direction:column}
+  .stage{padding:26px 18px 10px;background:var(--stage);transition:background .3s}
+  .mood svg{display:block;width:100%;height:auto}
+  .mbody{padding:22px 22px 26px;display:flex;flex-direction:column;gap:16px;flex:1}
+  .mtitle{font-family:var(--serif);font-size:22px;letter-spacing:-.01em}
+  .mtag{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2)}
+  .swatches{display:flex;gap:0;border-radius:8px;overflow:hidden;height:34px;
+            border:1px solid var(--line)}
+  .swatches i{flex:1}
+  dl{margin:0;display:grid;grid-template-columns:64px 1fr;gap:8px 12px;font-size:13.5px}
+  dt{color:var(--ink2);font-size:12px;letter-spacing:.04em;padding-top:1px}
+  dd{margin:0}
+  .notes{color:var(--ink2)}
+  .refs{margin-top:auto;padding-top:16px;border-top:1px solid var(--line);
+        font-size:12.5px;color:var(--ink2)}
+  .refs a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+  .refs a:hover{border-color:var(--ink)}
+  .verdict{font-size:13px;padding:12px 14px;border-radius:10px;background:#F4F1EB;
+           color:var(--ink2)}
+  .verdict b{color:var(--ink)}
+
+  /* 가격표 */
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:14px 12px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);font-weight:500}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+
+  .ask{margin-top:44px;padding:26px 28px;border:1px solid var(--ink);border-radius:14px;
+       background:#fff}
+  .ask h3{margin:0 0 10px;font-family:var(--serif);font-weight:400;font-size:20px}
+  .ask ol{margin:0;padding-left:20px;color:var(--ink2);font-size:14px}
+  .ask li{margin-bottom:6px}
+
+
+  .states{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  .state{margin:0;background:#fff;border:1px solid var(--line);border-radius:16px;
+         padding:22px 22px 24px;text-align:center}
+  .state svg{display:block;width:100%;max-width:300px;margin:0 auto}
+  .state figcaption{margin-top:12px;font-size:13.5px;color:var(--ink2);text-align:left}
+  .state figcaption b{color:var(--ink)}
+  .part.warn{border-color:#C9A96A;background:#FDFAF3}
+  @media(max-width:940px){.states{grid-template-columns:1fr}}
+  @media(max-width:940px){
+    .moods,.parts{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">Concept Direction · 2026.09</div>
+  <h1>기분 따라 갈아끼우는<br>세라믹 디퓨저</h1>
+  <p class="lede">향수는 매일 아침 골라 뿌리면서, 공간의 향은 200ml 다 쓸 때까지 락인된다.
+  <b>베이스는 자리에 두고 향 카트리지만 갈아끼우는</b> 무전원 디퓨저.
+  주 단위로 기분에 맞춰 향을 바꾼다.</p>
+</header>
+
+<section class="sec">
+  <h2>제품 구조</h2>
+  <p class="sec-note">핵심은 <b>발향체를 카트리지에 붙여버리는 것</b>. 세라믹이 카트리지 전용이라
+  향이 절대 섞이지 않고, 안 쓰는 향은 캡을 닫아 보관하니 날아가지도 않는다.
+  기존 스틱 디퓨저가 향을 못 바꿨던 유일한 이유가 여기서 해결된다.</p>
+  <div class="parts">
+    <div class="part">
+      <div class="num">01</div>
+      <h3>베이스 — 한 번 사는 오브제</h3>
+      <p>자리에 계속 두는 홀더. 전자부품이 없으니 순수하게 소재와 비례로만 승부한다.
+      가격의 앵커이자 브랜드의 얼굴.</p>
+      <span class="tag">1회 구매</span>
+    </div>
+    <div class="part">
+      <div class="num">02</div>
+      <h3>향 카트리지 — 반복 구매</h3>
+      <p>미니 보틀 + 전용 세라믹 오브제 + 실링 캡을 한 몸으로. 딸깍 갈아끼우는
+      손맛이 곧 제품의 정체성.</p>
+      <span class="tag">매출의 전부</span>
+    </div>
+    <div class="part">
+      <div class="num">03</div>
+      <h3>트레이 — 숨은 무기</h3>
+      <p>안 쓰는 카트리지를 세워두는 받침. 진열 자체가 인테리어가 되고,
+      매일 눈으로 다음 재구매를 자극한다.</p>
+      <span class="tag">재구매 트리거</span>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>무드 3안</h2>
+  <p class="sec-note">발향체는 세라믹 오브제로 확정. 이제 <b>베이스 소재와 향의 방향</b>을 고른다.
+  아래 렌더는 같은 구조를 세 가지 소재 언어로 옮긴 것이다.</p>
+
+  <div class="moods">
+
+    <!-- A -->
+    <article class="mood" style="--stage:#EFEDE7;--m1:#FBFAF8;--m2:#E4E0D7;--m3:#BFB9AC;--m4:#8C8578;--acc:#CFC7B6">
+      <div class="stage">
+        <svg viewBox="0 0 400 330" role="img" aria-label="미니멀 석재 세라믹 렌더">
+          <defs>
+            <linearGradient id="ga1" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="var(--m1)"/><stop offset=".55" stop-color="var(--m2)"/><stop offset="1" stop-color="var(--m3)"/>
+            </linearGradient>
+            <linearGradient id="ga2" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="var(--m2)"/><stop offset=".5" stop-color="var(--m3)"/><stop offset="1" stop-color="var(--m4)"/>
+            </linearGradient>
+            <radialGradient id="gsh" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <ellipse cx="200" cy="292" rx="160" ry="20" fill="url(#gsh)"/>
+          <rect x="46" y="264" width="308" height="20" rx="10" fill="url(#ga2)"/>
+          <rect x="46" y="264" width="308" height="7" rx="3.5" fill="var(--m1)" opacity=".55"/>
+          <g><rect x="141" y="196" width="118" height="70" rx="7" fill="url(#ga1)"/>
+             <ellipse cx="200" cy="196" rx="59" ry="11" fill="var(--m1)"/>
+             <ellipse cx="200" cy="196" rx="26" ry="5" fill="var(--m4)" opacity=".35"/></g>
+          <path d="M173 200 L173 116 A27 34 0 0 1 227 116 L227 200 Z" fill="url(#ga1)"/>
+          <path d="M173 200 L173 116 A27 34 0 0 1 200 82 L200 200 Z" fill="var(--m1)" opacity=".5"/>
+          <g stroke="var(--m4)" stroke-opacity=".22" stroke-width="1.2">
+            <line x1="187" y1="112" x2="187" y2="196"/><line x1="200" y1="106" x2="200" y2="196"/><line x1="213" y1="112" x2="213" y2="196"/>
+          </g>
+          <g><rect x="72" y="226" width="46" height="40" rx="6" fill="url(#ga2)"/>
+             <rect x="80" y="212" width="30" height="16" rx="4" fill="var(--acc)"/></g>
+          <g><rect x="286" y="232" width="42" height="34" rx="6" fill="url(#ga2)"/>
+             <rect x="293" y="219" width="28" height="15" rx="4" fill="var(--acc)"/></g>
+        </svg>
+      </div>
+      <div class="mbody">
+        <div>
+          <div class="mtag">Direction A</div>
+          <div class="mtitle">미니멀 석재 · 백자</div>
+        </div>
+        <div class="swatches"><i style="background:#FBFAF8"></i><i style="background:#E4E0D7"></i><i style="background:#CFC7B6"></i><i style="background:#8C8578"></i><i style="background:#6E6A62"></i><i style="background:#54504A"></i></div>
+        <dl>
+          <dt>소재</dt><dd>무광 백자 + 회색 석고. 이음새 없는 매트 표면.</dd>
+          <dt>향</dt><dd class="notes">화이트티 · 무화과잎 · 린넨 · 화이트머스크 · 세이지</dd>
+          <dt>인상</dt><dd class="notes">조용하고 단정함. 어떤 인테리어에도 얹힌다.</dd>
+        </dl>
+        <div class="verdict"><b>강점</b> 진입장벽 낮고 호불호 적음. <b>약점</b> 차별화가 약해
+        "예쁜 무인양품"으로 보이기 쉬움.</div>
+        <div class="refs">레퍼런스 ·
+          <a href="https://nonfiction.kr" target="_blank">논픽션</a>,
+          <a href="https://www.aesop.com/kr/c/home/" target="_blank">이솝 홈</a>,
+          <a href="https://skandinavisk.com" target="_blank">Skandinavisk</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- B -->
+    <article class="mood" style="--stage:#F0E9DC;--m1:#EBD9B4;--m2:#C9A96A;--m3:#A8823F;--m4:#6B4F2A;--acc:#4A3728">
+      <div class="stage">
+        <svg viewBox="0 0 400 330" role="img" aria-label="황동 원목 클래식 렌더">
+          <defs>
+            <linearGradient id="gb1" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#F3E6C8"/><stop offset=".3" stop-color="#C9A96A"/>
+              <stop offset=".62" stop-color="#8E6F3C"/><stop offset=".82" stop-color="#D8BE85"/>
+              <stop offset="1" stop-color="#7A5B2E"/>
+            </linearGradient>
+            <linearGradient id="gb2" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#A87C50"/><stop offset=".5" stop-color="#7E5735"/><stop offset="1" stop-color="#523A22"/>
+            </linearGradient>
+            <linearGradient id="gb3" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#FBF7EE"/><stop offset=".55" stop-color="#EDE4D2"/><stop offset="1" stop-color="#C7B79B"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="200" cy="292" rx="160" ry="20" fill="url(#gsh)"/>
+          <rect x="46" y="262" width="308" height="22" rx="6" fill="#7E5735"/>
+          <rect x="46" y="262" width="308" height="7" rx="3.5" fill="#A87C50" opacity=".8"/>
+          <g><rect x="141" y="198" width="118" height="66" rx="4" fill="url(#gb1)"/>
+             <ellipse cx="200" cy="198" rx="59" ry="11" fill="#E3CA92"/>
+             <ellipse cx="200" cy="198" rx="26" ry="5" fill="#6B4F2A" opacity=".45"/>
+             <rect x="141" y="238" width="118" height="3" fill="#6B4F2A" opacity=".3"/></g>
+          <path d="M174 202 L174 118 A26 33 0 0 1 226 118 L226 202 Z" fill="url(#gb3)"/>
+          <path d="M174 202 L174 118 A26 33 0 0 1 200 85 L200 202 Z" fill="#FDFBF6" opacity=".55"/>
+          <path d="M174 118 A26 33 0 0 1 226 118 L226 128 L174 128 Z" fill="#C9A96A" opacity=".35"/>
+          <g><rect x="72" y="224" width="46" height="38" rx="4" fill="url(#gb1)"/>
+             <rect x="80" y="209" width="30" height="17" rx="3" fill="#EDE4D2"/></g>
+          <g><rect x="286" y="230" width="42" height="32" rx="4" fill="url(#gb1)"/>
+             <rect x="293" y="216" width="28" height="16" rx="3" fill="#EDE4D2"/></g>
+        </svg>
+      </div>
+      <div class="mbody">
+        <div>
+          <div class="mtag">Direction B</div>
+          <div class="mtitle">황동 · 원목 클래식</div>
+        </div>
+        <div class="swatches"><i style="background:#F3E6C8"></i><i style="background:#C9A96A"></i><i style="background:#A8823F"></i><i style="background:#7E5735"></i><i style="background:#4A3728"></i></div>
+        <dl>
+          <dt>소재</dt><dd>브러시드 황동 베이스 + 월넛 트레이 + 백자 오브제.</dd>
+          <dt>향</dt><dd class="notes">샌달우드 · 통카빈 · 레더 · 앰버 · 시더</dd>
+          <dt>인상</dt><dd class="notes">호텔 로비와 서재. 닳을수록 깊어지는 물성.</dd>
+        </dl>
+        <div class="verdict"><b>강점</b> 3~10만원대를 가장 쉽게 정당화. 선물 수요가 강함.
+        <b>약점</b> 황동 단가·변색 관리, 20대에겐 올드해 보일 수 있음.</div>
+        <div class="refs">레퍼런스 ·
+          <a href="https://www.diptyqueparis.com" target="_blank">Diptyque</a>,
+          <a href="https://www.culti.com" target="_blank">Culti Milano</a>,
+          <a href="https://granhand.com" target="_blank">그랑핸드</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- C -->
+    <article class="mood" style="--stage:#1E1E21;--m1:#4A4A52;--m2:#2E2E34;--m3:#1A1A1E;--m4:#0E0E11;--acc:#9A7B4F">
+      <div class="stage">
+        <svg viewBox="0 0 400 330" role="img" aria-label="다크 글라스 메탈 렌더">
+          <defs>
+            <linearGradient id="gc1" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#5E5E68"/><stop offset=".35" stop-color="#2B2B31"/>
+              <stop offset=".7" stop-color="#3E3E46"/><stop offset="1" stop-color="#141417"/>
+            </linearGradient>
+            <linearGradient id="gc2" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#B9B4AA"/><stop offset=".5" stop-color="#8C877D"/><stop offset="1" stop-color="#55514A"/>
+            </linearGradient>
+            <radialGradient id="gcsh" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <ellipse cx="200" cy="292" rx="160" ry="20" fill="url(#gcsh)"/>
+          <rect x="46" y="262" width="308" height="22" rx="3" fill="#232328"/>
+          <rect x="46" y="262" width="308" height="6" rx="3" fill="#43434B"/>
+          <g><rect x="141" y="198" width="118" height="66" rx="3" fill="url(#gc1)"/>
+             <ellipse cx="200" cy="198" rx="59" ry="11" fill="#3A3A42"/>
+             <ellipse cx="200" cy="198" rx="26" ry="5" fill="#0C0C0F"/>
+             <rect x="141" y="230" width="118" height="2" fill="var(--acc)" opacity=".7"/></g>
+          <path d="M174 202 L174 118 A26 33 0 0 1 226 118 L226 202 Z" fill="url(#gc2)"/>
+          <path d="M174 202 L174 118 A26 33 0 0 1 200 85 L200 202 Z" fill="#D5D0C6" opacity=".45"/>
+          <g><rect x="72" y="224" width="46" height="38" rx="3" fill="url(#gc1)"/>
+             <rect x="80" y="209" width="30" height="17" rx="2" fill="var(--acc)"/></g>
+          <g><rect x="286" y="230" width="42" height="32" rx="3" fill="url(#gc1)"/>
+             <rect x="293" y="216" width="28" height="16" rx="2" fill="var(--acc)"/></g>
+        </svg>
+      </div>
+      <div class="mbody">
+        <div>
+          <div class="mtag">Direction C</div>
+          <div class="mtitle">다크 글라스 · 메탈</div>
+        </div>
+        <div class="swatches"><i style="background:#5E5E68"></i><i style="background:#3E3E46"></i><i style="background:#232328"></i><i style="background:#0E0E11"></i><i style="background:#9A7B4F"></i></div>
+        <dl>
+          <dt>소재</dt><dd>스모크 글라스 + 블랙 스틸 + 오프화이트 세라믹 대비.</dd>
+          <dt>향</dt><dd class="notes">인센스 · 스모키 우드 · 블랙페퍼 · 베티버 · 레더</dd>
+          <dt>인상</dt><dd class="notes">향수 병 같은 강한 캐릭터. 취향이 뚜렷한 사람용.</dd>
+        </dl>
+        <div class="verdict"><b>강점</b> 인스타에서 가장 강하게 튐. 브랜드 각인 빠름.
+        <b>약점</b> 호불호 갈리고, 밝은 집 인테리어에 안 얹힘.</div>
+        <div class="refs">레퍼런스 ·
+          <a href="https://www.byredo.com" target="_blank">Byredo</a>,
+          <a href="https://www.lelabofragrances.com" target="_blank">Le Labo</a>,
+          <a href="https://www.tomdixon.net" target="_blank">Tom Dixon</a>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="sec">
+  <h2>개폐 — 향을 끄는 법</h2>
+  <p class="sec-note">스틱 디퓨저는 <b>끌 수가 없다</b>. 자는 동안에도, 집 비운 3일 동안에도 계속 날아간다.
+  무전원으로 이걸 해결하면 그게 이 제품의 결정적 차별점이 된다.
+  방식은 <b>슬리브를 돌려 올리면 세라믹 오브제가 덮이는</b> 구조.</p>
+
+  <div class="states">
+    <figure class="state">
+      <svg viewBox="0 0 320 300" role="img" aria-label="닫힘 상태">
+        <defs>
+          <linearGradient id="sv1" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#F0EBE0"/><stop offset=".32" stop-color="#D9D2C4"/>
+            <stop offset=".66" stop-color="#AFA695"/><stop offset="1" stop-color="#877E6E"/>
+          </linearGradient>
+          <linearGradient id="sv2" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#CFC7B6"/><stop offset=".5" stop-color="#A79E8C"/><stop offset="1" stop-color="#6F6759"/>
+          </linearGradient>
+          <linearGradient id="sv3" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#FDFCF9"/><stop offset=".55" stop-color="#EFEADF"/><stop offset="1" stop-color="#C6BEAC"/>
+          </linearGradient>
+          <radialGradient id="ssh" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#000" stop-opacity=".16"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="160" cy="268" rx="112" ry="15" fill="url(#ssh)"/>
+        <rect x="76" y="242" width="168" height="18" rx="9" fill="url(#sv2)"/>
+        <rect x="76" y="242" width="168" height="6" rx="3" fill="#E6E0D4" opacity=".7"/>
+        <rect x="112" y="196" width="96" height="48" rx="5" fill="url(#sv2)"/>
+        <ellipse cx="160" cy="196" rx="48" ry="9" fill="#BDB4A2"/>
+        <path d="M120 200 L120 118 A40 40 0 0 1 200 118 L200 200 Z" fill="url(#sv1)"/>
+        <path d="M120 200 L120 118 A40 40 0 0 1 160 78 L160 200 Z" fill="#F6F2E9" opacity=".5"/>
+        <g stroke="#7C7364" stroke-opacity=".3" stroke-width="1.3">
+          <line x1="120" y1="176" x2="200" y2="176"/><line x1="120" y1="186" x2="200" y2="186"/>
+        </g>
+        <g fill="none" stroke="#7C7364" stroke-opacity=".55" stroke-width="1.6" stroke-linecap="round">
+          <path d="M214 150 a26 26 0 0 1 0 -26"/><path d="M214 150 l-6 -3 M214 150 l1 -6"/>
+        </g>
+      </svg>
+      <figcaption><b>닫힘</b> — 슬리브가 올라와 오브제를 완전히 덮는다.
+      매끈한 원통 하나로 보인다. 향은 갇히고 카트리지는 닳지 않는다.</figcaption>
+    </figure>
+
+    <figure class="state">
+      <svg viewBox="0 0 320 300" role="img" aria-label="열림 상태">
+        <ellipse cx="160" cy="268" rx="112" ry="15" fill="url(#ssh)"/>
+        <rect x="76" y="242" width="168" height="18" rx="9" fill="url(#sv2)"/>
+        <rect x="76" y="242" width="168" height="6" rx="3" fill="#E6E0D4" opacity=".7"/>
+        <rect x="112" y="196" width="96" height="48" rx="5" fill="url(#sv2)"/>
+        <rect x="118" y="176" width="84" height="26" rx="4" fill="url(#sv1)"/>
+        <ellipse cx="160" cy="176" rx="42" ry="8" fill="#E4DDCD"/>
+        <path d="M136 180 L136 112 A24 30 0 0 1 184 112 L184 180 Z" fill="url(#sv3)"/>
+        <path d="M136 180 L136 112 A24 30 0 0 1 160 82 L160 180 Z" fill="#FFFDF8" opacity=".6"/>
+        <g fill="none" stroke="#8C8578" stroke-opacity=".45" stroke-width="1.5" stroke-linecap="round">
+          <path d="M196 104 c10 -12 -4 -24 6 -36"/>
+          <path d="M212 122 c12 -14 -5 -28 7 -42"/>
+          <path d="M124 104 c-10 -12 4 -24 -6 -36"/>
+        </g>
+      </svg>
+      <figcaption><b>열림</b> — 슬리브를 돌려 내리면 세라믹 조각이 드러나며 발향이 시작된다.
+      중간에 멈추면 세기 조절도 된다.</figcaption>
+    </figure>
+  </div>
+
+  <div class="parts" style="margin-top:34px">
+    <div class="part">
+      <div class="num">MECH 01</div>
+      <h3>트위스트 슬리브 · 추천</h3>
+      <p>슬리브가 나사산을 타고 오르내리며 오브제를 덮는다. 움직이는 부품이 오일에 닿지 않아
+      고장·세척 이슈가 없고, 부품이 3개뿐이라 단가가 합리적이다.</p>
+      <span class="tag">구현 난이도 낮음</span>
+    </div>
+    <div class="part">
+      <div class="num">MECH 02</div>
+      <h3>위크 승강 다이얼</h3>
+      <p>노브를 돌리면 세라믹이 오일 속으로 잠긴다. 립스틱 같은 손맛은 최고지만,
+      승강 기구가 오일에 잠겨 씰링·세척 난이도와 단가가 크게 뛴다.</p>
+      <span class="tag">2세대에서 검토</span>
+    </div>
+    <div class="part warn">
+      <div class="num">CAUTION</div>
+      <h3>정직하게 짚을 한계</h3>
+      <p>실리콘 오링을 넣어도 <b>완전 무향은 안 된다.</b> 현실적으로 90%대 감쇄 수준.
+      "완전 차단"이라 광고하면 반품과 리뷰로 돌아온다. "확 줄어든다"로 말해야 한다.</p>
+      <span class="tag">카피 주의</span>
+    </div>
+  </div>
+
+  <div class="ask" style="margin-top:34px">
+    <h3>이 기능이 바꾸는 것</h3>
+    <ol>
+      <li><b>제품 서사가 완성된다</b> — "전기 없이 켜고 끄는 디퓨저". 한 문장으로 설명되고, 경쟁 제품엔 없다.</li>
+      <li><b>카트리지가 몇 배 오래 간다</b> — 안 쓸 때 안 닳으니, 4종을 돌려 쓰면 각각 훨씬 길게 쓴다.
+      재구매 주기는 늘지만 <b>향 가짓수를 늘려 사게 되므로 총 지출은 오히려 커진다.</b></li>
+      <li><b>닫힘 = 미니멀 원통, 열림 = 조각</b> — 형태가 변하는 오브제라는 것 자체가 콘텐츠가 된다.</li>
+      <li><b>실용 등록 검토 가치가 있다</b> — 슬리브 승강 + 전용 카트리지 결합 구조는 권리화를 알아볼 만하다.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec">
+  <h2>가격 설계</h2>
+  <p class="sec-note">베이스는 거의 원가로 깔고 <b>카트리지에서 남기는 구조</b>가 정석이다.
+  다만 프리미엄 브랜드라 티나게 싼 베이스를 주면 브랜드가 죽으니, 이 균형이 실무 난제.</p>
+  <table>
+    <thead><tr><th>구성</th><th>가격</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td>스타터 세트 — 베이스 + 트레이 + 카트리지 3</td><td class="num">8~9만원</td><td>진입, 가격대 상단 앵커</td></tr>
+      <tr><td>리필 카트리지 단품</td><td class="num">1.8~2.5만원</td><td>반복 구매, LTV의 전부</td></tr>
+      <tr><td>시즌 컬렉션 3종</td><td class="num">5~6만원</td><td>계절마다 재구매 트리거</td></tr>
+      <tr><td>베이스 단품 (색상 추가 구매)</td><td class="num">4~5만원</td><td>방마다 두게 만드는 확장</td></tr>
+    </tbody>
+  </table>
+
+  <div class="ask">
+    <h3>지금 정할 것</h3>
+    <ol>
+      <li><b>무드 A/B/C 중 하나</b> — 이게 정해지면 베이스 소재·향 라인업·패키지가 한 번에 따라온다.</li>
+      <li><b>첫 향 라인업 4~5종</b> — 주 단위로 바꿔 쓸 기분의 종류를 정한다.</li>
+      <li><b>브랜드 이름</b> — 이후 도메인·상표 출원까지 걸린다.</li>
+    </ol>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

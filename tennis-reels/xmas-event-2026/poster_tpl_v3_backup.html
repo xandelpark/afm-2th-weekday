@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>데일리테니스 인계점 연말연시 이벤트 포스터</title>
+<style>
+  /* brand_palette.py --seed 1225 */
+  :root{
+    --plum:#5D4575; --plum-lift:#6F548B; --plum-deep:#352646;
+    --purple:#644485; --lav:#EEEAF2;
+    --gold:#CFA85B; --gold-dim:#B1893C;
+    --paper:#F3EFE2; --bone:#E7E0CF;
+    --ink:#3A3340; --soft:#6B6272; --rule:rgba(58,51,64,.28);
+  }
+  @page{ size:A4; margin:0; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ width:210mm; height:297mm; background:var(--paper); }
+  body{ color:var(--ink); font-family:"AppleMyungjo","Apple SD Gothic Neo",serif;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page{ position:relative; width:210mm; height:297mm; padding:13mm 16mm 12mm; display:flex; flex-direction:column; }
+  .frame{ position:absolute; inset:7mm; border:0.35mm solid var(--rule); pointer-events:none; }
+  .frame::after{ content:""; position:absolute; inset:1.6mm; border:0.2mm solid var(--rule); }
+  .snow{ position:absolute; color:var(--gold); font-size:9pt; opacity:.8; }
+
+  /* 헤더 */
+  .mast{ display:flex; justify-content:space-between; align-items:baseline;
+    font-family:"Didot",serif; font-size:10.5pt; letter-spacing:.32em; padding-bottom:3mm; border-bottom:0.3mm solid var(--ink); }
+  .mast .r{ letter-spacing:.08em; font-style:italic; }
+
+  /* 히어로: 좌 타이틀 / 우 크리스마스 사진 */
+  .hero{ display:grid; grid-template-columns:1fr 80mm; gap:7mm; align-items:center; margin-top:4mm; }
+  .kicker{ font-family:"Didot",serif; font-size:8.5pt; letter-spacing:.3em; color:var(--soft); }
+  .kicker .star{ color:var(--gold-dim); letter-spacing:0; margin-right:2mm; }
+  .en{ font-family:"Didot",serif; font-size:37pt; line-height:.95; margin-top:3mm; }
+  .en .it{ font-style:italic; color:var(--plum); }
+  .en .dot{ color:var(--gold-dim); }
+  .ko{ font-size:19pt; margin-top:3.5mm; }
+  .sub{ font-size:10.5pt; margin-top:2.2mm; color:var(--soft); line-height:1.5; }
+  .target{ display:inline-block; margin-top:3.5mm; padding:2mm 5mm; background:var(--plum); color:var(--lav); font-size:11.5pt; letter-spacing:.03em; }
+  .target b{ color:#F1DDB0; font-weight:normal; }
+  .photo{ position:relative; border:0.3mm solid var(--rule); padding:1.6mm; background:rgba(255,255,255,.45); }
+  .photo img{ display:block; width:100%; height:50mm; object-fit:cover; object-position:42% 50%; filter:saturate(.9); }
+  .photo .cap{ position:absolute; left:50%; bottom:-2.3mm; transform:translateX(-50%); background:var(--paper);
+    padding:0 3mm; font-family:"Didot",serif; font-style:italic; font-size:8.5pt; letter-spacing:.1em; color:var(--plum); white-space:nowrap; }
+
+  .sec{ display:flex; align-items:center; gap:4mm; margin:5mm 0 3mm;
+    font-family:"Didot",serif; font-size:9pt; letter-spacing:.38em; color:var(--soft); }
+  .sec::before,.sec::after{ content:""; flex:1; height:0.2mm; background:var(--rule); }
+
+  /* 1등 그랜드 카드 */
+  .grand{ position:relative; border:0.5mm solid var(--gold); padding:1.4mm; margin-top:8mm; }
+  .grand-in{ border:0.2mm solid var(--gold); background:linear-gradient(180deg,#FBF8EF 0%, var(--bone) 100%);
+    display:grid; grid-template-columns:1fr 92mm; align-items:center; padding:4mm 6mm 3.5mm 7mm; }
+  .badge{ position:absolute; top:-3.2mm; left:50%; transform:translateX(-50%); background:var(--plum); color:#F1DDB0;
+    font-family:"Didot",serif; font-size:9pt; letter-spacing:.35em; padding:1.2mm 5mm 1.2mm 6mm; white-space:nowrap; }
+  .g-num{ font-family:"Didot",serif; font-size:56pt; line-height:.85; color:var(--plum); }
+  .g-num small{ font-size:10pt; letter-spacing:.3em; color:var(--gold-dim); margin-left:2mm; vertical-align:top; }
+  .g-brand{ font-family:"Didot",serif; font-size:11pt; letter-spacing:.32em; color:var(--soft); margin-top:3mm; }
+  .g-name{ font-size:26pt; margin-top:1.2mm; }
+  .g-name .en2{ font-family:"Didot",serif; font-style:italic; color:var(--plum); }
+  .g-desc{ font-size:9.5pt; color:var(--soft); margin-top:1.6mm; line-height:1.55; }
+  .g-count{ margin-top:3mm; font-size:11pt; }
+  .g-count b{ font-weight:normal; color:var(--plum); font-family:"Didot",serif; font-size:15pt; }
+
+  .rackets{ display:grid; grid-template-columns:1fr 1fr; gap:3mm; }
+  .rk{ text-align:center; }
+  .rk .imgbox{ height:50mm; display:flex; align-items:flex-end; justify-content:center; }
+  .rk img{ max-height:50mm; max-width:40mm; filter:drop-shadow(0 1.2mm 1.4mm rgba(53,38,70,.22)); }
+  .rk .lbl{ margin-top:2.4mm; border-top:0.2mm solid var(--rule); padding-top:1.8mm; }
+  .rk .who{ font-size:11.5pt; }
+  .rk .who i{ font-family:"Didot",serif; font-style:normal; color:var(--plum); font-size:13pt; }
+  .rk .mdl{ font-family:"Didot",serif; font-size:8.5pt; letter-spacing:.12em; color:var(--soft); margin-top:.8mm; }
+  .rk .spec{ font-size:9.5pt; color:var(--ink); margin-top:.6mm; }
+
+  /* 2·3등 */
+  .minor{ display:grid; grid-template-columns:1fr 1fr; gap:5mm; margin-top:4mm; }
+  .mc{ border:0.25mm solid var(--rule); background:rgba(255,255,255,.4); padding:2.6mm 4.5mm; display:grid; grid-template-columns:auto 1fr; gap:4mm; align-items:center; }
+  .mc .n{ font-family:"Didot",serif; font-size:32pt; line-height:.9; color:var(--plum); }
+  .mc .r{ font-size:9pt; color:var(--gold-dim); letter-spacing:.15em; }
+  .mc .t{ font-size:14.5pt; margin-top:.6mm; }
+  .mc .note{ font-size:8.5pt; color:var(--soft); margin-top:.6mm; }
+  .mc .c{ font-size:10pt; margin-top:1.4mm; color:var(--soft); }
+  .mc .c b{ font-weight:normal; color:var(--ink); }
+  .total{ text-align:center; font-size:10pt; margin-top:2.4mm; color:var(--soft); }
+  .total b{ color:var(--ink); font-weight:normal; }
+
+  /* 참여 방법 */
+  .steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:4mm; margin-bottom:5mm; }
+  .step{ text-align:center; }
+  .step .s{ font-family:"Didot",serif; font-style:italic; font-size:18pt; color:var(--gold-dim); line-height:1; }
+  .step .t{ font-size:12pt; margin-top:1.2mm; }
+  .step .d{ font-size:9pt; color:var(--soft); margin-top:1mm; line-height:1.5; }
+
+  /* 추첨 */
+  .draw{ margin-top:auto; padding-bottom:0; display:grid; grid-template-columns:auto 1fr; align-items:center; gap:7mm; border-top:0.3mm solid var(--ink); padding-top:4mm; }
+  .date{ font-family:"Didot",serif; line-height:.9; }
+  .date .y{ font-size:10pt; letter-spacing:.3em; color:var(--soft); }
+  .date .d{ font-size:38pt; color:var(--plum); }
+  .date .w{ font-size:9pt; letter-spacing:.3em; color:var(--soft); }
+  .live .h{ font-size:16pt; }
+  .live .h .pill{ display:inline-block; font-family:"Didot",serif; font-size:8.5pt; letter-spacing:.25em; background:var(--gold); color:var(--plum-deep); padding:1mm 3mm; margin-right:2.5mm; vertical-align:middle; }
+  .live .p{ font-size:10pt; color:var(--soft); margin-top:1.8mm; line-height:1.55; }
+  .live .p .handle{ font-family:"Didot",serif; font-style:italic; color:var(--ink); font-size:11.5pt; }
+  .foot{ display:flex; justify-content:space-between; margin-top:3mm; font-size:8.5pt; color:var(--soft); letter-spacing:.04em; }
+  .foot .r{ font-family:"Didot",serif; font-style:italic; letter-spacing:.1em; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="frame"></div>
+  <span class="snow" style="top:4.2mm;left:4.2mm">✻</span><span class="snow" style="top:4.2mm;right:4.2mm">✻</span>
+  <span class="snow" style="bottom:4.2mm;left:4.2mm">✻</span><span class="snow" style="bottom:4.2mm;right:4.2mm">✻</span>
+
+  <div class="mast"><span>DAILY TENNIS · 인계점</span><span class="r">@hi.dailytennis</span></div>
+
+  <div class="hero">
+    <div>
+      <div class="kicker"><span class="star">✦</span>CHRISTMAS &amp; NEW YEAR EVENT</div>
+      <div class="en">Keep<br><span class="it">Rallying</span><span class="dot">.</span></div>
+      <div class="ko">새해에도, 같이 쳐요.</div>
+      <div class="sub">크리스마스 · 연말연시 추첨 이벤트</div>
+      <div class="target"><b>12월 결제</b> · <b>1월 레슨 등록</b> 회원 대상</div>
+    </div>
+    <div class="photo">
+      <img src="{{XMAS}}" alt="">
+      <div class="cap">— Merry Christmas —</div>
+    </div>
+  </div>
+
+  <div class="grand">
+    <div class="badge">✦ GRAND PRIZE ✦</div>
+    <div class="grand-in">
+      <div>
+        <div class="g-num">01<small>1등</small></div>
+        <div class="g-brand">WILSON · DEFYER</div>
+        <div class="g-name">윌슨 <span class="en2">Defyer</span><br>디파이어 라켓</div>
+        <div class="g-desc">새 시즌을 함께할 라켓을<br>남녀 한 분씩, 새 라켓으로 드려요.</div>
+      </div>
+      <div class="rackets">
+        <div class="rk">
+          <div class="imgbox"><img src="{{UL}}" alt=""></div>
+          <div class="lbl"><div class="who">여자 <i>1</i>명</div><div class="mdl">DEFYER 100UL</div><div class="spec">265g · 1그립</div></div>
+        </div>
+        <div class="rk">
+          <div class="imgbox"><img src="{{S100}}" alt=""></div>
+          <div class="lbl"><div class="who">남자 <i>1</i>명</div><div class="mdl">DEFYER 100</div><div class="spec">300g · 2그립</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="minor">
+    <div class="mc">
+      <div class="n">02</div>
+      <div><div class="r">2등</div><div class="t">스타벅스 카드 5만원권</div><div class="c">여자 <b>1명</b> · 남자 <b>1명</b></div></div>
+    </div>
+    <div class="mc">
+      <div class="n">03</div>
+      <div><div class="r">3등</div><div class="t">스트링 교체권</div><div class="note">스트링 종류 무관</div><div class="c">여자 <b>2명</b> · 남자 <b>2명</b></div></div>
+    </div>
+  </div>
+  <div class="total">총 <b>8명</b> 추첨 · 남녀 각 <b>4명</b>씩 같은 비율로 뽑아요</div>
+
+  <div class="sec">HOW TO ENTER</div>
+  <div class="steps">
+    <div class="step"><div class="s">i.</div><div class="t">12월 중 결제</div><div class="d">1월 레슨을 12월 안에 결제해요</div></div>
+    <div class="step"><div class="s">ii.</div><div class="t">카운터에서 응모</div><div class="d">추첨권을 남자 · 여자 추첨함에 응모</div></div>
+    <div class="step"><div class="s">iii.</div><div class="t">1월 1일 라이브 추첨</div><div class="d">인스타그램 라이브로 공개 추첨</div></div>
+  </div>
+
+  <div class="draw">
+    <div class="date"><div class="y">2027</div><div class="d">01.01</div><div class="w">FRIDAY</div></div>
+    <div class="live">
+      <div class="h"><span class="pill">LIVE</span>새해 첫날, 인스타 라이브 추첨</div>
+      <div class="p">모든 추첨은 <span class="handle">@hi.dailytennis</span> 인스타그램 라이브로<br>공개 진행합니다. 새해 첫 행운의 주인공이 되어보세요.</div>
+    </div>
+  </div>
+
+  <div class="foot"><span>데일리테니스 인계점 · 문의는 카운터 또는 인스타그램 DM</span><span class="r">Merry Christmas &amp; Happy New Year</span></div>
+</div>
+</body>
+</html>
