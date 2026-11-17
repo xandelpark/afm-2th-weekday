@@ -1,0 +1,805 @@
+[
+ {
+  "id": "1NrokHFOxKxPLCqONaC7qXLRIqRaqONTN",
+  "folder": "250420 최은지 여의도웨딩컨벤션 정규성 - 이지연 편집",
+  "date": "250420",
+  "name": "최은지",
+  "kind": "본식",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "다른업체"
+ },
+ {
+  "id": "1CL6txQ4_L1U6gc7Xcy15Tn_JX7BlufQu",
+  "folder": "250209.이아영.플로렌스미사강변점 - 이지연 편집",
+  "date": "250209",
+  "name": "이아영",
+  "kind": "본식",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "다른업체"
+ },
+ {
+  "id": "1hXErWVHI9tgF8eY760nvpXFlt6-5-b24",
+  "folder": "250419.손정미.하남수막새.베라.김동건 - 이지연 편집",
+  "date": "250419",
+  "name": "손정미",
+  "kind": "본식",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "다른업체"
+ },
+ {
+  "id": "17k7yJA__UWMOYYS5dXXs17spi37rISK6",
+  "folder": "250201.김단아.릴리.희채",
+  "date": "250201",
+  "name": "김단아",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1230.릴리.정규성(정민제교육/최진아).잠실아펠가모.김단아.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1BaCmAyexpNqe0zLaeMzGhidMoG8MrwRT",
+  "folder": "250301.손은비.로얄파크컨벤션 - 이지연 편집",
+  "date": "250301",
+  "name": "손은비",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리.(d)이지연p(박슬기).로얄파크.손은비.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1jVrk9JFYXl9wNmYwvEFc7L_m11TV30rd",
+  "folder": "250329.이혜림.천안ca.최진아 - 이지연 편집",
+  "date": "250329",
+  "name": "이혜림",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "11시.마웨.김민섭p/우재환p.천안ca.이혜림.cm",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "11시.릴리.(d)최진아p.천안ca.이혜림.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1LKPihIjOcRgnG5OcwcCmd0BxgtEOO9QR",
+  "folder": "250426.김성은.강남세인트메리엘.이지연 - 이지연 편집",
+  "date": "250426",
+  "name": "김성은",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1230.릴리.(d)이지연p.강남세인트호텔.김성은.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "181LcNLbp6SJl5kseK6qqDTrhtTsc-1Iy",
+  "folder": "250419 배정우 더리버사이드호텔 정규성 - 이지연 편집",
+  "date": "250419",
+  "name": "배정우",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "11시.릴리.(d)정규성p.2캠.리버사이드호텔.배정우.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "138npaF0FnlJiSZm8qq5HkJRttoiWRRMw",
+  "folder": "250405.서민아.메종드아나하.릴리.최진아 - 이지연 편집",
+  "date": "250405",
+  "name": "서민아",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.마웨.노현우p/박슬기p.메종드아나하.서민아.cm",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리(d)최진아p(김득수).1인2캠.메종드아나하.서민아.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1T7_LqyH0ssChbU7sg03q0mkBJXK-mdb6",
+  "folder": "250330.장예슬.메종드아나하.이지연 - 이지연 편집",
+  "date": "250330",
+  "name": "장예슬",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "2시.마웨.신의진p/김득수p.메종드아나하.장예슬.cm",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "2시.릴리.(d)이지연p.1인2캠.메종드아나하.장예슬.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1-9jaWyu5oNS5OatFsPtlc2Mrfd1VMsg5",
+  "folder": "250330.임유진.마포가든호텔.정민제 - 이지연 편집",
+  "date": "250330",
+  "name": "임유진",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1030.릴리.(d).정민제p.서울마포가든호텔.임유진.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1Hc9XZq3DUrvgYVoJRBfNZfbOL3RzG9jz",
+  "folder": "250405.임가영.여의도웨딩컨벤션.최진아 - 이지연 편집",
+  "date": "250405",
+  "name": "임가영",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1시.릴리.(d)최진아p.1인1캠.여의도웨딩컨벤션.임가영.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1qBy4OLwDzftP1kSwsTXI80l_jrfhIp4d",
+  "folder": "250412.박정현.송도메리빌리아.이지연 - 이지연 편집",
+  "date": "250412",
+  "name": "박정현",
+  "kind": "본식",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "다른업체"
+ },
+ {
+  "id": "1gad_pp_SKJn0UcoXGxb0PUohF0HuKcAJ",
+  "folder": "250309.이현정.천안티웨딩 - 이지연 편집",
+  "date": "250309",
+  "name": "이현정",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리.(d)최진아p.1인1캠.천안티웨딩.이현정.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "112YCO8q2miM6mlMsVbwNpyjdIyEgE3Y8",
+  "folder": "250308.윤수정.박수하.구미bw - 이지연 편집",
+  "date": "250308",
+  "name": "윤수정",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1130.릴리.(d)이원국bp.1인1캠.구미bw.윤수정박수하.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1L6GrMaVzGH9Ke4_ODqDgA0-L-3VQyr_r",
+  "folder": "250309.박소연(지민맘).오목교플로렌스 - 이지연 편집",
+  "date": "250309",
+  "name": "박소연",
+  "kind": "돌잔치",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "돌잔치"
+ },
+ {
+  "id": "1zRqC4m3sxk6QR5w3xVl6IpmtB0NKUIaU",
+  "folder": "250315.황유미.양재엘블레스.정민제 - 이지연 편집",
+  "date": "250315",
+  "name": "황유미",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리.(d)정민제p.양재앨블레스.황유미.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1lF8bevNuwUr_HIB72rOrQmLWyMBXqCiX",
+  "folder": "250322.최수아.광주드메르 - 이지연 편집",
+  "date": "250322",
+  "name": "최수아",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "11시.마웨.박슬기p/이지연p.광주하우스오브드메르.최수아.진아언니.cm",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1-k1ft2DsBw4Bisa8M1N7_ycbtd7i1E1I",
+  "folder": "250315.이하영.용인it컨벤션.장서현 - 이지연 편집",
+  "date": "250315",
+  "name": "이하영",
+  "kind": "본식",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "다른업체"
+ },
+ {
+  "id": "19i8LmczQMaX0qSnwrJnPDj_MrE-4gO9u",
+  "folder": "250308.박채은아기.판교더파티하우스 - 이지연 편집",
+  "date": "250308",
+  "name": "박채은아기",
+  "kind": "돌잔치",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "돌잔치"
+ },
+ {
+  "id": "1on4USV6Nv9w7R8KdblPVeyF1-dNMxORO",
+  "folder": "250315.박재아.더리버사이드호텔 - 이지연 편집",
+  "date": "250315",
+  "name": "박재아",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리.(d)정규성p.리버사이드.박재아.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1xz3kE4tAh8aD7OaYJOa3NpKsgz9DK7fQ",
+  "folder": "250223.김수현.라비니움.릴리어스 - 이지연 편집",
+  "date": "250223",
+  "name": "김수현",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "11시.릴리.이지연p1인2캠.피추.천호라비니움.김수현.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1KfzhRbKz7Waqch-xp4tF7wfqNHLF2FDT",
+  "folder": "250308.원진주.주안cn.릴리어스.한상집.편집완료",
+  "date": "250308",
+  "name": "원진주",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1230.마론.노현우p.주안cn.원진주.박슬기직접.m",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1230.릴리.(d)정규성p1인2캠.주안cn.원진주.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "12tJHVZw8vjBq5HQZmes2rs0KzHbmrUAm",
+  "folder": "250209.조은아.가천대컨벤션 - 이지연 편집",
+  "date": "250209",
+  "name": "조은아",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "12시.릴리.(d)이지연p1인2캠.가천컨벤션.조은아.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "14CYwxeUKKuKvKq4WmvXm6IQiVc0lqh6h",
+  "folder": "250308.주슬기.평택JNJ웨딩홀 - 이지연 편집",
+  "date": "250308",
+  "name": "주슬기",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "330.릴리.(d).정민제p.1인1캠.평택jnj.주슬기.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1Fsd72lOQuFrJW9yC899c3A_7ohT4Yzg0",
+  "folder": "250308.더세인트.영상(샘플) - 이지연 편집",
+  "date": "250308",
+  "name": "더세인트",
+  "kind": "샘플",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "3시.오르비.박슬기p.더세인트41 층.권슬기.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": false,
+  "why": "샘플"
+ },
+ {
+  "id": "1P16DyfirA0XjnNzVNh87EGqF8mkiOcn2",
+  "folder": "250118.김나영.잠실아펠가모 - 이지연 편집",
+  "date": "250118",
+  "name": "김나영",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.마웨.지은경p/정수연p.잠실아펠가모.김나영.cm",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리.(d)이지연예정p(1인2캠).잠실아펠가모.김나영.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1F2S_czQAKpJMrWqff352C7LP1cWTeedi",
+  "folder": "250208.윤재은.고려대교우회관 - 이지연 편집",
+  "date": "250208",
+  "name": "윤재은",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1130.릴리.(d)이지연p1인2캠.고려대학교교우회관.윤재은.m.후기",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1_Kw1XUE4ya9-w9o3Byw5z5GrXalkpVbl",
+  "folder": "250215.이효영.광명테이크호텔 - 이지연 편집",
+  "date": "250215",
+  "name": "이효영",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.마웨.노현우p.광명테이크호텔.이효영.cm",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리.(d)이지연p.테이크호텔.이효영.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1mzC3Ff74IhT-FslyHLYIO0uH5DGS4thL",
+  "folder": "250208.한은지.천안비렌티 - 이지연 편집",
+  "date": "250208",
+  "name": "한은지",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "09예정.마웨.조연수p(메추)/최진아예정(직접).천안비렌티.한은지.cm",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1030.릴리.(d)김동건ap(1인2캠).천안비렌티.한은지.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1mccJ4EzxWhxhlPfxTWZHWSy5gxnG24wZ",
+  "folder": "250215.안규비.춘천미래컨벤션 - 이지연 편집",
+  "date": "250215",
+  "name": "안규비",
+  "kind": "본식",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "다른업체"
+ },
+ {
+  "id": "1WZRzsnbDxQPub5yvmMOf2Grm_AB2FjEv",
+  "folder": "250201.최보희(로운맘).인천남동시엠프레-이지연 편집",
+  "date": "250201",
+  "name": "최보희",
+  "kind": "돌잔치",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "돌잔치"
+ },
+ {
+  "id": "1piddKIps7YXskbtc-eg-d196N4K7OHGR",
+  "folder": "250118.이솔잎.송도메리빌리아 - 이지연 편집",
+  "date": "250118",
+  "name": "이솔잎",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "330.마웨.이건희p/조용경p.송도메리빌리아.이솔잎.cm",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1B0J5hGM27nRegl2U3qBOJmVttO03YWXd",
+  "folder": "250209.박효빈(주아맘).수원코트야드메리어트 - 이지연 편집",
+  "date": "250209",
+  "name": "박효빈",
+  "kind": "돌잔치",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "돌잔치"
+ },
+ {
+  "id": "1PiDObajLivS6p-HcZfsV52pDGprbK7R5",
+  "folder": "250202.이지윤(유안맘).남대문코트야드-이지연 편집",
+  "date": "250202",
+  "name": "이지윤",
+  "kind": "돌잔치",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "돌잔치"
+ },
+ {
+  "id": "1jFF7kbvR6BnoNphxecK6N4n2XZypfgp2",
+  "folder": "250112.강윤희.반포아펠가모 - 이지연 편집",
+  "date": "250112",
+  "name": "강윤희",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "0930.릴리.(d)이지연p(1인2캠)하리아리트.반포아펠가모.강윤희.m.후기",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "137YiCuGZXjuf_ExnjK7bo262CgVsDrqj",
+  "folder": "250201.박윤경.수원권선동성당 - 이지연 편집",
+  "date": "250201",
+  "name": "박윤경",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1030.릴리.(d)이지연/김용수(로비인터뷰).권선동성당.박윤경.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1YwB4y4RC54iiXDzo8QTK8yGnhrTZDC1u",
+  "folder": "250111.임수진.더베뉴지서울.이지연 - 이지연 편집",
+  "date": "250111",
+  "name": "임수진",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "530.릴리.(d)이지연p.1인2캠.강서더베뉴지.임수진.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1_5O9Suv57XiW1MAbiyWhPcqCGP8yPzSr",
+  "folder": "250111.임수진.더베뉴지서울 - 이지연 편집",
+  "date": "250111",
+  "name": "임수진",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "530.릴리.(d)이지연p.1인2캠.강서더베뉴지.임수진.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1MBrHJU1-6XCgevxNPhEIhQev0hR5FMdd",
+  "folder": "250201.조아영(하람맘).송도쎄쎄쎄-이지연 편집",
+  "date": "250201",
+  "name": "조아영",
+  "kind": "돌잔치",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "돌잔치"
+ },
+ {
+  "id": "1oE7xrLJ8hIqSPziOJdAfxbwElBNP2zxK",
+  "folder": "250104.권아솜.w웨딩홀더스카이홀-이지연편집",
+  "date": "250104",
+  "name": "권아솜",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1130.릴리.(d)양경웅p(1인2캠).부산w웨딩.권아솜.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1HjYrye40LXMEJ9u0l6K_MDiwQcSaLQ4F",
+  "folder": "250104.민경진.서울.더링크호텔.릴리어스(dvd).서인호편집",
+  "date": "250104",
+  "name": "민경진",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "12시.릴리.(d)서인호p(1인2캠).더링크호텔.민경진.m.후기",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1X30hi2DHSpfYF7vPKnv9UB_sKo0eM73Y",
+  "folder": "250104.성유진.보테가마지오.이지연편집",
+  "date": "250104",
+  "name": "성유진",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "330.릴리.(d)이지연p(1인2캠).보테가마지오.성유진.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1nfSJk0RGeHdk98CaHpZiJoXWNzf6ywgu",
+  "folder": "250426.박현정.주안CN웨딩홀.이지연 - 이지연 편집",
+  "date": "250426",
+  "name": "박현정",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "4시.릴리.(d)이지연p.주안cn.박현정.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1tpeBrSRACBbYUIwMd000-G4FLZo_QZYP",
+  "folder": "250111.송현주.춘천스카이.박슬기-이지연편집",
+  "date": "250111",
+  "name": "송현주",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "1230.릴리(d)박슬기.스카이컨벤션.송현주.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "19eGQVzORC7nwfVlJNv7yrWGVoK_Ypbuq",
+  "folder": "250420.안지희.수원호텔리츠컨벤션.정민제 - 이지연 편집",
+  "date": "250420",
+  "name": "안지희",
+  "kind": "본식",
+  "hits": [
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "130.마웨.이지연p.수원호텔리츠.안지희.cm",
+    "title_flag": false,
+    "desc_flag": []
+   },
+   {
+    "cal": "psk1397@gmail.com",
+    "title": "130.릴리.(d)정민제p.1캠.수원호텔리츠.안지희.m",
+    "title_flag": false,
+    "desc_flag": []
+   }
+  ],
+  "verdict": "OK",
+  "use": true,
+  "why": ""
+ },
+ {
+  "id": "1J5ivXImgED4vbmgxQ5y-kXysTHbn0_v2",
+  "folder": "250419.이루다아기.일산더블유페스타.이지연 - 이지연 편집",
+  "date": "250419",
+  "name": "이루다아기",
+  "kind": "돌잔치",
+  "hits": [],
+  "verdict": "캘린더없음",
+  "use": false,
+  "why": "돌잔치"
+ }
+]

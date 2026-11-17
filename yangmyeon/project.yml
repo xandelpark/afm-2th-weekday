@@ -1,0 +1,37 @@
+# xcodegen 설정. `xcodegen generate` 로 Yangmyeon.xcodeproj 를 만든다.
+# 인수인계.md §6 의 수동 단계를 그대로 코드로 옮긴 것이다.
+name: Yangmyeon
+options:
+  bundleIdPrefix: app.yangmyeon
+  deploymentTarget:
+    iOS: "27.1"   # 양면은 iPhone Duo 전용. 듀오는 iOS 27.1 로 출고됐고, 폴더블 API 가 27.1 부터다
+  xcodeVersion: "27.0"
+  generateEmptyDirectories: false
+packages:
+  MatchCore:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: XCLCW4FA75   # Xcode 에 넣은 Apple ID 의 무료 팀
+targets:
+  Yangmyeon:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: MatchCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.yangmyeon.court
+        INFOPLIST_FILE: App/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"   # iPhone 만
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        ENABLE_PREVIEWS: YES
+        # 디버그 빌드도 최적화한다. 자동 맞춤(Stitch.swift)의 픽셀 비교가 최적화 없이는 10배 넘게 느리다
+        # (시뮬레이터에서 20초). 폰에 올리는 빌드도 Debug 설정이라 여기서 켜야 한다.
+        SWIFT_OPTIMIZATION_LEVEL: "-O"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

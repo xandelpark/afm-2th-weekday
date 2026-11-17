@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" font-family="Helvetica, Arial, sans-serif">
+<rect width="1100" height="560" fill="#fbfaf7"/>
+<text x="40" y="44" font-size="22" font-weight="700" fill="#222">① V자 받침 — 위에서 (코트 옆, 힌지 세움, 100°)</text>
+<polygon points="256.3,440.8 90.8,302.0 130.9,254.2 296.4,393.0" fill="#dcd6c8" stroke="#8a8172"/>
+<polygon points="262.5,414.7 119.1,294.4 128.4,283.4 271.8,403.7" fill="#fff" stroke="#8a8172"/>
+<polygon points="274.2,423.2 123.4,296.7 131.4,287.2 282.2,413.7" fill="#2a2a2a"/>
+<polygon points="263.6,393.0 429.1,254.2 469.2,302.0 303.7,440.8" fill="#dcd6c8" stroke="#8a8172"/>
+<polygon points="288.2,403.7 431.6,283.4 440.9,294.4 297.5,414.7" fill="#fff" stroke="#8a8172"/>
+<polygon points="277.8,413.7 428.6,287.2 436.6,296.7 285.8,423.2" fill="#2a2a2a"/>
+<rect x="244" y="305" width="72" height="137" fill="#dcd6c8" stroke="#8a8172"/>
+<circle cx="280" cy="362" r="8" fill="#fff" stroke="#333" stroke-width="2"/>
+<line x1="288" y1="362" x2="350" y2="322" stroke="#333"/>
+<text x="354" y="318" font-size="14" fill="#333">1/4" 볼트 구멍 (위에서 너트로 조임)</text>
+<text x="244" y="454" font-size="14" fill="#333">힌지(꼭짓점) · 뒤 멈치</text>
+<text x="40" y="500" font-size="14" fill="#555">홈 폭 6.0 mm · 깊이 14.0 mm · 바닥 5.0 mm · 팔 길이 78 mm (반쪽 폭 82.3)</text>
+<text x="40" y="522" font-size="14" fill="#555">출력 크기 약 150 × 110 mm. 95° / 100° / 110° / 120° 네 가지 각도로 만들어 둠.</text>
+<text x="600" y="44" font-size="22" font-weight="700" fill="#222">② 텐트 받침 — 옆에서 (네트 위, 힌지 눕힘, 130°)</text>
+<rect x="603" y="388" width="435" height="12" fill="#dcd6c8" stroke="#8a8172"/>
+<polygon points="632.7,376.0 663.2,361.8 666.2,368.3 635.8,382.5" fill="#b9b1a0" stroke="#8a8172"/>
+<polygon points="641.9,395.5 672.3,381.3 675.3,387.9 644.9,402.1" fill="#b9b1a0" stroke="#8a8172"/>
+<polygon points="638.3,382.3 817.4,298.9 822.6,310.2 643.6,393.7" fill="#2a2a2a"/>
+<polygon points="995.1,402.1 964.7,387.9 967.7,381.3 998.1,395.5" fill="#b9b1a0" stroke="#8a8172"/>
+<polygon points="1004.2,382.5 973.8,368.3 976.8,361.8 1007.3,376.0" fill="#b9b1a0" stroke="#8a8172"/>
+<polygon points="996.4,393.7 817.4,310.2 822.6,298.9 1001.7,382.3" fill="#2a2a2a"/>
+<circle cx="820" cy="394" r="8" fill="#fff" stroke="#333" stroke-width="2"/>
+<text x="832" y="422" font-size="14" fill="#333">1/4" 볼트 구멍 (한가운데)</text>
+<text x="780" y="295" font-size="14" fill="#333">힌지 ↑ 카메라 두 개가 양쪽 코트를 본다</text>
+<text x="600" y="480" font-size="14" fill="#555">다리 간격 149 mm · 높이 40 mm · 길이 124 mm (긴 변 117.8)</text>
+<text x="600" y="502" font-size="14" fill="#555">120° / 130° / 140° 세 가지. 네트 위에 얹거나 클램프·삼각대에 1/4" 로 고정.</text>
+</svg>

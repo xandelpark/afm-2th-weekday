@@ -1,0 +1,8 @@
+# xcodegen 이 만드는 것. project.yml 이 원본이다.
+Yangmyeon.xcodeproj/
+# Xcode·SwiftPM 산출물
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/

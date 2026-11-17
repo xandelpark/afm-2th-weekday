@@ -1,0 +1,351 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		172E0883AD7F6CC619DCEA88 /* Parts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CB6BFF5250808E73AC2ADDB /* Parts.swift */; };
+		18B63C0831CDEC9346875D30 /* Pickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91EDCE63DAE56D6F35CFB25E /* Pickers.swift */; };
+		18E66E744FDE5B41F5AE8DD8 /* StampArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83F973C2098054B529684BE0 /* StampArt.swift */; };
+		29D8534D77042453D6CA317F /* EditorScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4BD65904A7B230D70AD0717 /* EditorScreen.swift */; };
+		3330C048BB39BE9C91C81E8F /* Editor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64D0FAD669BFB13816C9CC79 /* Editor.swift */; };
+		50BE4632F96CCB0A9AC7D785 /* StampInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B3D8D428790826E8930AF10 /* StampInk.swift */; };
+		6CFABE53E32CBEBCB2BCAD73 /* GalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB52A4E799C54A9DFA14B65 /* GalleryView.swift */; };
+		706B328F30B797937AD8EE03 /* Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3872C650773678DD7D048840 /* Model.swift */; };
+		73A3E69D936EF711AC368468 /* Sfx.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8278EA922C4242FF3B3A78B4 /* Sfx.swift */; };
+		8232184F682EA0960ACEC688 /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 821E3944285FA75DF0F061D2 /* Renderer.swift */; };
+		ACFF53DBECDCF0BCB98E4589 /* stamp.wav in Resources */ = {isa = PBXBuildFile; fileRef = CBBC7A53DB5FB1D91E2CCB6A /* stamp.wav */; };
+		F13D17B047842DCA71D11CD9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4448B8886A22427B86F4A028 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0B3D8D428790826E8930AF10 /* StampInk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StampInk.swift; sourceTree = "<group>"; };
+		3872C650773678DD7D048840 /* Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Model.swift; sourceTree = "<group>"; };
+		4448B8886A22427B86F4A028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		527FB85C4A9DD9771DCD10EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		64D0FAD669BFB13816C9CC79 /* Editor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Editor.swift; sourceTree = "<group>"; };
+		821E3944285FA75DF0F061D2 /* Renderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Renderer.swift; sourceTree = "<group>"; };
+		8278EA922C4242FF3B3A78B4 /* Sfx.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sfx.swift; sourceTree = "<group>"; };
+		83F973C2098054B529684BE0 /* StampArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StampArt.swift; sourceTree = "<group>"; };
+		8CB6BFF5250808E73AC2ADDB /* Parts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Parts.swift; sourceTree = "<group>"; };
+		91EDCE63DAE56D6F35CFB25E /* Pickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pickers.swift; sourceTree = "<group>"; };
+		AC9F8866262A91E9C91DF776 /* PobomNote.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PobomNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CBBC7A53DB5FB1D91E2CCB6A /* stamp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = stamp.wav; sourceTree = "<group>"; };
+		D4BD65904A7B230D70AD0717 /* EditorScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorScreen.swift; sourceTree = "<group>"; };
+		FCB52A4E799C54A9DFA14B65 /* GalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		42D093BFA42DF887090F1DF4 = {
+			isa = PBXGroup;
+			children = (
+				EB86036B7FC6D94B41A038B0 /* App */,
+				DA815C2AB72181E18AB82BD6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DA815C2AB72181E18AB82BD6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AC9F8866262A91E9C91DF776 /* PobomNote.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EB86036B7FC6D94B41A038B0 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				4448B8886A22427B86F4A028 /* Assets.xcassets */,
+				64D0FAD669BFB13816C9CC79 /* Editor.swift */,
+				D4BD65904A7B230D70AD0717 /* EditorScreen.swift */,
+				FCB52A4E799C54A9DFA14B65 /* GalleryView.swift */,
+				527FB85C4A9DD9771DCD10EF /* Info.plist */,
+				3872C650773678DD7D048840 /* Model.swift */,
+				8CB6BFF5250808E73AC2ADDB /* Parts.swift */,
+				91EDCE63DAE56D6F35CFB25E /* Pickers.swift */,
+				821E3944285FA75DF0F061D2 /* Renderer.swift */,
+				8278EA922C4242FF3B3A78B4 /* Sfx.swift */,
+				CBBC7A53DB5FB1D91E2CCB6A /* stamp.wav */,
+				83F973C2098054B529684BE0 /* StampArt.swift */,
+				0B3D8D428790826E8930AF10 /* StampInk.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C007C7FC867F32EF9DC6556B /* PobomNote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 02353FD940277376A10D61E2 /* Build configuration list for PBXNativeTarget "PobomNote" */;
+			buildPhases = (
+				2873619D524B194DF1EB09AE /* Sources */,
+				0A95D3F91E7884D539FA9C79 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PobomNote;
+			packageProductDependencies = (
+			);
+			productName = PobomNote;
+			productReference = AC9F8866262A91E9C91DF776 /* PobomNote.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3BA73CE094C85596B46149A2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					C007C7FC867F32EF9DC6556B = {
+						DevelopmentTeam = XCLCW4FA75;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = FD368DE9F7B44620CD0BE028 /* Build configuration list for PBXProject "PobomNote" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 42D093BFA42DF887090F1DF4;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DA815C2AB72181E18AB82BD6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C007C7FC867F32EF9DC6556B /* PobomNote */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		0A95D3F91E7884D539FA9C79 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F13D17B047842DCA71D11CD9 /* Assets.xcassets in Resources */,
+				ACFF53DBECDCF0BCB98E4589 /* stamp.wav in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2873619D524B194DF1EB09AE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3330C048BB39BE9C91C81E8F /* Editor.swift in Sources */,
+				29D8534D77042453D6CA317F /* EditorScreen.swift in Sources */,
+				6CFABE53E32CBEBCB2BCAD73 /* GalleryView.swift in Sources */,
+				706B328F30B797937AD8EE03 /* Model.swift in Sources */,
+				172E0883AD7F6CC619DCEA88 /* Parts.swift in Sources */,
+				18B63C0831CDEC9346875D30 /* Pickers.swift in Sources */,
+				8232184F682EA0960ACEC688 /* Renderer.swift in Sources */,
+				73A3E69D936EF711AC368468 /* Sfx.swift in Sources */,
+				18E66E744FDE5B41F5AE8DD8 /* StampArt.swift in Sources */,
+				50BE4632F96CCB0A9AC7D785 /* StampInk.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1C991AC4120AB45C37861758 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = XCLCW4FA75;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		4F522D560B4562D8F998D7C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.pobom.note;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5A2CAA5D2EFFE2017143E704 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = XCLCW4FA75;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		CB23CC7C1988540B9BE1BC06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.pobom.note;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		02353FD940277376A10D61E2 /* Build configuration list for PBXNativeTarget "PobomNote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F522D560B4562D8F998D7C1 /* Debug */,
+				CB23CC7C1988540B9BE1BC06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FD368DE9F7B44620CD0BE028 /* Build configuration list for PBXProject "PobomNote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C991AC4120AB45C37861758 /* Debug */,
+				5A2CAA5D2EFFE2017143E704 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 3BA73CE094C85596B46149A2 /* Project object */;
+}

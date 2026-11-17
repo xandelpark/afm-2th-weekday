@@ -37,3 +37,10 @@ wedding-autoedit/*.log
 
 # --- 스크린샷/작업 이미지 원본 ---
 tennis-reels/*/src/_test_*.png
+
+# Xcode 앱들의 빌드 결과물 (소스만 올립니다)
+sketchbook/build/
+munguham/build/
+yangmyeon/build/
+*.xcuserdatad/
+**/xcuserdata/

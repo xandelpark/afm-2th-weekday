@@ -1,0 +1,28 @@
+기기: iOS 27.2 · 화면 1398×2034
+카메라: 뒷면 후면 울트라 와이드 카메라 [AVCaptureDeviceTypeBuiltInUltraWideCamera] 1920×1080
+카메라: 앞면 전면 울트라 와이드 카메라 [AVCaptureDeviceTypeBuiltInUltraWideCamera] 1920×1080
+카메라: 뒷면 후면 카메라 [AVCaptureDeviceTypeBuiltInWideAngleCamera] 1920×1080
+카메라: 앞면 전면 카메라 [AVCaptureDeviceTypeBuiltInWideAngleCamera] 1920×1080
+카메라: 뒷면 후면 듀얼 와이드 카메라 [AVCaptureDeviceTypeBuiltInDualWideCamera] 1920×1080
+카메라: 앞면 Outer Ultra Wide Camera [AVCaptureDeviceTypeBuiltInOuterUltraWideCamera] 1920×1080
+카메라: 앞면 Inner Ultra Wide Camera [AVCaptureDeviceTypeBuiltInInnerUltraWideCamera] 1920×1080
+진단: 멀티캠: 지원
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 앞면 전면 울트라 와이드 카메라
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 뒷면 후면 카메라
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 앞면 전면 카메라
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 앞면 Outer Ultra Wide Camera
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 앞면 Inner Ultra Wide Camera
+진단: 동시 가능: 뒷면 후면 카메라 + 앞면 전면 울트라 와이드 카메라
+진단: 동시 가능: 뒷면 후면 카메라 + 앞면 전면 카메라
+진단: 동시 가능: 뒷면 후면 카메라 + 앞면 Outer Ultra Wide Camera
+진단: 동시 가능: 뒷면 후면 카메라 + 앞면 Inner Ultra Wide Camera
+진단: 동시 가능: 앞면 Inner Ultra Wide Camera + 앞면 Outer Ultra Wide Camera
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 뒷면 후면 카메라 + 앞면 전면 울트라 와이드 카메라
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 뒷면 후면 카메라 + 앞면 전면 카메라
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 뒷면 후면 카메라 + 앞면 Outer Ultra Wide Camera
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 뒷면 후면 카메라 + 앞면 Inner Ultra Wide Camera
+진단: 동시 가능: 뒷면 후면 울트라 와이드 카메라 + 앞면 Inner Ultra Wide Camera + 앞면 Outer Ultra Wide Camera
+진단: 동시 가능: 뒷면 후면 카메라 + 앞면 Inner Ultra Wide Camera + 앞면 Outer Ultra Wide Camera
+설정 완료 — 후면 울트라 와이드 카메라 · 4K
+힌지: 완전히 펼침 · 180°
+중단: 앱이 가려져 카메라가 멈췄다
